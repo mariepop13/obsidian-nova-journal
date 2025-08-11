@@ -22,6 +22,20 @@ export default class NovaJournalPlugin extends Plugin {
                 await this.insertTodaysPrompt();
             },
         });
+        this.addCommand({
+            id: 'nova-insert-prompt-here',
+            name: 'Nova Journal: Insert prompt here',
+            callback: async () => {
+                await this.insertPromptInActiveEditor();
+            },
+        });
+        this.addCommand({
+            id: 'nova-cycle-prompt-style',
+            name: 'Nova Journal: Cycle prompt style',
+            callback: async () => {
+                this.cyclePromptStyle();
+            },
+        });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 	}
 
@@ -90,6 +104,37 @@ export default class NovaJournalPlugin extends Plugin {
             return this.formatDate(date, f);
         });
         return out;
+    }
+
+    private async insertPromptInActiveEditor(): Promise<void> {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) {
+            new Notice('Nova Journal: open a markdown note to insert a prompt.');
+            return;
+        }
+        const editor = view.editor;
+        this.removeDateHeadingInEditor(editor);
+        const date = new Date();
+        const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
+        if (this.settings.preventDuplicateForDay) {
+            const noteText = editor.getValue();
+            if (noteText.includes(basePrompt)) {
+                new Notice('Nova Journal: this prompt already exists in this note.');
+                return;
+            }
+        }
+        const prompt = this.renderFinalPrompt(basePrompt, date);
+        this.insertAtLocation(editor, prompt, this.settings.insertLocation);
+        new Notice('Nova Journal: prompt inserted.');
+    }
+
+    private cyclePromptStyle(): void {
+        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning'];
+        const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
+        const next = order[(idx + 1 + order.length) % order.length];
+        this.settings.promptStyle = next as PromptStyle;
+        void this.saveSettings();
+        new Notice(`Nova Journal: style set to ${next}`);
     }
 
     private insertAtLocation(editor: Editor, text: string, location: InsertionLocation): void {
