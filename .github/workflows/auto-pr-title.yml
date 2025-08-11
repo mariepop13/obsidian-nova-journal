@@ -82,13 +82,34 @@ jobs:
               });
               const data = await resp.json();
               aiSummary = data?.choices?.[0]?.message?.content?.trim?.() || '';
+              // Remove outer code fences like ```markdown ... ``` if the model wrapped the whole text
+              const stripFences = (s) => {
+                if (!s) return s;
+                if (/^```[a-zA-Z]*\s*\n[\s\S]*\n```$/.test(s)) {
+                  return s.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '');
+                }
+                return s;
+              };
+              aiSummary = stripFences(aiSummary);
             } catch (e) {
               core.warning(`AI summary failed: ${e.message}`);
             }
 
-            const body = aiSummary && aiSummary.length > 0
-              ? `${aiSummary}\n\n---\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`
-              : `## Summary\n${title}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks\n\n## Notes\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
+            // Always include Diagram and File Walkthrough sections
+            const diagram = [
+              '```mermaid',
+              'flowchart LR',
+              '  Main["NovaJournalPlugin (main.ts)"] --> Settings["NovaJournalSettingTab (ui/SettingsTab.ts)"]',
+              '  Main --> Service["PromptService (prompt/PromptService.ts)"]',
+              '  Service --> Registry["PromptRegistry (prompt/PromptRegistry.ts)"]',
+              '```',
+            ].join('\n');
+
+            const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
+
+            const fallback = `## Summary\n${title}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks`;            
+
+            const body = `${(aiSummary && aiSummary.length > 0) ? aiSummary : fallback}\n\n---\n\n### Diagram Walkthrough\n\n${diagram}\n\n<details><summary><h3> File Walkthrough</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: number, body });
 
             // Auto label based on branch prefix
