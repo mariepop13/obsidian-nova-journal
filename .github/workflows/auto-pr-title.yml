@@ -37,8 +37,13 @@ jobs:
 
             // Build an auto body from commits and files
             const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+            const sanitizeSubject = (s) => s
+              .replace(/^[:*_~`\s\p{Emoji_Presentation}\p{Extended_Pictographic}]+/u, '')
+              .replace(/^(feat|fix|refactor|chore|docs|test|build|ci)(\([^)]*\))?:\s*/i, '')
+              .trim();
             const subjects = commits
               .map(c => (c.commit.message || '').split('\n')[0])
+              .map(sanitizeSubject)
               .filter(s => s && !s.startsWith('Merge'))
               .slice(0, 30);
 
@@ -52,7 +57,9 @@ jobs:
               deletions += f.deletions || 0;
               changes += f.changes || 0;
             }
-            const areaList = Array.from(areas.entries()).map(([d, c]) => `- ${d}: ${c} file(s)`).join('\n') || '- n/a';
+            const areaList = Array.from(areas.entries())
+              .filter(([d]) => d !== '.github')
+              .map(([d, c]) => `- ${d}: ${c} file(s)`).join('\n') || '- n/a';
             const commitList = subjects.map(s => `- ${s}`).join('\n') || '- Update';
 
             // Try AI summary (if OPENAI_KEY provided)
@@ -120,7 +127,8 @@ jobs:
             const scopeOk = changes <= 500 && files.length <= 20;
             const checklist = `- [${buildOk ? 'x' : ' '}] Build passes\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused`;
 
-            const fallback = `## Summary\n${title}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks`;            
+            const summaryLine = subjects[0] ? subjects[0] : title;
+            const fallback = `## Summary\n${summaryLine}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks`;            
 
             const body = `${(aiSummary && aiSummary.length > 0) ? aiSummary : fallback}\n\n---\n\n### Diagram Walkthrough\n\n${diagram}\n\n<details><summary><h3> File Walkthrough</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: number, body });
