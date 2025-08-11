@@ -131,25 +131,32 @@ export default class NovaJournalPlugin extends Plugin {
     private cyclePromptStyle(): void {
         const order: PromptStyle[] = ['reflective', 'gratitude', 'planning'];
         const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
-        const next = order[(idx + 1 + order.length) % order.length];
+        const safeIdx = idx >= 0 ? idx : 0;
+        const next = order[(safeIdx + 1) % order.length];
         this.settings.promptStyle = next as PromptStyle;
         void this.saveSettings();
         new Notice(`Nova Journal: style set to ${next}`);
     }
 
     private insertAtLocation(editor: Editor, text: string, location: InsertionLocation): void {
+        const ensureTrailingNewline = (s: string) => (s.endsWith('\n') ? s : s + '\n');
+        const block = ensureTrailingNewline(text);
+
         if (location === 'top') {
             const current = editor.getValue();
-            editor.setValue(`${text}\n${current}`);
+            editor.setValue(`${block}${current.replace(/^\n+/, '')}`);
             return;
         }
         if (location === 'bottom') {
-            editor.setCursor(editor.lastLine());
-            editor.replaceRange(`\n\n${text}`, { line: editor.lastLine(), ch: Number.MAX_SAFE_INTEGER });
+            const lastLine = editor.lastLine();
+            const lastLineText = editor.getLine(lastLine);
+            const needsLeadingBreak = lastLineText.trim().length > 0;
+            const insertText = (needsLeadingBreak ? '\n\n' : '') + block;
+            const to = { line: lastLine, ch: lastLineText.length };
+            editor.replaceRange(insertText, to);
             return;
         }
-        // cursor
-        editor.replaceSelection(text);
+        editor.replaceSelection(block);
     }
 
     private formatDate(date: Date, format: string): string {
@@ -164,14 +171,19 @@ export default class NovaJournalPlugin extends Plugin {
     }
 
     private async ensureTodayNote(): Promise<TFile> {
-        const folderPath = this.settings.dailyNoteFolder?.trim() || 'Journal';
+        const folderPath = (this.settings.dailyNoteFolder ?? 'Journal').trim() || 'Journal';
         const fileName = `${this.formatDate(new Date(), this.settings.dailyNoteFormat)}.md`;
         const filePath = `${folderPath}/${fileName}`;
 
-        // Ensure folder exists
-        const folder = this.app.vault.getAbstractFileByPath(folderPath);
-        if (!folder) {
-            await this.app.vault.createFolder(folderPath);
+        // Ensure nested folder exists
+        const parts = folderPath.split('/').filter(Boolean);
+        let currentPath = '';
+        for (const part of parts) {
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            const af = this.app.vault.getAbstractFileByPath(currentPath);
+            if (!af) {
+                await this.app.vault.createFolder(currentPath);
+            }
         }
 
         const existing = this.app.vault.getAbstractFileByPath(filePath);
@@ -181,8 +193,8 @@ export default class NovaJournalPlugin extends Plugin {
         const maybeHeader = this.settings.addDateHeading
             ? `# ${this.formatDate(new Date(), this.settings.dailyNoteFormat)}\n\n`
             : '';
-        const file = await this.app.vault.create(filePath, maybeHeader);
-        return file as TFile;
+        const created = await this.app.vault.create(filePath, maybeHeader);
+        return created as TFile;
     }
 
     private async removeDateHeadingIfPresent(file: TFile): Promise<void> {
