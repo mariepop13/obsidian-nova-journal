@@ -1,134 +1,200 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TextComponent } from 'obsidian';
+import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
+import { PromptService } from './prompt/PromptService';
+import type { PromptStyle } from './prompt/PromptRegistry';
+import { DEFAULT_SETTINGS, NovaJournalSettings, InsertionLocation } from './settings/PluginSettings';
+import { NovaJournalSettingTab } from './ui/SettingsTab';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class NovaJournalPlugin extends Plugin {
+    settings: NovaJournalSettings;
+    private promptService: PromptService;
 
 	async onload() {
-		await this.loadSettings();
+        await this.loadSettings();
+        this.promptService = new PromptService();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Nova Journal', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+        this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
+            await this.insertTodaysPrompt();
+        });
+        this.addCommand({
+            id: 'nova-insert-todays-prompt',
+            name: 'Nova Journal: Insert today\'s prompt',
+            callback: async () => {
+                await this.insertTodaysPrompt();
+            },
+        });
+        this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 	}
 
-	onunload() {
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
 
-	}
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+    private async insertTodaysPrompt(): Promise<void> {
+        try {
+            const todayFile = await this.ensureTodayNote();
+            await this.openFileIfNotActive(todayFile);
+            // Sanitize date headings to avoid redundancy in content
+            await this.removeDateHeadingIfPresent(todayFile);
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
+            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (!view) {
+                new Notice('Nova Journal: could not find an active markdown editor.');
+                return;
+            }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+            const editor = view.editor;
+            // Also sanitize in the live editor buffer in case other plugins injected a heading post-open
+            this.removeDateHeadingInEditor(editor);
+            const date = new Date();
+            const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+            if (this.settings.preventDuplicateForDay) {
+                const noteText = editor.getValue();
+                if (noteText.includes(basePrompt)) {
+                    new Notice('Nova Journal: prompt for today already exists in this note.');
+                    return;
+                }
+            }
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
+            const prompt = this.renderFinalPrompt(basePrompt, date);
+            this.insertAtLocation(editor, prompt, this.settings.insertLocation);
+            new Notice('Nova Journal: prompt inserted.');
+        } catch (error) {
+            console.error('Nova Journal insert error', error);
+            new Notice('Nova Journal: failed to insert prompt. See console for details.');
+        }
+    }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+    private renderFinalPrompt(base: string, date: Date): string {
+        const heading = this.settings.addSectionHeading && this.settings.sectionHeading
+            ? `${this.settings.sectionHeading}\n\n`
+            : '';
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+        const tpl = (this.settings.promptTemplate || '').trim();
+        if (tpl.length > 0) {
+            const rendered = this.renderTemplate(tpl, base, date);
+            return `${heading}${rendered}\n`;
+        }
+        return `${heading}${base}\n`;
+    }
 
-		display(): void {
-		const {containerEl} = this;
+    private renderTemplate(template: string, prompt: string, date: Date): string {
+        // Support {{prompt}} and {{date}} with optional :FORMAT using YYYY, MM, DD
+        let out = template.replace(/\{\{\s*prompt\s*\}\}/g, prompt);
+        out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, fmt) => {
+            const f = typeof fmt === 'string' ? fmt.trim() : 'YYYY-MM-DD';
+            return this.formatDate(date, f);
+        });
+        return out;
+    }
 
-		containerEl.empty();
+    private insertAtLocation(editor: Editor, text: string, location: InsertionLocation): void {
+        if (location === 'top') {
+            const current = editor.getValue();
+            editor.setValue(`${text}\n${current}`);
+            return;
+        }
+        if (location === 'bottom') {
+            editor.setCursor(editor.lastLine());
+            editor.replaceRange(`\n\n${text}`, { line: editor.lastLine(), ch: Number.MAX_SAFE_INTEGER });
+            return;
+        }
+        // cursor
+        editor.replaceSelection(text);
+    }
 
-			new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-				.addText((text: TextComponent) => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-					.onChange(async (value: string) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+    private formatDate(date: Date, format: string): string {
+        // Minimal token support: YYYY, MM, DD with separators
+        const yyyy = date.getFullYear().toString();
+        const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+        const dd = date.getDate().toString().padStart(2, '0');
+        return format
+            .replace(/YYYY/g, yyyy)
+            .replace(/MM/g, mm)
+            .replace(/DD/g, dd);
+    }
+
+    private async ensureTodayNote(): Promise<TFile> {
+        const folderPath = this.settings.dailyNoteFolder?.trim() || 'Journal';
+        const fileName = `${this.formatDate(new Date(), this.settings.dailyNoteFormat)}.md`;
+        const filePath = `${folderPath}/${fileName}`;
+
+        // Ensure folder exists
+        const folder = this.app.vault.getAbstractFileByPath(folderPath);
+        if (!folder) {
+            await this.app.vault.createFolder(folderPath);
+        }
+
+        const existing = this.app.vault.getAbstractFileByPath(filePath);
+        if (existing instanceof TFile) {
+            return existing;
+        }
+        const maybeHeader = this.settings.addDateHeading
+            ? `# ${this.formatDate(new Date(), this.settings.dailyNoteFormat)}\n\n`
+            : '';
+        const file = await this.app.vault.create(filePath, maybeHeader);
+        return file as TFile;
+    }
+
+    private async removeDateHeadingIfPresent(file: TFile): Promise<void> {
+        try {
+            const content = await this.app.vault.read(file);
+            const lines = content.split(/\r?\n/);
+            // Remove date heading lines like '#2025-08-11' or '## 2025-08-11' wherever they appear
+            const dateHeadingRegex = /^#{1,6}\s*\d{4}-\d{2}-\d{2}\s*$/;
+            const filtered: string[] = [];
+            for (let i = 0; i < lines.length; i += 1) {
+                const line = lines[i];
+                if (dateHeadingRegex.test(line.trim())) {
+                    // skip this line; also skip one following blank line if present
+                    if (i + 1 < lines.length && lines[i + 1].trim() === '') {
+                        i += 1;
+                    }
+                    continue;
+                }
+                filtered.push(line);
+            }
+            if (filtered.length !== lines.length) {
+                await this.app.vault.modify(file, filtered.join('\n'));
+            }
+        } catch (e) {
+            console.warn('Nova Journal: could not sanitize date heading', e);
+        }
+    }
+
+    private removeDateHeadingInEditor(editor: Editor): void {
+        try {
+            const dateHeadingRegex = /^#{1,6}\s*\d{4}-\d{2}-\d{2}\s*$/;
+            const last = editor.lastLine();
+            const rangesToDelete: { from: { line: number; ch: number }; to: { line: number; ch: number } }[] = [];
+            for (let line = 0; line <= last; line += 1) {
+                const text = editor.getLine(line).trim();
+                if (dateHeadingRegex.test(text)) {
+                    const nextIsBlank = line + 1 <= last && editor.getLine(line + 1).trim() === '';
+                    const from = { line, ch: 0 };
+                    const to = nextIsBlank ? { line: line + 1, ch: editor.getLine(line + 1).length } : { line, ch: editor.getLine(line).length };
+                    rangesToDelete.push({ from, to });
+                }
+            }
+            // Delete from bottom to top so line indices remain valid
+            for (let i = rangesToDelete.length - 1; i >= 0; i -= 1) {
+                const r = rangesToDelete[i];
+                editor.replaceRange('', r.from, r.to);
+            }
+        } catch (e) {
+            console.warn('Nova Journal: could not sanitize date heading in editor', e);
+        }
+    }
+
+    private async openFileIfNotActive(file: TFile): Promise<void> {
+        const active = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (active?.file?.path === file.path) return;
+        const leaf = this.app.workspace.getLeaf(false);
+        await leaf.openFile(file);
+        this.app.workspace.revealLeaf(leaf);
+    }
 }
