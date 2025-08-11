@@ -33,9 +33,28 @@ jobs:
             }
             await github.rest.pulls.update({ owner, repo, pull_number: number, title });
 
-            // Always overwrite the PR body with the template
-            const bodyTemplate = `## Summary\nShort summary of the change.\n\n## Changes\n- …\n\n## Testing\n- …\n\n## Notes\n- …\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
-            await github.rest.pulls.update({ owner, repo, pull_number: number, body: bodyTemplate });
+            // Build an auto body from commits and files
+            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+            const subjects = commits
+              .map(c => (c.commit.message || '').split('\n')[0])
+              .filter(s => s && !s.startsWith('Merge'))
+              .slice(0, 30);
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
+            const areas = new Map();
+            let additions = 0, deletions = 0, changes = 0;
+            for (const f of files) {
+              const top = (f.filename || '').split('/')[0] || '.';
+              areas.set(top, (areas.get(top) || 0) + 1);
+              additions += f.additions || 0;
+              deletions += f.deletions || 0;
+              changes += f.changes || 0;
+            }
+            const areaList = Array.from(areas.entries()).map(([d, c]) => `- ${d}: ${c} file(s)`).join('\n') || '- n/a';
+            const commitList = subjects.map(s => `- ${s}`).join('\n') || '- Update';
+
+            const body = `## Summary\n${title}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks\n\n## Notes\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
+            await github.rest.pulls.update({ owner, repo, pull_number: number, body });
 
             // Auto label based on branch prefix
             const labels = [];
