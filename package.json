@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-nova-journal",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Guided journaling for Obsidian: local-first by default, with optional AI via external APIs.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
