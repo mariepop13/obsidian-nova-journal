@@ -5,6 +5,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   set-title-body:
@@ -16,24 +17,40 @@ jobs:
             const {owner, repo, number} = context.issue;
             const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
 
-            let title = (pr.data.title || '').trim();
-            if (!title) {
-              const ref = pr.data.head.ref || '';
-              const [prefix, ...rest] = ref.split('/');
-              const map = { feature: 'feat', fix: 'fix', hotfix: 'fix', refactor: 'refactor', chore: 'chore' };
-              if (map[prefix] && rest.length) {
-                const subject = rest.join('/').replace(/[-_]/g, ' ');
-                title = `${map[prefix]}: ${subject}`;
-              } else {
-                const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
-                const first = commits.find(c => !c.commit.message.startsWith('Merge'));
-                title = first ? first.commit.message.split('\n')[0] : 'chore: update';
-              }
-              await github.rest.pulls.update({ owner, repo, pull_number: number, title });
+            const ref = pr.data.head.ref || '';
+            const [prefix, ...rest] = ref.split('/');
+            const map = { feature: 'feat', fix: 'fix', hotfix: 'fix', refactor: 'refactor', chore: 'chore' };
+
+            // Always compute a title from branch or first commit
+            let title;
+            if (map[prefix] && rest.length) {
+              const subject = rest.join('/').replace(/[-_]/g, ' ');
+              title = `${map[prefix]}: ${subject}`;
+            } else {
+              const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+              const first = commits.find(c => !c.commit.message.startsWith('Merge'));
+              title = first ? first.commit.message.split('\n')[0] : 'chore: update';
+            }
+            await github.rest.pulls.update({ owner, repo, pull_number: number, title });
+
+            // Always seed body if empty or minimal; otherwise keep user's content
+            const bodyTemplate = `## Summary\nShort summary of the change.\n\n## Changes\n- …\n\n## Testing\n- …\n\n## Notes\n- …\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
+            const currentBody = (pr.data.body || '').trim();
+            if (!currentBody || currentBody.length < 10) {
+              await github.rest.pulls.update({ owner, repo, pull_number: number, body: bodyTemplate });
             }
 
-            if (!pr.data.body || pr.data.body.trim() === '') {
-              const body = `## Summary\nShort summary of the change.\n\n## Changes\n- …\n\n## Testing\n- …\n\n## Notes\n- …\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
-              await github.rest.pulls.update({ owner, repo, pull_number: number, body });
+            // Auto label based on branch prefix
+            const labels = [];
+            if (prefix === 'feature') labels.push('Enhancement');
+            if (prefix === 'fix' || prefix === 'hotfix') labels.push('Bug');
+            if (prefix === 'chore') labels.push('Chore');
+            if (prefix === 'refactor') labels.push('Refactor');
+            if (labels.length) {
+              try {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels });
+              } catch (e) {
+                core.warning(`Could not add labels: ${e.message}`);
+              }
             }
 
