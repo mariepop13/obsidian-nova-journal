@@ -114,18 +114,34 @@ jobs:
 
             const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
 
-            // Compute checklist dynamically
+            // Compute checklist dynamically with reasons when unchecked
             let buildOk = false;
+            let buildReason = 'no checks found';
             try {
               const checks = await github.rest.checks.listForRef({ owner, repo, ref: pr.data.head.sha });
-              if ((checks.data.check_runs || []).length > 0) {
-                buildOk = checks.data.check_runs.every(cr => (cr.status === 'completed') && (cr.conclusion === 'success'));
+              const runs = checks.data.check_runs || [];
+              if (runs.length > 0) {
+                const failed = runs.filter(cr => cr.status === 'completed' && cr.conclusion !== 'success').map(cr => cr.name);
+                const pending = runs.filter(cr => cr.status !== 'completed').map(cr => cr.name);
+                buildOk = failed.length === 0 && pending.length === 0;
+                if (!buildOk) {
+                  if (failed.length > 0) buildReason = `failed: ${failed.join(', ')}`;
+                  else if (pending.length > 0) buildReason = `pending: ${pending.join(', ')}`;
+                } else {
+                  buildReason = '';
+                }
               }
             } catch (e) {
               // ignore if checks API not available
             }
-            const scopeOk = changes <= 500 && files.length <= 20;
-            const checklist = `- [${buildOk ? 'x' : ' '}] Build passes\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused`;
+            const CHANGE_LIMIT = 500;
+            const FILE_LIMIT = 20;
+            const scopeOk = changes <= CHANGE_LIMIT && files.length <= FILE_LIMIT;
+            const scopeReasons = [];
+            if (changes > CHANGE_LIMIT) scopeReasons.push(`${changes} changes > ${CHANGE_LIMIT}`);
+            if (files.length > FILE_LIMIT) scopeReasons.push(`${files.length} files > ${FILE_LIMIT}`);
+            const scopeReason = scopeReasons.join('; ');
+            const checklist = `- [${buildOk ? 'x' : ' '}] Build passes${buildOk ? '' : ` – ${buildReason}`}\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused${scopeOk ? '' : ` – ${scopeReason}`}`;
 
             const summaryLine = subjects[0] ? subjects[0] : title;
             const fallback = `## Summary\n${summaryLine}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks`;            
