@@ -33,12 +33,9 @@ jobs:
             }
             await github.rest.pulls.update({ owner, repo, pull_number: number, title });
 
-            // Always seed body if empty or minimal; otherwise keep user's content
+            // Always overwrite the PR body with the template
             const bodyTemplate = `## Summary\nShort summary of the change.\n\n## Changes\n- …\n\n## Testing\n- …\n\n## Notes\n- …\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
-            const currentBody = (pr.data.body || '').trim();
-            if (!currentBody || currentBody.length < 10) {
-              await github.rest.pulls.update({ owner, repo, pull_number: number, body: bodyTemplate });
-            }
+            await github.rest.pulls.update({ owner, repo, pull_number: number, body: bodyTemplate });
 
             // Auto label based on branch prefix
             const labels = [];
