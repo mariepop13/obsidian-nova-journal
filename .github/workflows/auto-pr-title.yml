@@ -71,7 +71,7 @@ jobs:
                   'Authorization': `Bearer ${process.env.OPENAI_KEY || ''}`,
                 },
                 body: JSON.stringify({
-                  model: 'gpt-4o-mini',
+                  model: 'gpt-5-mini',
                   messages: [
                     { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
                     { role: 'user', content: prompt },
@@ -107,9 +107,22 @@ jobs:
 
             const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
 
+            // Compute checklist dynamically
+            let buildOk = false;
+            try {
+              const checks = await github.rest.checks.listForRef({ owner, repo, ref: pr.data.head.sha });
+              if ((checks.data.check_runs || []).length > 0) {
+                buildOk = checks.data.check_runs.every(cr => (cr.status === 'completed') && (cr.conclusion === 'success'));
+              }
+            } catch (e) {
+              // ignore if checks API not available
+            }
+            const scopeOk = changes <= 500 && files.length <= 20;
+            const checklist = `- [${buildOk ? 'x' : ' '}] Build passes\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused`;
+
             const fallback = `## Summary\n${title}\n\n## Changes\n${commitList}\n\n### Touched areas\n${areaList}\n\n## Testing\n- Build and basic manual checks`;            
 
-            const body = `${(aiSummary && aiSummary.length > 0) ? aiSummary : fallback}\n\n---\n\n### Diagram Walkthrough\n\n${diagram}\n\n<details><summary><h3> File Walkthrough</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
+            const body = `${(aiSummary && aiSummary.length > 0) ? aiSummary : fallback}\n\n---\n\n### Diagram Walkthrough\n\n${diagram}\n\n<details><summary><h3> File Walkthrough</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: number, body });
 
             // Auto label based on branch prefix
