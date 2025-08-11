@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 
 // Remember to rename these classes and interfaces!
 
@@ -17,7 +17,7 @@ export default class MyPlugin extends Plugin {
 		await this.loadSettings();
 
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
+		const ribbonIconEl = this.addRibbonIcon('dice', 'Nova Journal', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			new Notice('This is a notice!');
 		});
@@ -115,18 +115,18 @@ class SampleSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
+		display(): void {
 		const {containerEl} = this;
 
 		containerEl.empty();
 
-		new Setting(containerEl)
+			new Setting(containerEl)
 			.setName('Setting #1')
 			.setDesc('It\'s a secret')
-			.addText(text => text
+				.addText((text: TextComponent) => text
 				.setPlaceholder('Enter your secret')
 				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
+					.onChange(async (value: string) => {
 					this.plugin.settings.mySetting = value;
 					await this.plugin.saveSettings();
 				}));
