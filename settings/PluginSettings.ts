@@ -1,17 +1,42 @@
 import type { PromptStyle } from '../prompt/PromptRegistry';
 
 export type InsertionLocation = 'cursor' | 'top' | 'bottom';
+export type EnhancedInsertionLocation = InsertionLocation | 'below-heading';
+export type TypewriterSpeed = 'slow' | 'normal' | 'fast';
+export type DeepenScope = 'line' | 'note';
+export type PromptPreset = 'minimal' | 'conversation' | 'dated';
+
+export const MODEL_DEFAULTS = {
+  PRIMARY: 'gpt-4o-mini',
+  FALLBACK: 'gpt-3.5-turbo'
+} as const;
+
+export const TOKEN_LIMITS = {
+  MIN: 1,
+  MAX: 4096,
+  DEFAULT: 256
+} as const;
+
+export const RETRY_LIMITS = {
+  MIN: 0,
+  MAX: 10,
+  DEFAULT: 2
+} as const;
+
+export const ALLOWED_DATE_FORMATS = new Set(['YYYY-MM-DD', 'YYYY-MM-DD_HH-mm']);
 
 export interface NovaJournalSettings {
   promptStyle: PromptStyle;
-  insertLocation: InsertionLocation;
+  insertLocation: EnhancedInsertionLocation;
   addSectionHeading: boolean;
   sectionHeading: string;
-  addDateHeading: boolean;
   dailyNoteFolder: string;
   dailyNoteFormat: string; // Limited support: YYYY-MM-DD
   promptTemplate: string; // If provided, used to render the inserted block
   preventDuplicateForDay: boolean;
+  useDuplicateMarker?: boolean;
+  insertHeadingName: string;
+  organizeByYearMonth: boolean;
   aiEnabled: boolean;
   aiApiKey: string;
   aiModel: string;
@@ -19,60 +44,127 @@ export interface NovaJournalSettings {
   deepenButtonLabel: string;
   userName: string;
   aiDebug: boolean;
-  defaultDeepenScope: 'line' | 'note';
+  defaultDeepenScope: DeepenScope;
   aiMaxTokens: number;
   aiRetryCount: number;
   aiFallbackModel: string;
+  typewriterSpeed: TypewriterSpeed;
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
   promptStyle: 'reflective',
   insertLocation: 'cursor',
   addSectionHeading: true,
-  sectionHeading: '## Prompt',
-  addDateHeading: false,
+  sectionHeading: '## Journal Prompt',
   dailyNoteFolder: 'Journal',
   dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
   promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
   preventDuplicateForDay: true,
+  useDuplicateMarker: true,
+  insertHeadingName: '',
+  organizeByYearMonth: false,
   aiEnabled: false,
   aiApiKey: '',
-  aiModel: 'gpt-5-mini',
+  aiModel: MODEL_DEFAULTS.PRIMARY,
   aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
   deepenButtonLabel: 'Explore more',
-  userName: 'Marie',
+  userName: 'You',
   aiDebug: false,
   defaultDeepenScope: 'line',
-  aiMaxTokens: 512,
-  aiRetryCount: 2,
+  aiMaxTokens: TOKEN_LIMITS.DEFAULT,
+  aiRetryCount: RETRY_LIMITS.DEFAULT,
   aiFallbackModel: '',
+  typewriterSpeed: 'normal',
 };
 
-export function normalizeSettings(input: NovaJournalSettings): NovaJournalSettings {
-  const s: NovaJournalSettings = { ...DEFAULT_SETTINGS, ...input };
-  let tpl = (s.promptTemplate || '').replace(/\s+$/, '');
-  const hasAnchor = /class=\"nova-deepen\"/.test(tpl) || /class="nova-deepen"/.test(tpl);
-  if (!hasAnchor) {
-    const scopeAttr = s.defaultDeepenScope === 'note' ? 'data-scope="note"' : 'data-line="0"';
-    tpl = `${tpl}\n\n\n<a href="#" class="nova-deepen" ${scopeAttr}>${s.deepenButtonLabel}</a>`;
+export class TemplateFactory {
+  private static readonly PRESETS: Record<PromptPreset, string> = {
+    minimal: '{{prompt}}\n\n{{user_line}}',
+    conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
+    dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}'
+  };
+
+  static getPreset(type: PromptPreset): string {
+    return this.PRESETS[type];
   }
-  const hasUserLine = /\{\{\s*user_line\s*\}\}/.test(tpl);
-  if (hasUserLine) {
-    tpl = tpl.replace(/\n+(<a[^>]*class=\"nova-deepen\")/g, `\n\n$1`).replace(/\n+(<a[^>]*class="nova-deepen")/g, `\n\n$1`);
-  } else {
-    tpl = tpl.replace(/\n*(<a[^>]*class=\"nova-deepen\")/g, `\n\n$1`).replace(/\n*(<a[^>]*class="nova-deepen")/g, `\n\n$1`);
-  }
-  if (!hasUserLine) {
-    tpl = tpl.replace(/\*\*Nova\*\*:\s*\{\{\s*prompt\s*\}\}/, `**Nova**: {{prompt}}\n\n{{user_line}}`);
-  }
-  if (!/\*\*Nova\*\*:\s*/.test(tpl)) {
-    tpl = tpl.replace(/\{\{\s*prompt\s*\}\}/g, `**Nova**: {{prompt}}`);
-    if (!/\{\{\s*user_line\s*\}\}/.test(tpl)) {
-      tpl = tpl.replace(/\*\*Nova\*\*:\s*\{\{\s*prompt\s*\}\}/, `**Nova**: {{prompt}}\n\n{{user_line}}`);
+
+  static getPresetType(template: string): PromptPreset | 'custom' {
+    const trimmed = template.trim();
+    for (const [preset, tpl] of Object.entries(this.PRESETS)) {
+      if (trimmed === tpl) {
+        return preset as PromptPreset;
+      }
     }
+    return 'custom';
   }
-  const dailyFmt = s.dailyNoteFormat === 'YYYY-MM-DD' ? 'YYYY-MM-DD_HH-mm' : s.dailyNoteFormat;
-  return { ...s, promptTemplate: tpl, dailyNoteFormat: dailyFmt };
+
+  static getAllPresets(): Record<PromptPreset, string> {
+    return { ...this.PRESETS };
+  }
+}
+
+export class DateFormatter {
+  static format(date: Date, format: string): string {
+    const yyyy = date.getFullYear().toString();
+    const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+    const dd = date.getDate().toString().padStart(2, '0');
+    const HH = date.getHours().toString().padStart(2, '0');
+    const Min = date.getMinutes().toString().padStart(2, '0');
+    
+    return format
+      .replace(/YYYY/g, yyyy)
+      .replace(/MM/g, mm)
+      .replace(/DD/g, dd)
+      .replace(/HH/g, HH)
+      .replace(/mm/g, Min);
+  }
+
+  static getPreviewFilename(format: string, date: Date = new Date()): string {
+    return `${this.format(date, format)}.md`;
+  }
+}
+
+export class SettingsValidator {
+  static validateTokens(value: number): number {
+    return Math.max(TOKEN_LIMITS.MIN, Math.min(TOKEN_LIMITS.MAX, value));
+  }
+
+  static validateRetryCount(value: number): number {
+    return Math.max(RETRY_LIMITS.MIN, Math.min(RETRY_LIMITS.MAX, value));
+  }
+
+  static validateDateFormat(format: string): string {
+    return ALLOWED_DATE_FORMATS.has(format) ? format : DEFAULT_SETTINGS.dailyNoteFormat;
+  }
+
+  static validateTypewriterSpeed(speed: string): TypewriterSpeed {
+    const validSpeeds: TypewriterSpeed[] = ['slow', 'normal', 'fast'];
+    return validSpeeds.includes(speed as TypewriterSpeed) 
+      ? speed as TypewriterSpeed 
+      : DEFAULT_SETTINGS.typewriterSpeed;
+  }
+
+  static validateDeepenScope(scope: string): DeepenScope {
+    const validScopes: DeepenScope[] = ['line', 'note'];
+    return validScopes.includes(scope as DeepenScope)
+      ? scope as DeepenScope
+      : DEFAULT_SETTINGS.defaultDeepenScope;
+  }
+}
+
+export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJournalSettings {
+  const s: NovaJournalSettings = { ...DEFAULT_SETTINGS, ...input };
+  
+  return {
+    ...s,
+    promptTemplate: (s.promptTemplate || '').replace(/\s+$/, ''),
+    dailyNoteFormat: SettingsValidator.validateDateFormat(s.dailyNoteFormat),
+    typewriterSpeed: SettingsValidator.validateTypewriterSpeed(s.typewriterSpeed),
+    defaultDeepenScope: SettingsValidator.validateDeepenScope(s.defaultDeepenScope),
+    aiMaxTokens: SettingsValidator.validateTokens(s.aiMaxTokens),
+    aiRetryCount: SettingsValidator.validateRetryCount(s.aiRetryCount),
+    useDuplicateMarker: typeof s.useDuplicateMarker === 'boolean' ? s.useDuplicateMarker : true,
+  };
 }
 
 

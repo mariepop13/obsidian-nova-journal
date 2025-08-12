@@ -1,27 +1,50 @@
 import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
-import { chat } from './ai/AiClient';
 import { PromptService } from './prompt/PromptService';
 import type { PromptStyle } from './prompt/PromptRegistry';
-import { DEFAULT_SETTINGS, NovaJournalSettings, InsertionLocation, normalizeSettings } from './settings/PluginSettings';
-import { getDeepenSource, insertAtLocation, typewriterInsert, removeDateHeadingInEditor, generateAnchorId, removeAnchorsInBlock, insertAnchorBelow } from './services/NoteEditor';
+import { DEFAULT_SETTINGS, NovaJournalSettings, normalizeSettings } from './settings/PluginSettings';
+import { removeDateHeadingInEditor } from './services/NoteEditor';
+import { ConversationService } from './services/ConversationService';
+import { FileService } from './services/FileService';
+import { PromptInsertionService } from './services/PromptInsertionService';
+import { EditorNotFoundError } from './services/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
     private promptService: PromptService;
+    private conversationService: ConversationService;
+    private fileService: FileService;
+    private promptInsertionService: PromptInsertionService;
 
 	async onload() {
 		await this.loadSettings();
         this.promptService = new PromptService();
+        this.conversationService = new ConversationService(this.settings);
+        this.fileService = new FileService(this.app);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
+        });
+        this.addRibbonIcon('gear', 'Nova Journal: Settings', async () => {
+            const settings = (this.app as any).setting;
+            if (settings?.open) settings.open();
+            if (settings?.openTabById) settings.openTabById(this.manifest.id);
         });
         this.addCommand({
             id: 'nova-insert-todays-prompt',
             name: 'Nova Journal: Insert today\'s prompt',
             callback: async () => {
                 await this.insertTodaysPrompt();
+            },
+        });
+        this.addCommand({
+            id: 'nova-open-settings',
+            name: 'Nova Journal: Open settings',
+            callback: async () => {
+                const settings = (this.app as any).setting;
+                if (settings?.open) settings.open();
+                if (settings?.openTabById) settings.openTabById(this.manifest.id);
             },
         });
 		this.addCommand({
@@ -60,243 +83,88 @@ export default class NovaJournalPlugin extends Plugin {
     }
 
     private async deepenLastLine(targetLine?: number): Promise<void> {
-        if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
-            new Notice('Nova Journal: enable AI and set API key in settings.');
-            return;
-        }
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!view) { new Notice('Nova Journal: open a note.'); return; }
-        const editor = view.editor;
-
-        const source = getDeepenSource(editor, targetLine);
-        if (!source) { new Notice('Nova Journal: no text to deepen.'); return; }
-        const { text: lastLineText, line } = source;
-
-        let buttonLine: number | null = null;
-
-        if (typeof targetLine === 'number') {
-            const pattern = new RegExp(`^<a[^>]*class=\\"nova-deepen\\"[^>]*data-line=\\"${line}\\"[^>]*>.*<\\/a>$`);
-            for (let i = line + 1; i <= editor.lastLine(); i += 1) {
-                const t = editor.getLine(i).trim();
-                if (pattern.test(t)) { buttonLine = i; break; }
-                if (/^[^\s].*:/.test(t)) break;
-            }
-            if (buttonLine == null) {
-                const id = generateAnchorId();
-                const newLine = insertAnchorBelow(editor, line, `data-line=\"${line}\"`, id, this.settings.deepenButtonLabel);
-                buttonLine = newLine - 1;
-            }
-        } else {
-            const header = `**${this.settings.userName || 'You'}** (you): ${lastLineText}`;
-            const from = { line, ch: 0 };
-            const to = { line, ch: editor.getLine(line).length };
-            editor.replaceRange(header, from, to);
-        }
-
-        if (typeof targetLine === 'number') {
-            try {
-                const ai = await chat({
-                    apiKey: this.settings.aiApiKey,
-                    model: this.settings.aiModel,
-                    systemPrompt: this.settings.aiSystemPrompt,
-                    userText: lastLineText,
-                    maxTokens: this.settings.aiMaxTokens,
-                    debug: this.settings.aiDebug,
-                    retryCount: this.settings.aiRetryCount,
-                    fallbackModel: this.settings.aiFallbackModel,
-                });
-                const answerLine = buttonLine!;
-                editor.replaceRange(`**Nova**: \n`, { line: answerLine, ch: 0 });
-                await typewriterInsert(editor, answerLine, '**Nova**: ', ai);
-            } catch (e) {
-                console.error(e);
-                new Notice('Nova Journal: AI request failed.');
-            }
-        } else {
-            try {
-                const ai = await chat({
-                    apiKey: this.settings.aiApiKey,
-                    model: this.settings.aiModel,
-                    systemPrompt: this.settings.aiSystemPrompt,
-                    userText: lastLineText,
-                    maxTokens: this.settings.aiMaxTokens,
-                    debug: this.settings.aiDebug,
-                    retryCount: this.settings.aiRetryCount,
-                    fallbackModel: this.settings.aiFallbackModel,
-                });
-                const linesCount = editor.lastLine();
-                let anchorLine: number | null = null;
-                const anchorRegex = /<a[^>]*class=\"nova-deepen\"[^>]*>/;
-                for (let i = line + 1; i <= linesCount; i += 1) {
-                    const t = editor.getLine(i);
-                    if (anchorRegex.test(t)) { anchorLine = i; break; }
-                    if (/^[^\s].*:/.test(t)) break;
-                }
-                const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope="note"' : `data-line="${line}"`;
-                if (anchorLine !== null) {
-                    editor.replaceRange(`**Nova**: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
-                    await typewriterInsert(editor, anchorLine, '**Nova**: ', ai);
-                    removeAnchorsInBlock(editor, line);
-                    const id = generateAnchorId();
-                    insertAnchorBelow(editor, anchorLine, scopeAttr, id, this.settings.deepenButtonLabel);
-                } else {
-                    editor.replaceRange(`**Nova**: \n`, { line: line + 1, ch: 0 });
-                    await typewriterInsert(editor, line + 1, '**Nova**: ', ai);
-                    removeAnchorsInBlock(editor, line);
-                    const id = generateAnchorId();
-                    insertAnchorBelow(editor, line + 1, scopeAttr, id, this.settings.deepenButtonLabel);
-                }
-            } catch (e) {
-                console.error(e);
-                new Notice('Nova Journal: AI request failed.');
-            }
+        try {
+            const editor = this.getActiveEditor();
+            await this.conversationService.deepenLine(editor, targetLine);
+        } catch (error) {
+            this.handleError(error);
         }
     }
 
     private async deepenWholeNote(label: string): Promise<void> {
-        if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
-            new Notice('Nova Journal: enable AI and set API key in settings.');
-            return;
-        }
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!view) { new Notice('Nova Journal: open a note.'); return; }
-        const editor = view.editor;
-        const content = editor.getValue();
-        if (!content.trim()) { new Notice('Nova Journal: note is empty.'); return; }
         try {
-            const system = `${this.settings.aiSystemPrompt}\nYou see the entire note context.`;
-            const ai = await chat({
-                apiKey: this.settings.aiApiKey,
-                model: this.settings.aiModel,
-                systemPrompt: system,
-                userText: content,
-                maxTokens: this.settings.aiMaxTokens,
-                debug: this.settings.aiDebug,
-                retryCount: this.settings.aiRetryCount,
-                fallbackModel: this.settings.aiFallbackModel,
-            });
-            const linesCount = editor.lastLine();
-            let anchorLine: number | null = null;
-            for (let i = 0; i <= linesCount; i += 1) {
-                const t = editor.getLine(i);
-                if (/<a[^>]*class=\"nova-deepen\"[^>]*data-scope=\"note\"/.test(t)) { anchorLine = i; break; }
-            }
-            const namePrefix = `**${this.settings.userName || 'You'}** (you):`;
-            let userLineIdx = (anchorLine !== null ? anchorLine - 1 : editor.lastLine());
-            while (userLineIdx >= 0 && editor.getLine(userLineIdx).trim().length === 0) userLineIdx -= 1;
-            if (userLineIdx >= 0) {
-                const raw = editor.getLine(userLineIdx);
-                const trimmed = raw.trim();
-                if (trimmed && !trimmed.startsWith(namePrefix)) {
-                    editor.replaceRange(`${namePrefix} ${trimmed}`, { line: userLineIdx, ch: 0 }, { line: userLineIdx, ch: raw.length });
-                }
-            }
-            if (anchorLine !== null) {
-                editor.replaceRange(`**Nova**: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
-                await typewriterInsert(editor, anchorLine, '**Nova**: ', ai);
-                removeAnchorsInBlock(editor, anchorLine);
-                const id = generateAnchorId();
-                insertAnchorBelow(editor, anchorLine, 'data-scope="note"', id, label);
-            } else {
-                const to = { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length };
-                const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
-                editor.replaceRange(`${needsBreak}**Nova**: \n`, to);
-                const answerLine = editor.lastLine();
-                await typewriterInsert(editor, answerLine, '**Nova**: ', ai);
-                removeAnchorsInBlock(editor, answerLine);
-                const id = generateAnchorId();
-                insertAnchorBelow(editor, answerLine, 'data-scope="note"', id, label);
-            }
-        } catch (e) {
-            console.error(e);
-            new Notice('Nova Journal: AI request failed.');
+            const editor = this.getActiveEditor();
+            await this.conversationService.deepenWholeNote(editor, label);
+        } catch (error) {
+            this.handleError(error);
         }
     }
 
+    private getActiveEditor(): Editor {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) {
+            throw new EditorNotFoundError();
+        }
+        return view.editor;
+    }
+
+    private handleError(error: unknown): void {
+        console.error(error);
+        
+        if (error instanceof EditorNotFoundError) {
+            new Notice(error.message);
+        } else {
+            new Notice('Nova Journal: An unexpected error occurred.');
+        }
+    }
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+        this.conversationService = new ConversationService(this.settings);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
 	}
 
     private async insertTodaysPrompt(): Promise<void> {
         try {
-            const todayFile = await this.ensureTodayNote();
-            await this.openFileIfNotActive(todayFile);
-            // Sanitize date headings to avoid redundancy in content
-            await this.removeDateHeadingIfPresent(todayFile);
+            const todayFile = await this.fileService.ensureTodayNote(
+                this.settings.dailyNoteFolder,
+                this.settings.dailyNoteFormat,
+                this.settings.organizeByYearMonth
+            );
+            
+            await this.fileService.openFileIfNotActive(todayFile);
+            await this.fileService.removeDateHeadingFromFile(todayFile);
 
-            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-            if (!view) {
-                new Notice('Nova Journal: could not find an active markdown editor.');
-                return;
-            }
-
-            const editor = view.editor;
+            const editor = this.getActiveEditor();
             removeDateHeadingInEditor(editor);
+            
             const date = new Date();
             const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
 
-            if (this.settings.preventDuplicateForDay) {
-                const noteText = editor.getValue();
-                if (noteText.includes(basePrompt)) {
-                    new Notice('Nova Journal: prompt for today already exists in this note.');
-                    return;
-                }
+            const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
+                editor,
+                basePrompt,
+                date
+            );
+            
+            if (wasInserted) {
+                new Notice('Nova Journal: prompt inserted.');
             }
-
-            const prompt = this.renderFinalPrompt(basePrompt, date);
-            insertAtLocation(editor, prompt, this.settings.insertLocation);
-            new Notice('Nova Journal: prompt inserted.');
         } catch (error) {
             console.error('Nova Journal insert error', error);
             new Notice('Nova Journal: failed to insert prompt. See console for details.');
         }
     }
 
-    private renderFinalPrompt(base: string, date: Date): string {
-        const heading = this.settings.addSectionHeading && this.settings.sectionHeading
-            ? `${this.settings.sectionHeading}\n\n`
-            : '';
 
-        const tpl = (this.settings.promptTemplate || '').trim();
-        if (tpl.length > 0) {
-            const rendered = this.renderTemplate(tpl, base, date);
-            return `${heading}${rendered}\n`;
-        }
-        return `${heading}${base}\n`;
-    }
-
-    private renderTemplate(template: string, prompt: string, date: Date): string {
-        let out = template.replace(/\{\{\s*prompt\s*\}\}/g, prompt);
-        const userLine = `**${this.settings.userName || 'You'}** (you): `;
-        out = out.replace(/\{\{\s*user_line\s*\}\}/g, userLine);
-        out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, fmt) => {
-            const f = typeof fmt === 'string' ? fmt.trim() : 'YYYY-MM-DD';
-            return this.formatDate(date, f);
-        });
-        return out;
-    }
 
     private async insertPromptInActiveEditor(): Promise<void> {
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!view) {
-            new Notice('Nova Journal: open a markdown note to insert a prompt.');
-            return;
+        try {
+            const editor = this.getActiveEditor();
+            await this.promptInsertionService.insertPromptAtLocation(editor);
+        } catch (error) {
+            this.handleError(error);
         }
-        const editor = view.editor;
-        removeDateHeadingInEditor(editor);
-        const date = new Date();
-        const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
-        if (this.settings.preventDuplicateForDay) {
-            const noteText = editor.getValue();
-            if (noteText.includes(basePrompt)) {
-                new Notice('Nova Journal: this prompt already exists in this note.');
-                return;
-            }
-        }
-        const prompt = this.renderFinalPrompt(basePrompt, date);
-        insertAtLocation(editor, prompt, this.settings.insertLocation);
-        new Notice('Nova Journal: prompt inserted.');
     }
 
     private cyclePromptStyle(): void {
@@ -309,96 +177,7 @@ export default class NovaJournalPlugin extends Plugin {
         new Notice(`Nova Journal: style set to ${next}`);
     }
 
-    private insertAtLocation(editor: Editor, text: string, location: InsertionLocation): void {
-        const ensureTrailingNewline = (s: string) => (s.endsWith('\n') ? s : s + '\n');
-        const block = ensureTrailingNewline(text);
 
-        if (location === 'top') {
-            const current = editor.getValue();
-            editor.setValue(`${block}${current.replace(/^\n+/, '')}`);
-            return;
-        }
-        if (location === 'bottom') {
-            const lastLine = editor.lastLine();
-            const lastLineText = editor.getLine(lastLine);
-            const needsLeadingBreak = lastLineText.trim().length > 0;
-            const insertText = (needsLeadingBreak ? '\n\n' : '') + block;
-            const to = { line: lastLine, ch: lastLineText.length };
-            editor.replaceRange(insertText, to);
-            return;
-        }
-        editor.replaceSelection(block);
-    }
 
-    private formatDate(date: Date, format: string): string {
-        const yyyy = date.getFullYear().toString();
-        const mm = (date.getMonth() + 1).toString().padStart(2, '0');
-        const dd = date.getDate().toString().padStart(2, '0');
-        const HH = date.getHours().toString().padStart(2, '0');
-        const Min = date.getMinutes().toString().padStart(2, '0');
-        return format
-            .replace(/YYYY/g, yyyy)
-            .replace(/MM/g, mm)
-            .replace(/DD/g, dd)
-            .replace(/HH/g, HH)
-            .replace(/mm/g, Min);
-    }
 
-    private async ensureTodayNote(): Promise<TFile> {
-        const folderPath = (this.settings.dailyNoteFolder ?? 'Journal').trim() || 'Journal';
-        const fileName = `${this.formatDate(new Date(), this.settings.dailyNoteFormat)}.md`;
-        const filePath = `${folderPath}/${fileName}`;
-
-        const parts = folderPath.split('/').filter(Boolean);
-        let currentPath = '';
-        for (const part of parts) {
-            currentPath = currentPath ? `${currentPath}/${part}` : part;
-            const af = this.app.vault.getAbstractFileByPath(currentPath);
-            if (!af) {
-                await this.app.vault.createFolder(currentPath);
-            }
-        }
-
-        const existing = this.app.vault.getAbstractFileByPath(filePath);
-        if (existing instanceof TFile) {
-            return existing;
-        }
-        const maybeHeader = this.settings.addDateHeading
-            ? `# ${this.formatDate(new Date(), this.settings.dailyNoteFormat)}\n\n`
-            : '';
-        const created = await this.app.vault.create(filePath, maybeHeader);
-        return created as TFile;
-    }
-
-    private async removeDateHeadingIfPresent(file: TFile): Promise<void> {
-        try {
-            const content = await this.app.vault.read(file);
-            const lines = content.split(/\r?\n/);
-            const dateHeadingRegex = /^#{1,6}\s*\d{4}-\d{2}-\d{2}\s*$/;
-            const filtered: string[] = [];
-            for (let i = 0; i < lines.length; i += 1) {
-                const line = lines[i];
-                if (dateHeadingRegex.test(line.trim())) {
-                    if (i + 1 < lines.length && lines[i + 1].trim() === '') {
-                        i += 1;
-                    }
-                    continue;
-                }
-                filtered.push(line);
-            }
-            if (filtered.length !== lines.length) {
-                await this.app.vault.modify(file, filtered.join('\n'));
-            }
-        } catch (e) {
-            console.warn('Nova Journal: could not sanitize date heading', e);
-        }
-    }
-
-    private async openFileIfNotActive(file: TFile): Promise<void> {
-        const active = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (active?.file?.path === file.path) return;
-        const leaf = this.app.workspace.getLeaf(false);
-        await leaf.openFile(file);
-        this.app.workspace.revealLeaf(leaf);
-	}
 }
