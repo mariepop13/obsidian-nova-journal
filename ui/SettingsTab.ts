@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting, TextComponent, DropdownComponent, ToggleComponent, TextAreaComponent } from 'obsidian';
+import { DEFAULT_SETTINGS } from '../settings/PluginSettings';
 import type NovaJournalPlugin from '../main';
 
 export class NovaJournalSettingTab extends PluginSettingTab {
@@ -14,6 +15,15 @@ export class NovaJournalSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     containerEl.createEl('h2', { text: 'Nova Journal Settings' });
+
+    new Setting(containerEl)
+      .setName('Reset to defaults')
+      .setDesc('Restore all Nova Journal settings to factory defaults')
+      .addButton(b => b.setButtonText('Reset').onClick(async () => {
+        this.plugin.settings = { ...DEFAULT_SETTINGS } as any;
+        await this.plugin.saveSettings();
+        this.display();
+      }));
 
     new Setting(containerEl)
       .setName('Prompt style')
