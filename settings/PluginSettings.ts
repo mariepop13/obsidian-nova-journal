@@ -19,6 +19,7 @@ export interface NovaJournalSettings {
   deepenButtonLabel: string;
   userName: string;
   aiDebug: boolean;
+  defaultDeepenScope: 'line' | 'note';
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   deepenButtonLabel: 'Explore more',
   userName: 'Marie',
   aiDebug: false,
+  defaultDeepenScope: 'line',
 };
 
 
