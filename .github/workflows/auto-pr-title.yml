@@ -263,12 +263,12 @@ jobs:
             // Overwrite previously auto-applied labels
             try {
               const desired = Array.from(labelSet);
-              const managed = new Set(['bug','documentation','enhancement','chore','refactor','needs-review']);
-              const effortRegex = /^Review effort \d\/5$/;
+              const desiredLower = new Set(desired.map(n => n.toLowerCase()));
+              const managedList = ['bug','documentation','enhancement','chore','refactor','needs-review','review effort 1/5','review effort 2/5','review effort 3/5','review effort 4/5','review effort 5/5'];
               const existing = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: prNumber, per_page: 100 });
               const toRemove = (existing.data || [])
                 .map(l => l.name)
-                .filter(name => (managed.has(name) || effortRegex.test(name)) && !desired.includes(name));
+                .filter(name => managedList.includes(name.toLowerCase()) && !desiredLower.has(name.toLowerCase()));
               for (const name of toRemove) {
                 try { await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name }); } catch (e) { core.warning(`Remove label failed for ${name}: ${e.message}`); }
               }
