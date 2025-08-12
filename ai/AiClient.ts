@@ -10,6 +10,7 @@ export interface ChatArgs {
 }
 
 async function callOnce(apiKey: string, modelName: string, systemPrompt: string, userText: string, maxTokens: number, debug: boolean): Promise<string> {
+  const safeMax = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.min(Math.floor(maxTokens), 8192) : 512;
   const payload: any = {
     model: modelName,
     messages: [
@@ -17,7 +18,7 @@ async function callOnce(apiKey: string, modelName: string, systemPrompt: string,
       { role: 'user', content: userText },
     ],
   };
-  if (/^gpt-5/i.test(modelName)) payload.max_completion_tokens = maxTokens; else payload.max_tokens = maxTokens;
+  if (/^gpt-5/i.test(modelName)) payload.max_completion_tokens = safeMax; else payload.max_tokens = safeMax;
 
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -41,6 +42,9 @@ async function callOnce(apiKey: string, modelName: string, systemPrompt: string,
   if (typeof msg?.content === 'string') text = msg.content.trim();
   else if (Array.isArray(msg?.content)) text = msg.content.map((p: any) => (p?.text ?? '')).join('').trim();
   else if (typeof (msg as any)?.output_text === 'string') text = (msg as any).output_text.trim();
+  if (!text) {
+    throw new Error('AI response missing content');
+  }
   return text;
 }
 
