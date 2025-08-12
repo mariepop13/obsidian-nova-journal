@@ -250,10 +250,13 @@ export default class NovaJournalPlugin extends Plugin {
             const date = new Date();
             const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
 
+            // Check for duplicates and determine marker usage
+            const byMarker = (this.settings as any).useDuplicateMarker !== false;
+            
             if (this.settings.preventDuplicateForDay) {
                 const noteText = editor.getValue();
                 const todayMarker = `<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->`;
-                const byMarker = (this.settings as any).useDuplicateMarker !== false;
+                
                 if (byMarker) {
                     if (noteText.includes(todayMarker)) {
                         new Notice('Nova Journal: prompt for today already exists in this note.');
@@ -269,7 +272,8 @@ export default class NovaJournalPlugin extends Plugin {
 
             const prompt = this.renderFinalPrompt(basePrompt, date);
             insertAtLocation(editor, prompt, this.settings.insertLocation as any, (this.settings as any).insertHeadingName);
-            const byMarker = (this.settings as any).useDuplicateMarker !== false;
+            
+            // Add marker if using marker-based duplicate detection
             if (byMarker) {
                 const marker = `\n<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->\n`;
                 editor.replaceRange(marker, { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length });

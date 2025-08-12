@@ -41,10 +41,10 @@ export function insertAtLocation(editor: Editor, text: string, location: Enhance
     const target = (belowHeadingName || '').trim();
     const last = editor.lastLine();
     let insertLine = -1;
-    const headingRegex = target ? new RegExp(`^\s*#{1,6}\s*${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\s*$`) : null;
+    const headingRegex = target ? new RegExp(`^\\s*#{1,6}\\s*${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) : null;
     for (let i = 0; i <= last; i += 1) {
       const txt = editor.getLine(i);
-      if (headingRegex ? headingRegex.test(txt.trim()) : /^\s*#{1,6}\s*.+$/.test(txt.trim())) {
+      if (headingRegex ? headingRegex.test(txt.trim()) : /^\\s*#{1,6}\\s*.+$/.test(txt.trim())) {
         insertLine = i + 1;
       }
       if (insertLine >= 0) break;
