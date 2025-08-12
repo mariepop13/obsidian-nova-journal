@@ -12,6 +12,11 @@ export interface NovaJournalSettings {
   dailyNoteFormat: string; // Limited support: YYYY-MM-DD
   promptTemplate: string; // If provided, used to render the inserted block
   preventDuplicateForDay: boolean;
+  aiEnabled: boolean;
+  aiApiKey: string;
+  aiModel: string;
+  aiSystemPrompt: string;
+  deepenButtonLabel: string;
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -24,6 +29,11 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   dailyNoteFormat: 'YYYY-MM-DD',
   promptTemplate: '',
   preventDuplicateForDay: true,
+  aiEnabled: false,
+  aiApiKey: '',
+  aiModel: 'gpt-5-mini',
+  aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
+  deepenButtonLabel: 'Explore more',
 };
 
 
