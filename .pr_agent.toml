@@ -1,0 +1,12 @@
+[config]
+model = "gpt-5-mini"
+output_relevant_configurations = true
+
+[pr_reviewer]
+inline_comments = true
+max_review_comments = 30
+
+[pr_description]
+generate_ai_title = true
+add_labels = true
+
