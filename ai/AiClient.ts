@@ -9,6 +9,13 @@ export interface ChatArgs {
   fallbackModel?: string;
 }
 
+function sanitizeErrorForLogging(error: string): string {
+  return error
+    .replace(/Bearer\s+sk-[A-Za-z0-9\-_]+/gi, 'Bearer [REDACTED]')
+    .replace(/api[_\-]?key['":\s]*[A-Za-z0-9\-_]+/gi, 'api_key: [REDACTED]')
+    .replace(/sk-[A-Za-z0-9\-_]{20,}/gi, '[API_KEY_REDACTED]');
+}
+
 async function callOnce(apiKey: string, modelName: string, systemPrompt: string, userText: string, maxTokens: number, debug: boolean): Promise<string> {
   const safeMax = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.min(Math.floor(maxTokens), 8192) : 512;
   const payload: any = {
@@ -31,7 +38,10 @@ async function callOnce(apiKey: string, modelName: string, systemPrompt: string,
   if (!resp.ok) {
     if (debug) console.error('Nova AI status', resp.status, resp.statusText);
     const errText = await resp.text().catch(() => '');
-    if (debug) console.error('Nova AI error body', errText);
+    if (debug) {
+      const sanitizedError = sanitizeErrorForLogging(errText);
+      console.error('Nova AI error body', sanitizedError);
+    }
     throw new Error(`AI request failed (${resp.status}): ${resp.statusText}`);
   }
   const data = await resp.json();
