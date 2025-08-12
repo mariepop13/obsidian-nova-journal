@@ -268,7 +268,13 @@ jobs:
               const existing = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: prNumber, per_page: 100 });
               const toRemove = (existing.data || [])
                 .map(l => l.name)
-                .filter(name => managedList.includes(name.toLowerCase()) && !desiredLower.has(name.toLowerCase()));
+                .filter(name => {
+                  const lower = name.toLowerCase();
+                  const isManagedCategory = managedList.includes(lower);
+                  const isManagedEffort = lower.startsWith('review effort ');
+                  const keep = desiredLower.has(lower);
+                  return (isManagedCategory || isManagedEffort) && !keep;
+                });
               for (const name of toRemove) {
                 try { await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name }); } catch (e) { core.warning(`Remove label failed for ${name}: ${e.message}`); }
               }
