@@ -138,7 +138,7 @@ export function removeAnchorsInBlock(editor: Editor, startLine: number): void {
   const last = editor.lastLine();
   const isSpeaker = (t: string) => /^[^\s].*:\s*$/.test(t);
   const isBlank = (t: string) => t.trim().length === 0;
-  const isAnchor = (t: string) => /<a[^>]*class=\"nova-deepen\"[^>]*>/.test(t);
+  const isAnchor = (t: string) => /<a[^>]*class=\"nova-deepen\"[^>]*>|<button[^>]*class=\"nova-deepen\"[^>]*>|<button[^>]*class=\"nova-mood-analyze\"[^>]*>/.test(t);
   let end = startLine;
   let i = startLine + 1;
   for (; i <= last; i += 1) {
@@ -165,10 +165,24 @@ export function removeAnchorsInBlock(editor: Editor, startLine: number): void {
   }
 }
 
-export function insertAnchorBelow(editor: Editor, line: number, scopeAttr: string, id: string, label: string): number {
-  const markup = `\n<a href="#" class="nova-deepen" ${scopeAttr} data-id="${id}">${label}</a>\n`;
-  editor.replaceRange(markup, { line: line + 1, ch: 0 });
-  return line + 2;
+export function ensureBottomButtons(editor: Editor, label: string): void {
+  const last = editor.lastLine();
+  const linesToDelete: { from: { line: number; ch: number }; to: { line: number; ch: number } }[] = [];
+  for (let i = 0; i <= last; i += 1) {
+    const t = editor.getLine(i);
+    if (/<a[^>]*class=\"nova-deepen\"[^>]*>|<button[^>]*class=\"nova-deepen\"[^>]*>|<button[^>]*class=\"nova-mood-analyze\"[^>]*>/.test(t)) {
+      linesToDelete.push({ from: { line: i, ch: 0 }, to: { line: i, ch: t.length } });
+    }
+  }
+  for (let k = linesToDelete.length - 1; k >= 0; k -= 1) {
+    const r = linesToDelete[k];
+    editor.replaceRange('', r.from, r.to);
+  }
+  const endLine = editor.lastLine();
+  const endCh = editor.getLine(endLine).length;
+  const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
+  const buttons = `${needsBreak}<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
+  editor.replaceRange(buttons, { line: endLine, ch: endCh });
 }
 
 

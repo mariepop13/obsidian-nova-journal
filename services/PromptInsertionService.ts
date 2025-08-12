@@ -2,7 +2,7 @@ import { Editor, Notice } from 'obsidian';
 import { PromptService } from '../prompt/PromptService';
 import type { PromptStyle } from '../prompt/PromptRegistry';
 import type { NovaJournalSettings, EnhancedInsertionLocation } from '../settings/PluginSettings';
-import { insertAtLocation, removeDateHeadingInEditor } from './NoteEditor';
+import { insertAtLocation, removeDateHeadingInEditor, ensureBottomButtons } from './NoteEditor';
 import { PromptRenderingService } from './PromptRenderingService';
 
 export class PromptInsertionService {
@@ -26,6 +26,7 @@ export class PromptInsertionService {
     const insertLocation = location || this.settings.insertLocation;
     
     insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
+    ensureBottomButtons(editor, this.settings.deepenButtonLabel);
     new Notice('Nova Journal: prompt inserted.');
   }
 
@@ -51,6 +52,7 @@ export class PromptInsertionService {
 
     const prompt = this.renderPrompt(basePrompt, date);
     insertAtLocation(editor, prompt, this.settings.insertLocation, this.settings.insertHeadingName);
+    ensureBottomButtons(editor, this.settings.deepenButtonLabel);
     
     if (this.settings.useDuplicateMarker !== false) {
       this.addDuplicateMarker(editor, date);

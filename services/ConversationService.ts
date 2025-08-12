@@ -1,7 +1,7 @@
 import { Editor, Notice } from 'obsidian';
 import { chat } from '../ai/AiClient';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
-import { getDeepenSource, typewriterInsert, generateAnchorId, removeAnchorsInBlock, insertAnchorBelow } from './NoteEditor';
+import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons } from './NoteEditor';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from './ErrorTypes';
 
 export interface ConversationContext {
@@ -113,8 +113,8 @@ export class ConversationService {
   }
 
   private createNewButton(editor: Editor, line: number): number {
-    const id = generateAnchorId();
-    return insertAnchorBelow(editor, line, `data-line="${line}"`, id, this.context.deepenButtonLabel) - 1;
+    ensureBottomButtons(editor, this.context.deepenButtonLabel);
+    return editor.lastLine();
   }
 
   private replaceLineWithHeader(editor: Editor, line: number, header: string): void {
@@ -151,7 +151,7 @@ export class ConversationService {
   }
 
   private findAnchorLine(editor: Editor, startLine: number): number | null {
-    const anchorRegex = /<a[^>]*class="nova-deepen"[^>]*>/;
+    const anchorRegex = /<a[^>]*class="nova-deepen"[^>]*>|<button[^>]*class="nova-deepen"[^>]*>/;
     
     for (let i = startLine + 1; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i);
@@ -164,7 +164,7 @@ export class ConversationService {
   private findNoteScopeAnchor(editor: Editor): number | null {
     for (let i = 0; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i);
-      if (/<a[^>]*class="nova-deepen"[^>]*data-scope="note"/.test(lineText)) {
+      if (/(<a[^>]*class="nova-deepen"[^>]*data-scope="note"|<button[^>]*class="nova-deepen"[^>]*data-scope="note")/.test(lineText)) {
         return i;
       }
     }
@@ -208,19 +208,14 @@ export class ConversationService {
     
     await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, anchorLine);
-    
-    const id = generateAnchorId();
-    const buttonLabel = label || this.context.deepenButtonLabel;
-    insertAnchorBelow(editor, anchorLine, scopeAttr, id, buttonLabel);
+    ensureBottomButtons(editor, label || this.context.deepenButtonLabel);
   }
 
   private async insertAfterLine(editor: Editor, line: number, response: string, scopeAttr: string): Promise<void> {
     editor.replaceRange('**Nova**: \n', { line: line + 1, ch: 0 });
     await typewriterInsert(editor, line + 1, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, line);
-    
-    const id = generateAnchorId();
-    insertAnchorBelow(editor, line + 1, scopeAttr, id, this.context.deepenButtonLabel);
+    ensureBottomButtons(editor, this.context.deepenButtonLabel);
   }
 
   private async insertAtEndOfNote(editor: Editor, response: string, label: string): Promise<void> {
@@ -233,9 +228,7 @@ export class ConversationService {
     
     await typewriterInsert(editor, answerLine, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, answerLine);
-    
-    const id = generateAnchorId();
-    insertAnchorBelow(editor, answerLine, 'data-scope="note"', id, label);
+    ensureBottomButtons(editor, label);
   }
 
   private async callAI(userText: string, customSystemPrompt?: string): Promise<string> {
