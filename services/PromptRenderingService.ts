@@ -37,21 +37,12 @@ export class PromptRenderingService {
 
   static checkForDuplicatePrompt(
     noteText: string,
-    basePrompt: string,
-    date: Date,
-    useDuplicateMarker: boolean
+    basePrompt: string
   ): boolean {
-    if (useDuplicateMarker) {
-      const todayMarker = `<!-- nova:prompt:${DateFormatter.format(date, 'YYYY-MM-DD')} -->`;
-      return noteText.includes(todayMarker);
-    }
-    
     return noteText.includes(basePrompt);
   }
 
-  static generateDuplicateMarker(date: Date): string {
-    return `\n<!-- nova:prompt:${DateFormatter.format(date, 'YYYY-MM-DD')} -->\n`;
-  }
+  static generateDuplicateMarker(_date: Date): string { return ''; }
 
   private static renderTemplate(template: string, context: TemplateContext): string {
     let output = template.replace(/\{\{\s*prompt\s*\}\}/g, context.prompt);

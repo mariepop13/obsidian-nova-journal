@@ -1,7 +1,7 @@
 import { TFile, Notice } from 'obsidian';
 import { chat } from '../ai/AiClient';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
-import type { FrontmatterData } from './MoodTrackingService';
+export interface FrontmatterData { [key: string]: any; mood?: string; mood_level?: number; energy?: number; tags?: string[] }
 
 export interface MoodHistoryEntry {
   date: string;
@@ -17,6 +17,41 @@ export class MoodAnalysisService {
     private readonly settings: NovaJournalSettings,
     private readonly app: any
   ) {}
+
+  async analyzeCurrentNoteContent(noteText: string): Promise<string | null> {
+    if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+      new Notice('AI must be enabled for mood analysis.');
+      return null;
+    }
+
+    const systemPrompt = `You are an empathetic journaling coach. Given the full note content, analyze mood, tone, energy, and recurring themes. Be concise, specific, and actionable. Use short paragraphs and bullet points when helpful.`;
+    const userPrompt = `Analyze my current note. Identify:
+1) Overall mood and tone
+2) Notable emotions and triggers
+3) Positive reinforcers
+4) Gentle suggestions or next steps
+
+Note content:
+${noteText}`;
+
+    try {
+      const analysis = await chat({
+        apiKey: this.settings.aiApiKey,
+        model: this.settings.aiModel,
+        systemPrompt,
+        userText: userPrompt,
+        maxTokens: this.settings.aiMaxTokens,
+        debug: this.settings.aiDebug,
+        retryCount: this.settings.aiRetryCount,
+        fallbackModel: this.settings.aiFallbackModel,
+      });
+      return analysis;
+    } catch (error) {
+      console.error('Mood analysis (current note) failed:', error);
+      new Notice('Mood analysis failed.');
+      return null;
+    }
+  }
 
   async analyzeMoodData(daysBack: number = 7): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) {

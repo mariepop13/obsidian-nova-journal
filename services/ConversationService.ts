@@ -1,7 +1,7 @@
 import { Editor, Notice } from 'obsidian';
 import { chat } from '../ai/AiClient';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
-import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons } from './NoteEditor';
+import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from './NoteEditor';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from './ErrorTypes';
 
 export interface ConversationContext {
@@ -200,15 +200,12 @@ export class ConversationService {
     scopeAttr: string, 
     label?: string
   ): Promise<void> {
-    editor.replaceRange(
-      '**Nova**: \n',
-      { line: anchorLine, ch: 0 },
-      { line: anchorLine, ch: editor.getLine(anchorLine).length }
-    );
+    editor.replaceRange('**Nova**: \n', { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
     
     await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, anchorLine);
     ensureBottomButtons(editor, label || this.context.deepenButtonLabel);
+    ensureUserPromptLine(editor, this.context.userName);
   }
 
   private async insertAfterLine(editor: Editor, line: number, response: string, scopeAttr: string): Promise<void> {
@@ -216,6 +213,7 @@ export class ConversationService {
     await typewriterInsert(editor, line + 1, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, line);
     ensureBottomButtons(editor, this.context.deepenButtonLabel);
+    ensureUserPromptLine(editor, this.context.userName);
   }
 
   private async insertAtEndOfNote(editor: Editor, response: string, label: string): Promise<void> {
@@ -229,6 +227,7 @@ export class ConversationService {
     await typewriterInsert(editor, answerLine, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, answerLine);
     ensureBottomButtons(editor, label);
+    ensureUserPromptLine(editor, this.context.userName);
   }
 
   private async callAI(userText: string, customSystemPrompt?: string): Promise<string> {
