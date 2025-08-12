@@ -3,6 +3,11 @@ on:
   pull_request_target:
     types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+        type: string
 jobs:
   pr_agent_job:
     if: ${{ github.event.sender.type != 'Bot' }}
@@ -23,5 +28,7 @@ jobs:
             review:
               inline_comments: true
               max_review_comments: 30
+        with:
+          pr_number: ${{ inputs.pr_number }}
 
 
