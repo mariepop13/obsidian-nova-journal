@@ -114,30 +114,6 @@ jobs:
 
             const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
 
-            // Compute checklist dynamically using Actions runs for this PR commit
-            let buildOk = false;
-            let buildReason = 'n/a';
-            try {
-              const headSha = pr.data.head.sha;
-              const runsResp = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, event: 'pull_request', per_page: 100 });
-              const relevant = (runsResp.data.workflow_runs || [])
-                .filter(r => r.head_sha === headSha)
-                .filter(r => !['Auto PR title/body', 'PR Agent'].includes(r.name || ''));
-
-              if (relevant.length > 0) {
-                const failed = relevant.filter(r => r.status === 'completed' && r.conclusion !== 'success').map(r => r.name);
-                const pending = relevant.filter(r => r.status !== 'completed').map(r => r.name);
-                buildOk = failed.length === 0 && pending.length === 0;
-                if (!buildOk) {
-                  if (failed.length > 0) buildReason = `failed: ${failed.join(', ')}`;
-                  else if (pending.length > 0) buildReason = `pending: ${pending.join(', ')}`;
-                } else {
-                  buildReason = '';
-                }
-              }
-            } catch (e) {
-              // ignore if actions API not available
-            }
             const CHANGE_LIMIT = 500;
             const FILE_LIMIT = 20;
             const scopeOk = changes <= CHANGE_LIMIT && files.length <= FILE_LIMIT;
@@ -145,7 +121,7 @@ jobs:
             if (changes > CHANGE_LIMIT) scopeReasons.push(`${changes} changes > ${CHANGE_LIMIT}`);
             if (files.length > FILE_LIMIT) scopeReasons.push(`${files.length} files > ${FILE_LIMIT}`);
             const scopeReason = scopeReasons.join('; ');
-            const checklist = `- [${buildOk ? 'x' : ' '}] Build passes${buildOk ? '' : ` – ${buildReason}`}\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused${scopeOk ? '' : ` – ${scopeReason}`}`;
+            const checklist = `- [${scopeOk ? 'x' : ' '}] Scope is small and focused${scopeOk ? '' : ` – ${scopeReason}`}`;
 
             const aiFirstLine = (aiSummary || '').split('\n').find(l => l.trim().length > 0) || '';
             const summaryLine = aiFirstLine || (subjects[0] ? subjects[0] : title);
@@ -153,7 +129,7 @@ jobs:
             // Risk heuristic
             const risk = (changes > 800 || files.length > 30) ? 'High' : (changes > 400 || files.length > 15) ? 'Medium' : 'Low';
 
-            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Build: npm run build (CI)\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
+            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: number, body });
 
             // Auto label based on branch prefix
