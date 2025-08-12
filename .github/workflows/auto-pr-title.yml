@@ -227,6 +227,14 @@ jobs:
             const effortLabel = `Review effort ${effort}/5`;
             labelSet.add(effortLabel);
 
+            // Ensure one mandatory category label is always applied
+            const mandatoryCategories = ['bug', 'documentation', 'enhancement', 'chore', 'refactor'];
+            const hasCategory = mandatoryCategories.some(c => labelSet.has(c));
+            if (!hasCategory) {
+              // Fallback default if no category matched heuristics
+              labelSet.add('enhancement');
+            }
+
             // Ensure labels exist (create if missing)
             async function ensureLabel(name, color = 'a371f7', description = '') {
               try {
