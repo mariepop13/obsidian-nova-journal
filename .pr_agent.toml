@@ -1,0 +1,31 @@
+[config]
+model = "gpt-5-mini"
+fallback_models = ["gpt-5-mini", "gpt-4o-mini"]
+model_reasoning = "gpt-5-mini"
+model_weak = "gpt-5-mini"
+output_relevant_configurations = true
+verbosity_level = 2
+
+[github_action_config]
+auto_review = true
+auto_describe = true  
+auto_improve = true
+
+[pr_reviewer]
+inline_comments = true
+num_code_suggestions = 6
+require_score_review = false
+require_tests_review = false
+require_focused_review = false
+enable_help_text = true
+extra_instructions = "Focus on TypeScript best practices, Obsidian plugin conventions, and code quality. Look for potential bugs, security issues (sensitive data logging, regex escaping), variable shadowing, and suggest improvements. Prioritize security and maintainability."
+
+[pr_description]
+generate_ai_title = true
+add_labels = true
+enable_semantic_files_types = true
+extra_instructions = "Create clear, concise descriptions focusing on what changed and why. Highlight security fixes and code quality improvements."
+
+[pr_code_suggestions]
+num_code_suggestions = 4
+extra_instructions = "Suggest improvements for code readability, performance, maintainability, and security following clean code principles. Check for proper error handling, regex escaping, and avoid sensitive data exposure."
