@@ -1,15 +1,22 @@
-import { Editor, Notice } from 'obsidian';
+import { Editor, Notice, App } from 'obsidian';
 import { PromptService } from '../prompt/PromptService';
 import type { PromptStyle } from '../prompt/PromptRegistry';
 import type { NovaJournalSettings, EnhancedInsertionLocation } from '../settings/PluginSettings';
 import { insertAtLocation, removeDateHeadingInEditor } from './NoteEditor';
 import { PromptRenderingService } from './PromptRenderingService';
+import { MoodTrackingService, type MoodData } from './MoodTrackingService';
+import { MoodSelectionModal } from '../ui/MoodSelectionModal';
 
 export class PromptInsertionService {
+  private readonly moodTrackingService: MoodTrackingService;
+
   constructor(
     private readonly promptService: PromptService,
-    private readonly settings: NovaJournalSettings
-  ) {}
+    private readonly settings: NovaJournalSettings,
+    private readonly app: App
+  ) {
+    this.moodTrackingService = new MoodTrackingService(settings);
+  }
 
   async insertPromptAtLocation(editor: Editor, location?: EnhancedInsertionLocation): Promise<void> {
     removeDateHeadingInEditor(editor);
@@ -29,10 +36,11 @@ export class PromptInsertionService {
     new Notice('Nova Journal: prompt inserted.');
   }
 
-  async insertTodaysPromptWithDuplicateCheck(
-    editor: Editor,
-    basePrompt: string,
-    date: Date
+    async insertTodaysPromptWithDuplicateCheck(
+    editor: Editor, 
+    basePrompt: string, 
+    date: Date,
+    currentFile?: any
   ): Promise<boolean> {
     if (this.settings.preventDuplicateForDay) {
       const noteText = editor.getValue();
@@ -49,6 +57,47 @@ export class PromptInsertionService {
       }
     }
 
+    // Handle mood tracking if enabled
+    if (this.moodTrackingService.isEnabled()) {
+      return new Promise((resolve) => {
+        const modal = new MoodSelectionModal(
+          this.app,
+          this.settings,
+          async (moodData: MoodData) => {
+            const success = await this.insertPromptWithoutMood(editor, basePrompt, date);
+            
+            if (success && currentFile) {
+              try {
+                await this.moodTrackingService.addMoodToFile(currentFile, this.app.vault, moodData);
+              } catch (error) {
+                console.error('Failed to add mood data:', error);
+                new Notice('Failed to save mood data, but prompt was inserted.');
+              }
+            }
+            
+            resolve(success);
+          },
+          () => {
+            if (this.moodTrackingService.isRequired()) {
+              new Notice('Mood selection is required.');
+              resolve(false);
+            } else {
+              this.insertPromptWithoutMood(editor, basePrompt, date).then(resolve);
+            }
+          }
+        );
+        modal.open();
+      });
+    }
+
+    return this.insertPromptWithoutMood(editor, basePrompt, date);
+  }
+
+  private async insertPromptWithoutMood(
+    editor: Editor,
+    basePrompt: string,
+    date: Date
+  ): Promise<boolean> {
     const prompt = this.renderPrompt(basePrompt, date);
     insertAtLocation(editor, prompt, this.settings.insertLocation, this.settings.insertHeadingName);
     

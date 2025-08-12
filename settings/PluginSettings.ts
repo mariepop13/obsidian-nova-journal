@@ -49,6 +49,11 @@ export interface NovaJournalSettings {
   aiRetryCount: number;
   aiFallbackModel: string;
   typewriterSpeed: TypewriterSpeed;
+  moodTrackingEnabled: boolean;
+  moodPromptRequired: boolean;
+  moodDefaultEmojis: string[];
+  energyTrackingEnabled: boolean;
+  customMoodTags: string[];
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -75,6 +80,11 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiRetryCount: RETRY_LIMITS.DEFAULT,
   aiFallbackModel: '',
   typewriterSpeed: 'normal',
+  moodTrackingEnabled: false,
+  moodPromptRequired: false,
+  moodDefaultEmojis: ['😔', '😐', '🙂', '😊', '😍'],
+  energyTrackingEnabled: false,
+  customMoodTags: ['grateful', 'anxious', 'productive', 'tired', 'excited', 'calm'],
 };
 
 export class TemplateFactory {

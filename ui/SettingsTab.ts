@@ -36,6 +36,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 
     this.renderResetButton(containerEl);
     this.renderBasicSettings(containerEl);
+    this.renderMoodTrackingSettings(containerEl);
     this.renderAISettings(containerEl);
   }
 
@@ -479,6 +480,79 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             new Notice('Failed to save display name');
           }
         }));
+  }
+
+  private renderMoodTrackingSettings(containerEl: HTMLElement): void {
+    containerEl.createEl('h3', { text: 'Mood Tracking' });
+
+    new Setting(containerEl)
+      .setName('Enable mood tracking')
+      .setDesc('Ask for mood when inserting journal prompts. Data saved as Obsidian properties.')
+      .addToggle(toggle => toggle.setValue(this.plugin.settings.moodTrackingEnabled).onChange(async (value) => {
+        await this.saveSettingsWithErrorHandling(
+          () => { this.plugin.settings.moodTrackingEnabled = value; },
+          'Failed to save mood tracking setting',
+          true
+        );
+      }));
+
+    if (this.plugin.settings.moodTrackingEnabled) {
+      new Setting(containerEl)
+        .setName('Mood selection required')
+        .setDesc('Force mood selection before allowing journal entry')
+        .addToggle(toggle => toggle.setValue(this.plugin.settings.moodPromptRequired).onChange(async (value) => {
+          await this.saveSettingsWithErrorHandling(
+            () => { this.plugin.settings.moodPromptRequired = value; },
+            'Failed to save mood requirement setting'
+          );
+        }));
+
+      new Setting(containerEl)
+        .setName('Enable energy tracking')
+        .setDesc('Also track energy level (1-10 scale)')
+        .addToggle(toggle => toggle.setValue(this.plugin.settings.energyTrackingEnabled).onChange(async (value) => {
+          await this.saveSettingsWithErrorHandling(
+            () => { this.plugin.settings.energyTrackingEnabled = value; },
+            'Failed to save energy tracking setting'
+          );
+        }));
+
+      new Setting(containerEl)
+        .setName('Mood emojis')
+        .setDesc('Emoji options for mood selection (comma-separated)')
+        .addText(text => text
+          .setValue(this.plugin.settings.moodDefaultEmojis.join(', '))
+          .setPlaceholder('😔, 😐, 🙂, 😊, 😍')
+          .onChange(async (value) => {
+            await this.saveSettingsWithErrorHandling(
+              () => { 
+                this.plugin.settings.moodDefaultEmojis = value
+                  .split(',')
+                  .map(emoji => emoji.trim())
+                  .filter(emoji => emoji.length > 0);
+              },
+              'Failed to save mood emojis'
+            );
+          }));
+
+      new Setting(containerEl)
+        .setName('Custom mood tags')
+        .setDesc('Available mood tags (comma-separated)')
+        .addText(text => text
+          .setValue(this.plugin.settings.customMoodTags.join(', '))
+          .setPlaceholder('grateful, anxious, productive, tired, excited, calm')
+          .onChange(async (value) => {
+            await this.saveSettingsWithErrorHandling(
+              () => { 
+                this.plugin.settings.customMoodTags = value
+                  .split(',')
+                  .map(tag => tag.trim().toLowerCase())
+                  .filter(tag => tag.length > 0);
+              },
+              'Failed to save mood tags'
+            );
+          }));
+    }
   }
 
   private renderAdvancedSection(containerEl: HTMLElement): void {

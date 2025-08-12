@@ -22,7 +22,7 @@ export default class NovaJournalPlugin extends Plugin {
         this.promptService = new PromptService();
         this.conversationService = new ConversationService(this.settings);
         this.fileService = new FileService(this.app);
-        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings, this.app);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
@@ -121,7 +121,7 @@ export default class NovaJournalPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
         this.conversationService = new ConversationService(this.settings);
-        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings, this.app);
 	}
 
     private async insertTodaysPrompt(): Promise<void> {
@@ -144,7 +144,8 @@ export default class NovaJournalPlugin extends Plugin {
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
                 basePrompt,
-                date
+                date,
+                todayFile
             );
             
             if (wasInserted) {
