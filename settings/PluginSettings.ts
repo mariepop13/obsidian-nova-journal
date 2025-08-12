@@ -17,6 +17,8 @@ export interface NovaJournalSettings {
   aiModel: string;
   aiSystemPrompt: string;
   deepenButtonLabel: string;
+  userName: string;
+  aiDebug: boolean;
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -34,6 +36,8 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiModel: 'gpt-5-mini',
   aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
   deepenButtonLabel: 'Explore more',
+  userName: 'Marie',
+  aiDebug: false,
 };
 
 

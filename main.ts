@@ -44,12 +44,13 @@ export default class NovaJournalPlugin extends Plugin {
         });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 
-        // Make [Explore more](nova-deepen) clickable in preview mode
         this.registerMarkdownPostProcessor((el) => {
-            el.querySelectorAll('a[href^="nova-deepen"]').forEach((a) => {
-                a.addEventListener('click', (evt) => {
+            el.querySelectorAll('button.nova-deepen').forEach((btn) => {
+                btn.addEventListener('click', (evt) => {
                     evt.preventDefault();
-                    this.deepenLastLine().catch(console.error);
+                    const lineAttr = (btn as HTMLButtonElement).getAttribute('data-line');
+                    const line = lineAttr ? Number(lineAttr) : undefined;
+                    this.deepenLastLine(line).catch(console.error);
                 });
             });
         });
@@ -59,7 +60,7 @@ export default class NovaJournalPlugin extends Plugin {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
-    private async deepenLastLine(): Promise<void> {
+    private async deepenLastLine(targetLine?: number): Promise<void> {
         if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
             new Notice('Nova Journal: enable AI and set API key in settings.');
             return;
@@ -67,22 +68,70 @@ export default class NovaJournalPlugin extends Plugin {
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (!view) { new Notice('Nova Journal: open a note.'); return; }
         const editor = view.editor;
-        const line = editor.getCursor().line;
-        const lastLineText = editor.getLine(line).trim();
-        if (!lastLineText) { new Notice('Nova Journal: no text to deepen.'); return; }
 
-        const userName = 'Marie';
-        const header = `${userName} (you): ${lastLineText}`;
-        const button = `[${this.settings.deepenButtonLabel}](nova-deepen)`;
-        editor.replaceRange(`\n\n${header}\n${button}\n`, { line, ch: editor.getLine(line).length });
+        const source = this.getDeepenSource(editor, targetLine);
+        if (!source) { new Notice('Nova Journal: no text to deepen.'); return; }
+        const { text: lastLineText, line } = source;
 
-        try {
-            const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
-            editor.replaceRange(`\nNova: ${ai}\n`, { line: editor.lastLine(), ch: Number.MAX_SAFE_INTEGER });
-        } catch (e) {
-            console.error(e);
-            new Notice('Nova Journal: AI request failed.');
+        let buttonLine: number | null = null;
+
+        if (typeof targetLine === 'number') {
+            const pattern = new RegExp(`^<button class=\\"nova-deepen\\" data-line=\\"${line}\\">.*<\\/button>$`);
+            for (let i = line + 1; i <= editor.lastLine(); i += 1) {
+                const t = editor.getLine(i).trim();
+                if (pattern.test(t)) { buttonLine = i; break; }
+                if (/^[^\s].*:/.test(t)) break;
+            }
+            if (buttonLine == null) {
+                editor.replaceRange(`\n<button class=\"nova-deepen\" data-line=\"${line}\">${this.settings.deepenButtonLabel}</button>\n`, { line: line + 1, ch: 0 });
+                buttonLine = line + 2;
+            }
+        } else {
+            const header = `${this.settings.userName || 'You'} (you): ${lastLineText}`;
+            const from = { line, ch: 0 };
+            const to = { line, ch: editor.getLine(line).length };
+            editor.replaceRange(header, from, to);
         }
+
+        if (typeof targetLine === 'number') {
+            try {
+                const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
+                const answerPos = { line: buttonLine!, ch: 0 };
+                editor.replaceRange(`Nova: ${ai}\n`, answerPos);
+            } catch (e) {
+                console.error(e);
+                new Notice('Nova Journal: AI request failed.');
+            }
+        } else {
+            try {
+                const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
+                const answerPos = { line: line + 1, ch: 0 };
+                const block = `Nova: ${ai}\n<button class=\"nova-deepen\" data-line=\"${line}\">${this.settings.deepenButtonLabel}</button>\n`;
+                editor.replaceRange(block, answerPos);
+            } catch (e) {
+                console.error(e);
+                new Notice('Nova Journal: AI request failed.');
+            }
+        }
+    }
+
+    private getDeepenSource(editor: Editor, preferredLine?: number): { text: string; line: number } | null {
+        if (preferredLine !== undefined) {
+            const t = editor.getLine(preferredLine)?.trim();
+            if (t) return { text: t, line: preferredLine };
+        }
+        const sel = editor.getSelection()?.trim();
+        if (sel) {
+            const cursor = editor.getCursor();
+            return { text: sel, line: cursor.line };
+        }
+        let line = editor.getCursor().line;
+        while (line >= 0) {
+            const txt = editor.getLine(line).trim();
+            if (txt) return { text: txt, line };
+            line -= 1;
+        }
+        return null;
     }
 
     private async callChatApi(apiKey: string, model: string, systemPrompt: string, userText: string): Promise<string> {
@@ -98,12 +147,22 @@ export default class NovaJournalPlugin extends Plugin {
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userText },
                 ],
-                temperature: 0.5,
-                max_completion_tokens: 200,
+                max_completion_tokens: 512,
             }),
         });
+        if (this.settings.aiDebug) {
+            console.log('Nova AI status', resp.status, resp.statusText);
+        }
         const data = await resp.json();
-        const text = data?.choices?.[0]?.message?.content?.trim?.() || '';
+        if (this.settings.aiDebug) {
+            console.log('Nova AI payload', data);
+        }
+        const choice = data?.choices?.[0];
+        const msg = choice?.message;
+        let text = '';
+        if (typeof msg?.content === 'string') text = msg.content.trim();
+        else if (Array.isArray(msg?.content)) text = msg.content.map((p: any) => (p?.text ?? '')).join('').trim();
+        else if (typeof (msg as any)?.output_text === 'string') text = (msg as any).output_text.trim();
         return text;
     }
     async saveSettings() {
@@ -223,7 +282,6 @@ export default class NovaJournalPlugin extends Plugin {
     }
 
     private formatDate(date: Date, format: string): string {
-        // Minimal token support: YYYY, MM, DD with separators
         const yyyy = date.getFullYear().toString();
         const mm = (date.getMonth() + 1).toString().padStart(2, '0');
         const dd = date.getDate().toString().padStart(2, '0');
@@ -238,7 +296,6 @@ export default class NovaJournalPlugin extends Plugin {
         const fileName = `${this.formatDate(new Date(), this.settings.dailyNoteFormat)}.md`;
         const filePath = `${folderPath}/${fileName}`;
 
-        // Ensure nested folder exists
         const parts = folderPath.split('/').filter(Boolean);
         let currentPath = '';
         for (const part of parts) {
@@ -264,13 +321,11 @@ export default class NovaJournalPlugin extends Plugin {
         try {
             const content = await this.app.vault.read(file);
             const lines = content.split(/\r?\n/);
-            // Remove date heading lines like '#2025-08-11' or '## 2025-08-11' wherever they appear
             const dateHeadingRegex = /^#{1,6}\s*\d{4}-\d{2}-\d{2}\s*$/;
             const filtered: string[] = [];
             for (let i = 0; i < lines.length; i += 1) {
                 const line = lines[i];
                 if (dateHeadingRegex.test(line.trim())) {
-                    // skip this line; also skip one following blank line if present
                     if (i + 1 < lines.length && lines[i + 1].trim() === '') {
                         i += 1;
                     }
@@ -300,7 +355,6 @@ export default class NovaJournalPlugin extends Plugin {
                     rangesToDelete.push({ from, to });
                 }
             }
-            // Delete from bottom to top so line indices remain valid
             for (let i = rangesToDelete.length - 1; i >= 0; i -= 1) {
                 const r = rangesToDelete[i];
                 editor.replaceRange('', r.from, r.to);

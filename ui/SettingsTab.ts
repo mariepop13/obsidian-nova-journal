@@ -173,6 +173,24 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             this.plugin.settings.deepenButtonLabel = v || 'Explore more';
             await this.plugin.saveSettings();
           }));
+
+      new Setting(containerEl)
+        .setName('Display name')
+        .setDesc('Used in conversation blocks (e.g., “Name (you): …”)')
+        .addText(t => t.setValue(this.plugin.settings.userName)
+          .onChange(async (v) => {
+            this.plugin.settings.userName = v || 'You';
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('AI debug logs')
+        .setDesc('Print request/response status to console')
+        .addToggle(t => t.setValue(this.plugin.settings.aiDebug)
+          .onChange(async (v) => {
+            this.plugin.settings.aiDebug = v;
+            await this.plugin.saveSettings();
+          }));
     }
   }
 }
