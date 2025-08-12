@@ -201,9 +201,10 @@ export default class NovaJournalPlugin extends Plugin {
             const analysis = await this.moodAnalysisService.analyzeCurrentNoteContent(noteText);
             if (!analysis) return;
 
-            // Parse lightweight properties from analysis
-            const props = this.parseSimpleMoodProperties(analysis);
-            this.upsertFrontmatter(editor, props);
+            let props: Record<string, any> = {};
+            try { props = JSON.parse(analysis); } catch {}
+            const cleaned = this.normalizeMoodProps(props);
+            this.upsertFrontmatter(editor, cleaned);
             new Notice('Mood properties updated.');
         } catch (error) {
             console.error('Mood analysis error:', error);
@@ -211,25 +212,24 @@ export default class NovaJournalPlugin extends Plugin {
         }
     }
 
-    private parseSimpleMoodProperties(text: string): Record<string, string> {
-        const out: Record<string, string> = {};
-        const lower = text.toLowerCase();
-        if (/\bmood\b.*?(reflective|calm|anxious|happy|sad|stressed|proud|grateful)/i.test(text)) {
-            const m = text.match(/\bmood\b.*?(reflective|calm|anxious|happy|sad|stressed|proud|grateful)/i);
-            if (m) out['mood'] = m[1];
-        }
-        if (/\btone\b.*?(positive|neutral|negative|supportive|encouraging)/i.test(lower)) {
-            const m = lower.match(/\btone\b.*?(positive|neutral|negative|supportive|encouraging)/i);
-            if (m) out['mood_tone'] = m[1];
-        }
-        if (/\benergy\b.*?(\d{1,2})\s*\/\s*10/i.test(text)) {
-            const m = text.match(/\benergy\b.*?(\d{1,2})\s*\/\s*10/i);
-            if (m) out['energy'] = m[1];
-        }
-        return out;
+    private normalizeMoodProps(input: Record<string, any>): Record<string, any> {
+        const moodEmoji = typeof input?.mood_emoji === 'string' && input.mood_emoji.trim().length > 0 ? input.mood_emoji.trim() : '😐';
+        const sentiment = ['positive','neutral','negative'].includes((input?.sentiment || '').toLowerCase()) ? String(input.sentiment).toLowerCase() : 'neutral';
+        const dominants = Array.isArray(input?.dominant_emotions) ? input.dominant_emotions.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.toLowerCase()) : [];
+        const tags = Array.isArray(input?.tags) ? input.tags.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.toLowerCase()) : [];
+        const peopleRaw = Array.isArray(input?.people_present) ? input.people_present.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.toLowerCase()) : [];
+        const excludeNames = new Set<string>(['nova', 'ai', 'assistant', (this.settings.userName || 'you').toLowerCase(), 'you', 'me']);
+        const people = peopleRaw.filter(p => !excludeNames.has(p));
+        return {
+            mood_emoji: [moodEmoji],
+            sentiment: [sentiment],
+            dominant_emotions: dominants.slice(0, 5),
+            tags: tags.slice(0, 8),
+            people_present: people.slice(0, 10)
+        };
     }
 
-    private upsertFrontmatter(editor: Editor, data: Record<string, string>): void {
+    private upsertFrontmatter(editor: Editor, data: Record<string, any>): void {
         const content = editor.getValue();
         const lines = content.split('\n');
         let start = -1, end = -1;
@@ -237,9 +237,18 @@ export default class NovaJournalPlugin extends Plugin {
             start = 0;
             end = lines.findIndex((l, idx) => idx > 0 && l === '---');
         }
-        const kv = Object.entries(data)
-            .filter(([_, v]) => v != null && v !== '')
-            .map(([k, v]) => `${k}: ${v}`);
+        const serialize = (k: string, v: any): string => {
+            if (Array.isArray(v)) {
+                const items = v.map(s => `"${String(s).replace(/"/g, '\\"')}"`).join(', ');
+                return `${k}: [${items}]`;
+            }
+            const val = String(v);
+            return `${k}: ["${val.replace(/"/g, '\\"')}"]`;
+        };
+        const order = ['mood_emoji','sentiment','dominant_emotions','tags','people_present'];
+        const kv = order
+            .filter(k => data[k] != null)
+            .map(k => serialize(k, data[k]));
         if (kv.length === 0) return;
 
         if (start === 0 && end > 0) {

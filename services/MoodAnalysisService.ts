@@ -24,14 +24,17 @@ export class MoodAnalysisService {
       return null;
     }
 
-    const systemPrompt = `You are an empathetic journaling coach. Given the full note content, analyze mood, tone, energy, and recurring themes. Be concise, specific, and actionable. Use short paragraphs and bullet points when helpful.`;
-    const userPrompt = `Analyze my current note. Identify:
-1) Overall mood and tone
-2) Notable emotions and triggers
-3) Positive reinforcers
-4) Gentle suggestions or next steps
+    const systemPrompt = `You analyze a journaling note and return ONLY a compact JSON object with these keys and constraints:
+{
+  "mood_emoji": string,               // a single emoji representing mood, e.g. "😊" or "😐"
+  "sentiment": "positive"|"neutral"|"negative",
+  "dominant_emotions": string[],      // 1-5 primary emotions in lowercase, e.g. ["pride","calm"]
+  "tags": string[],                   // 1-8 high-level tags, lowercase single words, e.g. ["work","sleep"]
+  "people_present": string[]          // names or roles present, lowercase, e.g. ["partner","team"]
+}
+Do not add any extra text before or after the JSON. If uncertain, leave arrays empty and mood_emoji to "😐".`;
 
-Note content:
+    const userPrompt = `Note content:
 ${noteText}`;
 
     try {
