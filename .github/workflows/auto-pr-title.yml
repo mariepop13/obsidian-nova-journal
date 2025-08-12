@@ -1,9 +1,13 @@
-name: Auto PR title/body
+name: Auto PR title/body + labels
 on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 
@@ -17,7 +21,78 @@ jobs:
         with:
           script: |
             const {owner, repo, number} = context.issue;
-            const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const prNumber = context.payload?.pull_request?.number || context.payload?.issue?.number || number;
+            core.info(`Event: ${context.eventName}; Action: ${context.payload?.action || ''}; PR #: ${prNumber}`);
+            if (!prNumber) {
+              core.warning('No PR number resolved from context; skipping.');
+              return;
+            }
+            const isIssueComment = context.eventName === 'issue_comment' && !!context.payload?.issue?.pull_request;
+            const commentBody = (context.payload?.comment?.body || '').trim();
+            const commenterAssoc = context.payload?.comment?.author_association || '';
+            const commenterAllowed = ['MEMBER','OWNER','COLLABORATOR'].includes(commenterAssoc);
+
+            async function addLabels(labels) {
+              if (!labels || labels.length === 0) return;
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
+            }
+
+            async function removeLabels(names) {
+              if (!names || names.length === 0) return;
+              for (const name of names) {
+                try {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name });
+                } catch (e) {
+                  core.warning(`Could not remove label "${name}": ${e.message}`);
+                }
+              }
+            }
+
+            // Handle comment commands for labels
+            if (isIssueComment && commentBody) {
+              if (!commenterAllowed) {
+                core.info(`Skip label mutation from non-member commenter: ${commenterAssoc}`);
+                return;
+              }
+              // /needs-review
+              if (/^\s*\/needs-review\b/i.test(commentBody)) {
+                await addLabels(['needs-review']);
+                return;
+              }
+              // /labels a,b;c
+              const mAdd = commentBody.match(/^\s*\/labels?\s*[:\s]+(.+)$/i);
+              if (mAdd && mAdd[1]) {
+                const list = mAdd[1].split(/[;,]/).map(s => s.trim()).filter(Boolean);
+                if (list.length) await addLabels(list);
+                return;
+              }
+              // /remove-label a,b
+              const mRemove = commentBody.match(/^\s*\/remove-label\s+(.+)$/i);
+              if (mRemove && mRemove[1]) {
+                const list = mRemove[1].split(/[;,]/).map(s => s.trim()).filter(Boolean);
+                if (list.length) await removeLabels(list);
+                return;
+              }
+              // /relabel or /generate_labels -> fall through to heuristic labeling below
+              if (!/^\s*\/(relabel|generate_labels)\b/i.test(commentBody)) {
+                // No recognized command; do nothing
+                return;
+              }
+            }
+            // 1) Add a fixed label when the PR becomes "Ready for review"
+            if (context.payload?.action === 'ready_for_review') {
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  labels: ['needs-review'],
+                });
+              } catch (e) {
+                core.warning(`Could not add 'needs-review' label: ${e.message}`);
+              }
+            }
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
 
             const ref = pr.data.head.ref || '';
             const [prefix, ...rest] = ref.split('/');
@@ -29,14 +104,14 @@ jobs:
               const subject = rest.join('/').replace(/[-_]/g, ' ');
               title = `${map[prefix]}: ${subject}`;
             } else {
-              const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+              const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
               const first = commits.find(c => !c.commit.message.startsWith('Merge'));
               title = first ? first.commit.message.split('\n')[0] : 'chore: update';
             }
-            await github.rest.pulls.update({ owner, repo, pull_number: number, title });
+            await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title });
 
             // Build an auto body from commits and files
-            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
             const sanitizeSubject = (s) => s
               .replace(/^[:*_~`\s\p{Emoji_Presentation}\p{Extended_Pictographic}]+/u, '')
               .replace(/^(feat|fix|refactor|chore|docs|test|build|ci)(\([^)]*\))?:\s*/i, '')
@@ -47,7 +122,7 @@ jobs:
               .filter(s => s && !s.startsWith('Merge'))
               .slice(0, 30);
 
-            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: prNumber });
             const areas = new Map();
             let additions = 0, deletions = 0, changes = 0;
             for (const f of files) {
@@ -114,30 +189,6 @@ jobs:
 
             const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
 
-            // Compute checklist dynamically using Actions runs for this PR commit
-            let buildOk = false;
-            let buildReason = 'n/a';
-            try {
-              const headSha = pr.data.head.sha;
-              const runsResp = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, event: 'pull_request', per_page: 100 });
-              const relevant = (runsResp.data.workflow_runs || [])
-                .filter(r => r.head_sha === headSha)
-                .filter(r => !['Auto PR title/body', 'PR Agent'].includes(r.name || ''));
-
-              if (relevant.length > 0) {
-                const failed = relevant.filter(r => r.status === 'completed' && r.conclusion !== 'success').map(r => r.name);
-                const pending = relevant.filter(r => r.status !== 'completed').map(r => r.name);
-                buildOk = failed.length === 0 && pending.length === 0;
-                if (!buildOk) {
-                  if (failed.length > 0) buildReason = `failed: ${failed.join(', ')}`;
-                  else if (pending.length > 0) buildReason = `pending: ${pending.join(', ')}`;
-                } else {
-                  buildReason = '';
-                }
-              }
-            } catch (e) {
-              // ignore if actions API not available
-            }
             const CHANGE_LIMIT = 500;
             const FILE_LIMIT = 20;
             const scopeOk = changes <= CHANGE_LIMIT && files.length <= FILE_LIMIT;
@@ -145,7 +196,7 @@ jobs:
             if (changes > CHANGE_LIMIT) scopeReasons.push(`${changes} changes > ${CHANGE_LIMIT}`);
             if (files.length > FILE_LIMIT) scopeReasons.push(`${files.length} files > ${FILE_LIMIT}`);
             const scopeReason = scopeReasons.join('; ');
-            const checklist = `- [${buildOk ? 'x' : ' '}] Build passes${buildOk ? '' : ` – ${buildReason}`}\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused${scopeOk ? '' : ` – ${scopeReason}`}`;
+            const checklist = `- [${scopeOk ? 'x' : ' '}] Scope is small and focused${scopeOk ? '' : ` – ${scopeReason}`}`;
 
             const aiFirstLine = (aiSummary || '').split('\n').find(l => l.trim().length > 0) || '';
             const summaryLine = aiFirstLine || (subjects[0] ? subjects[0] : title);
@@ -153,20 +204,75 @@ jobs:
             // Risk heuristic
             const risk = (changes > 800 || files.length > 30) ? 'High' : (changes > 400 || files.length > 15) ? 'Medium' : 'Low';
 
-            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Build: npm run build (CI)\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
-            await github.rest.pulls.update({ owner, repo, pull_number: number, body });
+            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
+            await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body });
 
-            // Auto label based on branch prefix
-            const labels = [];
-            if (prefix === 'feature') labels.push('Enhancement');
-            if (prefix === 'fix' || prefix === 'hotfix') labels.push('Bug');
-            if (prefix === 'chore') labels.push('Chore');
-            if (prefix === 'refactor') labels.push('Refactor');
-            if (labels.length) {
+            // Auto labels (default GitHub names + review effort)
+            const labelSet = new Set();
+
+            // Prefix-based labels
+            if (prefix === 'feature') labelSet.add('enhancement');
+            if (prefix === 'fix' || prefix === 'hotfix') labelSet.add('bug');
+            if (prefix === 'docs') labelSet.add('documentation');
+            if (prefix === 'chore') labelSet.add('chore');
+            if (prefix === 'refactor') labelSet.add('refactor');
+
+            // File-based heuristics
+            const mdCount = files.filter(f => (f.filename || '').toLowerCase().endsWith('.md')).length;
+            const docsFolderCount = files.filter(f => (f.filename || '').toLowerCase().startsWith('docs/')).length;
+            if ((mdCount + docsFolderCount) > 0) labelSet.add('documentation');
+
+            // Review effort label based on diff size
+            const effort = changes > 800 ? 5 : changes > 400 ? 4 : changes > 200 ? 3 : changes > 100 ? 2 : 1;
+            const effortLabel = `Review effort ${effort}/5`;
+            labelSet.add(effortLabel);
+
+            // Ensure one mandatory category label is always applied
+            const mandatoryCategories = ['bug', 'documentation', 'enhancement', 'chore', 'refactor'];
+            const hasCategory = mandatoryCategories.some(c => labelSet.has(c));
+            if (!hasCategory) {
+              // Fallback default if no category matched heuristics
+              labelSet.add('enhancement');
+            }
+
+            // Ensure labels exist (create if missing)
+            async function ensureLabel(name, color = 'a371f7', description = '') {
               try {
-                await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels });
+                await github.rest.issues.getLabel({ owner, repo, name });
               } catch (e) {
-                core.warning(`Could not add labels: ${e.message}`);
+                if (e.status === 404) {
+                  try {
+                    await github.rest.issues.createLabel({ owner, repo, name, color, description });
+                  } catch (e2) {
+                    core.warning(`Could not create label "${name}": ${e2.message}`);
+                  }
+                } else {
+                  core.warning(`Get label failed for "${name}": ${e.message}`);
+                }
               }
+            }
+            // Proactively ensure common labels
+            await Promise.all([
+              ensureLabel('bug', 'd73a4a', 'Something isn\'t working'),
+              ensureLabel('documentation', '0075ca', 'Improvements or additions to documentation'),
+              ensureLabel('enhancement', 'a2eeef', 'New feature or request'),
+              ensureLabel('chore', 'ededed', 'Chore or maintenance'),
+              ensureLabel('refactor', '0366d6', 'Code refactor'),
+              ensureLabel('needs-review', '0e8a16', 'Ready for review'),
+              ensureLabel(effortLabel, 'a371f7', 'Estimated review effort')
+            ]);
+
+            // Apply labels
+            try {
+              const labels = Array.from(labelSet);
+              if (labels.length) {
+                core.info(`Applying labels: ${labels.join(', ')}`);
+                await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
+                core.info('Labels added successfully');
+              } else {
+                core.info('No labels to add');
+              }
+            } catch (e) {
+              core.warning(`Could not add labels: ${e.message}`);
             }
 
