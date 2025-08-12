@@ -7,25 +7,49 @@ output_relevant_configurations = true
 verbosity_level = 2
 
 [github_action_config]
+# AUTOMATISATION COMPLÈTE : Review + Improve + Describe
 auto_review = true
 auto_describe = true  
 auto_improve = true
+# Force l'exécution même si la PR est en draft
+enable_auto_approval = false
+# S'assurer que les actions se déclenchent sur tous les événements PR
+trigger_on_pr_opened = true
+trigger_on_pr_updated = true
 
 [pr_reviewer]
+# Configuration pour des reviews approfondis
 inline_comments = true
-num_code_suggestions = 6
-require_score_review = false
-require_tests_review = false
-require_focused_review = false
+num_code_suggestions = 8
+require_score_review = true
+require_tests_review = true
+require_focused_review = true
+require_can_be_split_review = true
+require_security_review = true
 enable_help_text = true
-extra_instructions = "Focus on TypeScript best practices, Obsidian plugin conventions, and code quality. Look for potential bugs, security issues (sensitive data logging, regex escaping), variable shadowing, and suggest improvements. Prioritize security and maintainability."
+# Instructions spécifiques pour votre projet Obsidian
+extra_instructions = "Focus on TypeScript best practices, Obsidian plugin conventions, and code quality. Look for potential bugs, security issues (sensitive data logging, regex escaping), variable shadowing, and suggest improvements. Prioritize security and maintainability. Always provide actionable feedback with specific line references."
 
 [pr_description]
+# Description automatique améliorée
 generate_ai_title = true
 add_labels = true
 enable_semantic_files_types = true
-extra_instructions = "Create clear, concise descriptions focusing on what changed and why. Highlight security fixes and code quality improvements."
+use_bullet_points = true
+include_generated_by_header = true
+extra_instructions = "Create clear, concise descriptions focusing on what changed and why. Highlight security fixes and code quality improvements. Use bullet points for better readability."
 
 [pr_code_suggestions]
-num_code_suggestions = 4
-extra_instructions = "Suggest improvements for code readability, performance, maintainability, and security following clean code principles. Check for proper error handling, regex escaping, and avoid sensitive data exposure."
+# Suggestions d'amélioration automatiques
+num_code_suggestions = 6
+commitable_code_suggestions = true
+# Suggestions plus détaillées
+extra_instructions = "Suggest improvements for code readability, performance, maintainability, and security following clean code principles. Check for proper error handling, regex escaping, and avoid sensitive data exposure. Provide complete, ready-to-apply code suggestions."
+
+[pr_improve_code]
+# Configuration pour /improve automatique
+auto_improve = true
+num_code_suggestions = 6
+rank_suggestions = true
+# Focus sur les améliorations de qualité
+extra_instructions = "Focus on architectural improvements, design patterns, error handling, and code maintainability. Suggest refactoring opportunities and performance optimizations."
