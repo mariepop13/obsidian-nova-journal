@@ -363,10 +363,7 @@ export default class NovaJournalPlugin extends Plugin {
         if (existing instanceof TFile) {
             return existing;
         }
-        const maybeHeader = this.settings.addDateHeading
-            ? `# ${this.formatDate(new Date(), this.settings.dailyNoteFormat)}\n\n`
-            : '';
-        const created = await this.app.vault.create(filePath, maybeHeader);
+        const created = await this.app.vault.create(filePath, '');
         return created as TFile;
     }
 

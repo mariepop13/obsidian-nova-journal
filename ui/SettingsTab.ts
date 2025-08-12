@@ -26,8 +26,8 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       }));
 
     new Setting(containerEl)
-      .setName('Prompt style')
-      .setDesc('Select the style of prompt to insert for today.')
+      .setName('Daily prompt style')
+      .setDesc('Select the style of the daily prompt.')
       .addDropdown((dropdown: DropdownComponent) => {
         dropdown.addOptions({ reflective: 'Reflective', gratitude: 'Gratitude', planning: 'Planning' });
         dropdown.setValue(this.plugin.settings.promptStyle);
@@ -38,7 +38,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName('Insert location')
+      .setName('Insert at')
       .setDesc('Where to insert the prompt in the daily note.')
       .addDropdown((dropdown: DropdownComponent) => {
         dropdown.addOptions({ cursor: 'Cursor', top: 'Top', bottom: 'Bottom' });
@@ -61,16 +61,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl)
-      .setName('Add date heading at top of note')
-      .setDesc('Insert a date heading as first line of the daily note.')
-      .addToggle((toggle: ToggleComponent) => {
-        toggle.setValue(this.plugin.settings.addDateHeading);
-        toggle.onChange(async (value) => {
-          this.plugin.settings.addDateHeading = value;
-          await this.plugin.saveSettings();
-        });
-      });
+    // Removed deprecated "Add date heading at top of note"
 
     new Setting(containerEl)
       .setName('Prevent duplicate prompt for today')
@@ -85,7 +76,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.addSectionHeading) {
       new Setting(containerEl)
-        .setName('Section heading text')
+        .setName('Section heading')
         .addText((text: TextComponent) => {
           text.setPlaceholder('## Prompt')
             .setValue(this.plugin.settings.sectionHeading)
@@ -110,14 +101,14 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Daily note file format')
-      .setDesc('Filename format (limited support): e.g., YYYY-MM-DD')
-      .addText((text: TextComponent) => {
-        text.setPlaceholder('YYYY-MM-DD')
-          .setValue(this.plugin.settings.dailyNoteFormat)
-          .onChange(async (value) => {
-            this.plugin.settings.dailyNoteFormat = value || 'YYYY-MM-DD';
-            await this.plugin.saveSettings();
-          });
+      .setDesc('Filename format for daily notes')
+      .addDropdown((dropdown: DropdownComponent) => {
+        dropdown.addOptions({ 'YYYY-MM-DD': 'YYYY-MM-DD', 'YYYY-MM-DD_HH-mm': 'YYYY-MM-DD_HH-mm' });
+        dropdown.setValue(this.plugin.settings.dailyNoteFormat);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.dailyNoteFormat = value || 'YYYY-MM-DD';
+          await this.plugin.saveSettings();
+        });
       });
 
     new Setting(containerEl)
@@ -134,7 +125,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         ta.inputEl.rows = 4;
       });
 
-    containerEl.createEl('h3', { text: 'AI (optional)' });
+    containerEl.createEl('h3', { text: 'AI (OpenAI only, optional)' });
 
     new Setting(containerEl)
       .setName('Enable AI')
@@ -146,8 +137,8 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.aiEnabled) {
       new Setting(containerEl)
-        .setName('API Key')
-        .setDesc('Stored locally in plugin settings')
+        .setName('OpenAI API Key')
+        .setDesc('Stored locally. Only OpenAI is supported for now.')
         .addText(t => t.setPlaceholder('sk-...')
           .setValue(this.plugin.settings.aiApiKey)
           .onChange(async (v) => {
@@ -156,7 +147,8 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('Model')
+        .setName('OpenAI model')
+        .setDesc('e.g., gpt-5-mini. Only OpenAI models are supported for now.')
         .addText(t => t.setPlaceholder('gpt-5-mini')
           .setValue(this.plugin.settings.aiModel)
           .onChange(async (v) => {
@@ -165,8 +157,8 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('Fallback model')
-        .setDesc('Optional model used if the primary model fails')
+        .setName('Fallback OpenAI model')
+        .setDesc('Optional. Used if the primary OpenAI model fails.')
         .addText(t => t.setPlaceholder('gpt-4o-mini')
           .setValue(this.plugin.settings.aiFallbackModel || '')
           .onChange(async (v) => {
@@ -186,7 +178,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         });
 
       new Setting(containerEl)
-        .setName('Deepen button label')
+        .setName('Explore link label')
         .setDesc('Shown under your last line, e.g., “Explore more”')
         .addText(t => t.setValue(this.plugin.settings.deepenButtonLabel)
           .onChange(async (v) => {
@@ -195,7 +187,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('Display name')
+        .setName('Your display name')
         .setDesc('Used in conversation blocks (e.g., “Name (you): …”)')
         .addText(t => t.setValue(this.plugin.settings.userName)
           .onChange(async (v) => {
@@ -215,11 +207,11 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName('Max tokens')
         .setDesc('Upper bound on AI response tokens')
-        .addText(t => t.setPlaceholder('512')
+        .addText(t => t.setPlaceholder('256')
           .setValue(String(this.plugin.settings.aiMaxTokens))
           .onChange(async (v) => {
             const n = Number(v);
-            this.plugin.settings.aiMaxTokens = Number.isFinite(n) && n > 0 ? n : 512;
+            this.plugin.settings.aiMaxTokens = Number.isFinite(n) && n > 0 ? n : 256;
             await this.plugin.saveSettings();
           }));
 
