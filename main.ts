@@ -61,10 +61,33 @@ export default class NovaJournalPlugin extends Plugin {
                 });
             });
         });
+        this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
+            const t = evt.target as HTMLElement;
+            const a = t.closest('a.nova-deepen') as HTMLAnchorElement | null;
+            if (!a) return;
+            evt.preventDefault();
+            const scope = a.getAttribute('data-scope') || '';
+            const label = a.textContent || this.settings.deepenButtonLabel;
+            const lineAttr = a.getAttribute('data-line');
+            const line = lineAttr ? Number(lineAttr) : undefined;
+            if (scope === 'note' || line === undefined) {
+                this.deepenWholeNote(label).catch(console.error);
+            } else {
+                this.deepenLastLine(line).catch(console.error);
+            }
+        });
     }
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        if (!this.settings.promptTemplate || this.settings.promptTemplate.trim().length === 0) {
+            this.settings.promptTemplate = DEFAULT_SETTINGS.promptTemplate;
+            await this.saveSettings();
+        } else if (!/nova-deepen/.test(this.settings.promptTemplate)) {
+            const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope="note"' : 'data-line="0"';
+            this.settings.promptTemplate = `${this.settings.promptTemplate.trim()}\n<a href="#" class="nova-deepen" ${scopeAttr}>${this.settings.deepenButtonLabel}</a>`;
+            await this.saveSettings();
+        }
     }
 
     private async deepenLastLine(targetLine?: number): Promise<void> {
@@ -83,7 +106,7 @@ export default class NovaJournalPlugin extends Plugin {
         let buttonLine: number | null = null;
 
         if (typeof targetLine === 'number') {
-            const pattern = new RegExp(`^<button class=\\"nova-deepen\\" data-line=\\"${line}\\">.*<\\/button>$`);
+            const pattern = new RegExp(`^<a[^>]*class=\\"nova-deepen\\"[^>]*data-line=\\"${line}\\"[^>]*>.*<\\/a>$`);
             for (let i = line + 1; i <= editor.lastLine(); i += 1) {
                 const t = editor.getLine(i).trim();
                 if (pattern.test(t)) { buttonLine = i; break; }
@@ -103,8 +126,9 @@ export default class NovaJournalPlugin extends Plugin {
         if (typeof targetLine === 'number') {
             try {
                 const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
-                const answerPos = { line: buttonLine!, ch: 0 };
-                editor.replaceRange(`Nova: ${ai}\n`, answerPos);
+                const answerLine = buttonLine!;
+                editor.replaceRange(`Nova: \n`, { line: answerLine, ch: 0 });
+                await this.typewriterInsert(editor, answerLine, 'Nova: ', ai);
             } catch (e) {
                 console.error(e);
                 new Notice('Nova Journal: AI request failed.');
@@ -112,10 +136,25 @@ export default class NovaJournalPlugin extends Plugin {
         } else {
             try {
                 const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
-                const answerPos = { line: line + 1, ch: 0 };
-            const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope=\\"note\\"' : `data-line=\\"${line}\\"`;
-            const block = `Nova: ${ai}\n<a href=\"#\" class=\"nova-deepen\" ${scopeAttr}>${this.settings.deepenButtonLabel}</a>\n`;
-                editor.replaceRange(block, answerPos);
+                const linesCount = editor.lastLine();
+                let anchorLine: number | null = null;
+                const anchorRegex = /<a[^>]*class=\"nova-deepen\"[^>]*>/;
+                for (let i = line + 1; i <= linesCount; i += 1) {
+                    const t = editor.getLine(i);
+                    if (anchorRegex.test(t)) { anchorLine = i; break; }
+                    if (/^[^\s].*:/.test(t)) break;
+                }
+                if (anchorLine !== null) {
+                    editor.replaceRange(`Nova: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
+                    await this.typewriterInsert(editor, anchorLine, 'Nova: ', ai);
+                    const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope="note"' : `data-line="${line}"`;
+                    editor.replaceRange(`\n<a href="#" class="nova-deepen" ${scopeAttr}>${this.settings.deepenButtonLabel}</a>\n`, { line: anchorLine + 1, ch: 0 });
+                } else {
+                    const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope="note"' : `data-line="${line}"`;
+                    editor.replaceRange(`Nova: \n`, { line: line + 1, ch: 0 });
+                    await this.typewriterInsert(editor, line + 1, 'Nova: ', ai);
+                    editor.replaceRange(`\n<a href="#" class="nova-deepen" ${scopeAttr}>${this.settings.deepenButtonLabel}</a>\n`, { line: line + 2, ch: 0 });
+                }
             } catch (e) {
                 console.error(e);
                 new Notice('Nova Journal: AI request failed.');
@@ -136,14 +175,39 @@ export default class NovaJournalPlugin extends Plugin {
         try {
             const system = `${this.settings.aiSystemPrompt}\nYou see the entire note context.`;
             const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, system, content);
-            const block = `Nova: ${ai}\n<button class=\"nova-deepen\" data-scope=\"note\">${label}</button>\n`;
-            const to = { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length };
-            const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
-            editor.replaceRange(`${needsBreak}${block}`, to);
+            const linesCount = editor.lastLine();
+            let anchorLine: number | null = null;
+            for (let i = 0; i <= linesCount; i += 1) {
+                const t = editor.getLine(i);
+                if (/<a[^>]*class=\"nova-deepen\"[^>]*data-scope=\"note\"/.test(t)) { anchorLine = i; break; }
+            }
+            if (anchorLine !== null) {
+                editor.replaceRange(`Nova: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
+                await this.typewriterInsert(editor, anchorLine, 'Nova: ', ai);
+                editor.replaceRange(`\n<a href="#" class="nova-deepen" data-scope="note">${label}</a>\n`, { line: anchorLine + 1, ch: 0 });
+            } else {
+                const to = { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length };
+                const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
+                editor.replaceRange(`${needsBreak}Nova: \n`, to);
+                const answerLine = editor.lastLine();
+                await this.typewriterInsert(editor, answerLine, 'Nova: ', ai);
+                editor.replaceRange(`\n<a href="#" class="nova-deepen" data-scope="note">${label}</a>\n`, { line: answerLine + 1, ch: 0 });
+            }
         } catch (e) {
             console.error(e);
             new Notice('Nova Journal: AI request failed.');
         }
+    }
+
+    private async typewriterInsert(editor: Editor, line: number, prefix: string, text: string): Promise<void> {
+        const words = text.split(/\s+/).filter(Boolean);
+        let current = prefix;
+        for (let i = 0; i < words.length; i += 1) {
+            current += (i === 0 ? '' : ' ') + words[i];
+            editor.replaceRange(current, { line, ch: 0 }, { line, ch: editor.getLine(line).length });
+            await new Promise(r => setTimeout(r, 20));
+        }
+        editor.replaceRange(current + '\n', { line, ch: 0 }, { line, ch: editor.getLine(line).length });
     }
     private getDeepenSource(editor: Editor, preferredLine?: number): { text: string; line: number } | null {
         if (preferredLine !== undefined) {
