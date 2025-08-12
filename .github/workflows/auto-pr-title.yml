@@ -132,17 +132,47 @@ jobs:
             const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: number, body });
 
-            // Auto label based on branch prefix
-            const labels = [];
-            if (prefix === 'feature') labels.push('Enhancement');
-            if (prefix === 'fix' || prefix === 'hotfix') labels.push('Bug');
-            if (prefix === 'chore') labels.push('Chore');
-            if (prefix === 'refactor') labels.push('Refactor');
-            if (labels.length) {
+            // Auto labels (default GitHub names + review effort)
+            const labelSet = new Set();
+
+            // Prefix-based labels
+            if (prefix === 'feature') labelSet.add('enhancement');
+            if (prefix === 'fix' || prefix === 'hotfix') labelSet.add('bug');
+            if (prefix === 'docs') labelSet.add('documentation');
+            if (prefix === 'chore') labelSet.add('chore');
+            if (prefix === 'refactor') labelSet.add('refactor');
+
+            // File-based heuristics
+            const mdCount = files.filter(f => (f.filename || '').toLowerCase().endsWith('.md')).length;
+            const docsFolderCount = files.filter(f => (f.filename || '').toLowerCase().startsWith('docs/')).length;
+            if ((mdCount + docsFolderCount) > 0) labelSet.add('documentation');
+
+            // Review effort label based on diff size
+            const effort = changes > 800 ? 5 : changes > 400 ? 4 : changes > 200 ? 3 : changes > 100 ? 2 : 1;
+            const effortLabel = `Review effort ${effort}/5`;
+            labelSet.add(effortLabel);
+
+            // Ensure effort label exists (create if missing)
+            async function ensureLabel(name, color = 'a371f7', description = '') {
               try {
-                await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels });
-              } catch (e) {
-                core.warning(`Could not add labels: ${e.message}`);
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch {
+                try {
+                  await github.rest.issues.createLabel({ owner, repo, name, color, description });
+                } catch (e2) {
+                  core.warning(`Could not create label "${name}": ${e2.message}`);
+                }
               }
+            }
+            await ensureLabel(effortLabel, 'a371f7', 'Estimated review effort');
+
+            // Apply labels
+            try {
+              const labels = Array.from(labelSet);
+              if (labels.length) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels });
+              }
+            } catch (e) {
+              core.warning(`Could not add labels: ${e.message}`);
             }
 
