@@ -5,35 +5,168 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   set-title-body:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
         with:
           script: |
             const {owner, repo, number} = context.issue;
             const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
 
-            let title = (pr.data.title || '').trim();
-            if (!title) {
-              const ref = pr.data.head.ref || '';
-              const [prefix, ...rest] = ref.split('/');
-              const map = { feature: 'feat', fix: 'fix', hotfix: 'fix', refactor: 'refactor', chore: 'chore' };
-              if (map[prefix] && rest.length) {
-                const subject = rest.join('/').replace(/[-_]/g, ' ');
-                title = `${map[prefix]}: ${subject}`;
-              } else {
-                const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
-                const first = commits.find(c => !c.commit.message.startsWith('Merge'));
-                title = first ? first.commit.message.split('\n')[0] : 'chore: update';
-              }
-              await github.rest.pulls.update({ owner, repo, pull_number: number, title });
+            const ref = pr.data.head.ref || '';
+            const [prefix, ...rest] = ref.split('/');
+            const map = { feature: 'feat', fix: 'fix', hotfix: 'fix', refactor: 'refactor', chore: 'chore' };
+
+            // Always compute a title from branch or first commit
+            let title;
+            if (map[prefix] && rest.length) {
+              const subject = rest.join('/').replace(/[-_]/g, ' ');
+              title = `${map[prefix]}: ${subject}`;
+            } else {
+              const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+              const first = commits.find(c => !c.commit.message.startsWith('Merge'));
+              title = first ? first.commit.message.split('\n')[0] : 'chore: update';
+            }
+            await github.rest.pulls.update({ owner, repo, pull_number: number, title });
+
+            // Build an auto body from commits and files
+            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+            const sanitizeSubject = (s) => s
+              .replace(/^[:*_~`\s\p{Emoji_Presentation}\p{Extended_Pictographic}]+/u, '')
+              .replace(/^(feat|fix|refactor|chore|docs|test|build|ci)(\([^)]*\))?:\s*/i, '')
+              .trim();
+            const subjects = commits
+              .map(c => (c.commit.message || '').split('\n')[0])
+              .map(sanitizeSubject)
+              .filter(s => s && !s.startsWith('Merge'))
+              .slice(0, 30);
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
+            const areas = new Map();
+            let additions = 0, deletions = 0, changes = 0;
+            for (const f of files) {
+              const top = (f.filename || '').split('/')[0] || '.';
+              areas.set(top, (areas.get(top) || 0) + 1);
+              additions += f.additions || 0;
+              deletions += f.deletions || 0;
+              changes += f.changes || 0;
+            }
+            const areaEntries = Array.from(areas.entries()).filter(([d]) => d !== '.github');
+            const areaTop = areaEntries.sort((a,b)=>b[1]-a[1]).slice(0,3).map(([d])=>d).join('; ');
+            const areaList = areaEntries.map(([d, c]) => `- ${d}: ${c} file(s)`).join('\n') || '- n/a';
+            const keyChangesList = subjects.slice(0,7).map(s => `- ${s}`).join('\n') || '- Update';
+
+            // Try AI summary (if OPENAI_KEY provided)
+            let aiSummary = '';
+            try {
+              const patches = files.map(f => (f.patch || '')).join('\n\n');
+              const patchExcerpt = patches.slice(0, 15000);
+              const fileList = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`).join('\n');
+              const commitSubjects = subjects.join('\n');
+              const prompt = `Summarize this Pull Request for changelog and reviewers. Use concise English Markdown with sections: Summary (1-2 lines), Key Changes (bullets), Risk/Impact, Testing Suggestions.\n\nBranch: ${pr.data.head.ref}\nTitle: ${title}\n\nCommits:\n${commitSubjects}\n\nFiles:\n${fileList}\n\nPatch excerpt (may be truncated):\n${patchExcerpt}`;
+
+              const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.OPENAI_KEY || ''}`,
+                },
+                body: JSON.stringify({
+                  model: 'gpt-5-mini',
+                  messages: [
+                    { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
+                    { role: 'user', content: prompt },
+                  ],
+                  temperature: 0.2,
+                  max_completion_tokens: 700,
+                }),
+              });
+              const data = await resp.json();
+              aiSummary = data?.choices?.[0]?.message?.content?.trim?.() || '';
+              // Remove outer code fences like ```markdown ... ``` if the model wrapped the whole text
+              const stripFences = (s) => {
+                if (!s) return s;
+                if (/^```[a-zA-Z]*\s*\n[\s\S]*\n```$/.test(s)) {
+                  return s.replace(/^```[^\n]*\n/, '').replace(/\n```$/, '');
+                }
+                return s;
+              };
+              aiSummary = stripFences(aiSummary);
+            } catch (e) {
+              core.warning(`AI summary failed: ${e.message}`);
             }
 
-            if (!pr.data.body || pr.data.body.trim() === '') {
-              const body = `## Summary\nShort summary of the change.\n\n## Changes\n- …\n\n## Testing\n- …\n\n## Notes\n- …\n\n## Checklist\n- [ ] Build passes\n- [ ] Scope is small and focused\n`;
-              await github.rest.pulls.update({ owner, repo, pull_number: number, body });
+            // Always include Diagram and File Walkthrough sections
+            const diagram = [
+              '```mermaid',
+              'flowchart LR',
+              '  Main["NovaJournalPlugin (main.ts)"] --> Settings["NovaJournalSettingTab (ui/SettingsTab.ts)"]',
+              '  Main --> Service["PromptService (prompt/PromptService.ts)"]',
+              '  Service --> Registry["PromptRegistry (prompt/PromptRegistry.ts)"]',
+              '```',
+            ].join('\n');
+
+            const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
+
+            // Compute checklist dynamically using Actions runs for this PR commit
+            let buildOk = false;
+            let buildReason = 'n/a';
+            try {
+              const headSha = pr.data.head.sha;
+              const runsResp = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, event: 'pull_request', per_page: 100 });
+              const relevant = (runsResp.data.workflow_runs || [])
+                .filter(r => r.head_sha === headSha)
+                .filter(r => !['Auto PR title/body', 'PR Agent'].includes(r.name || ''));
+
+              if (relevant.length > 0) {
+                const failed = relevant.filter(r => r.status === 'completed' && r.conclusion !== 'success').map(r => r.name);
+                const pending = relevant.filter(r => r.status !== 'completed').map(r => r.name);
+                buildOk = failed.length === 0 && pending.length === 0;
+                if (!buildOk) {
+                  if (failed.length > 0) buildReason = `failed: ${failed.join(', ')}`;
+                  else if (pending.length > 0) buildReason = `pending: ${pending.join(', ')}`;
+                } else {
+                  buildReason = '';
+                }
+              }
+            } catch (e) {
+              // ignore if actions API not available
+            }
+            const CHANGE_LIMIT = 500;
+            const FILE_LIMIT = 20;
+            const scopeOk = changes <= CHANGE_LIMIT && files.length <= FILE_LIMIT;
+            const scopeReasons = [];
+            if (changes > CHANGE_LIMIT) scopeReasons.push(`${changes} changes > ${CHANGE_LIMIT}`);
+            if (files.length > FILE_LIMIT) scopeReasons.push(`${files.length} files > ${FILE_LIMIT}`);
+            const scopeReason = scopeReasons.join('; ');
+            const checklist = `- [${buildOk ? 'x' : ' '}] Build passes${buildOk ? '' : ` – ${buildReason}`}\n- [${scopeOk ? 'x' : ' '}] Scope is small and focused${scopeOk ? '' : ` – ${scopeReason}`}`;
+
+            const aiFirstLine = (aiSummary || '').split('\n').find(l => l.trim().length > 0) || '';
+            const summaryLine = aiFirstLine || (subjects[0] ? subjects[0] : title);
+
+            // Risk heuristic
+            const risk = (changes > 800 || files.length > 30) ? 'High' : (changes > 400 || files.length > 15) ? 'Medium' : 'Low';
+
+            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Build: npm run build (CI)\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
+            await github.rest.pulls.update({ owner, repo, pull_number: number, body });
+
+            // Auto label based on branch prefix
+            const labels = [];
+            if (prefix === 'feature') labels.push('Enhancement');
+            if (prefix === 'fix' || prefix === 'hotfix') labels.push('Bug');
+            if (prefix === 'chore') labels.push('Chore');
+            if (prefix === 'refactor') labels.push('Refactor');
+            if (labels.length) {
+              try {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels });
+              } catch (e) {
+                core.warning(`Could not add labels: ${e.message}`);
+              }
             }
 
