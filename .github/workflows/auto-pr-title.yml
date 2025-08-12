@@ -2,6 +2,8 @@ name: Auto PR title/body + labels
 on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
   issue_comment:
     types: [created]
 permissions:
@@ -20,6 +22,11 @@ jobs:
           script: |
             const {owner, repo, number} = context.issue;
             const prNumber = context.payload?.pull_request?.number || context.payload?.issue?.number || number;
+            core.info(`Event: ${context.eventName}; Action: ${context.payload?.action || ''}; PR #: ${prNumber}`);
+            if (!prNumber) {
+              core.warning('No PR number resolved from context; skipping.');
+              return;
+            }
             const isIssueComment = context.eventName === 'issue_comment' && !!context.payload?.issue?.pull_request;
             const commentBody = (context.payload?.comment?.body || '').trim();
             const commenterAssoc = context.payload?.comment?.author_association || '';
@@ -243,6 +250,7 @@ jobs:
               ensureLabel('enhancement', 'a2eeef', 'New feature or request'),
               ensureLabel('chore', 'ededed', 'Chore or maintenance'),
               ensureLabel('refactor', '0366d6', 'Code refactor'),
+              ensureLabel('needs-review', '0e8a16', 'Ready for review'),
               ensureLabel(effortLabel, 'a371f7', 'Estimated review effort')
             ]);
 
@@ -250,7 +258,11 @@ jobs:
             try {
               const labels = Array.from(labelSet);
               if (labels.length) {
+                core.info(`Applying labels: ${labels.join(', ')}`);
                 await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
+                core.info('Labels added successfully');
+              } else {
+                core.info('No labels to add');
               }
             } catch (e) {
               core.warning(`Could not add labels: ${e.message}`);
