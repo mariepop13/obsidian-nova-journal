@@ -14,9 +14,10 @@ export function registerDeepenHandlers(
         const lineAttr = elBtn.getAttribute('data-line');
         const scope = elBtn.getAttribute('data-scope') || '';
         const label = elBtn.textContent || getLabel();
-        const line = lineAttr ? Number(lineAttr) : undefined;
-        if (scope === 'note' || line === undefined) deepenNote(label).catch(console.error);
-        else deepenLine(line).catch(console.error);
+      const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
+      const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
+      if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
+      else deepenLine(parsed as number).catch(console.error);
       });
     });
   });
@@ -29,9 +30,10 @@ export function registerDeepenHandlers(
     const scope = a.getAttribute('data-scope') || '';
     const label = a.textContent || getLabel();
     const lineAttr = a.getAttribute('data-line');
-    const line = lineAttr ? Number(lineAttr) : undefined;
-    if (scope === 'note' || line === undefined) deepenNote(label).catch(console.error);
-    else deepenLine(line).catch(console.error);
+    const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
+    const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
+    if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
+    else deepenLine(parsed as number).catch(console.error);
   });
 }
 

@@ -43,12 +43,18 @@ export function insertAtLocation(editor: Editor, text: string, location: Inserti
 export async function typewriterInsert(editor: Editor, line: number, prefix: string, text: string): Promise<void> {
   const words = text.split(/\s+/).filter(Boolean);
   let current = prefix;
+  const maxMs = 4000;
+  const stepDelay = 16;
+  const start = Date.now();
   for (let i = 0; i < words.length; i += 1) {
+    if (line > editor.lastLine() || Date.now() - start > maxMs) break;
     current += (i === 0 ? '' : ' ') + words[i];
     editor.replaceRange(current, { line, ch: 0 }, { line, ch: editor.getLine(line).length });
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, stepDelay));
   }
-  editor.replaceRange(current + '\n', { line, ch: 0 }, { line, ch: editor.getLine(line).length });
+  if (line <= editor.lastLine()) {
+    editor.replaceRange(current + '\n', { line, ch: 0 }, { line, ch: editor.getLine(line).length });
+  }
 }
 
 export function removeDateHeadingInEditor(editor: Editor): void {
