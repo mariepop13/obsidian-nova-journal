@@ -2,7 +2,7 @@ import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
 import { chat } from './ai/AiClient';
 import { PromptService } from './prompt/PromptService';
 import type { PromptStyle } from './prompt/PromptRegistry';
-import { DEFAULT_SETTINGS, NovaJournalSettings, InsertionLocation, normalizeSettings } from './settings/PluginSettings';
+import { DEFAULT_SETTINGS, NovaJournalSettings, EnhancedInsertionLocation, normalizeSettings } from './settings/PluginSettings';
 import { getDeepenSource, insertAtLocation, typewriterInsert, removeDateHeadingInEditor, generateAnchorId, removeAnchorsInBlock, insertAnchorBelow } from './services/NoteEditor';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
@@ -107,7 +107,7 @@ export default class NovaJournalPlugin extends Plugin {
                 });
                 const answerLine = buttonLine!;
                 editor.replaceRange(`**Nova**: \n`, { line: answerLine, ch: 0 });
-                await typewriterInsert(editor, answerLine, '**Nova**: ', ai);
+                await typewriterInsert(editor, answerLine, '**Nova**: ', ai, (this.settings as any).typewriterSpeed ?? 'normal');
             } catch (e) {
                 console.error(e);
                 new Notice('Nova Journal: AI request failed.');
@@ -135,13 +135,13 @@ export default class NovaJournalPlugin extends Plugin {
                 const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope="note"' : `data-line="${line}"`;
                 if (anchorLine !== null) {
                     editor.replaceRange(`**Nova**: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
-                    await typewriterInsert(editor, anchorLine, '**Nova**: ', ai);
+                    await typewriterInsert(editor, anchorLine, '**Nova**: ', ai, (this.settings as any).typewriterSpeed ?? 'normal');
                     removeAnchorsInBlock(editor, line);
                     const id = generateAnchorId();
                     insertAnchorBelow(editor, anchorLine, scopeAttr, id, this.settings.deepenButtonLabel);
                 } else {
                     editor.replaceRange(`**Nova**: \n`, { line: line + 1, ch: 0 });
-                    await typewriterInsert(editor, line + 1, '**Nova**: ', ai);
+                    await typewriterInsert(editor, line + 1, '**Nova**: ', ai, (this.settings as any).typewriterSpeed ?? 'normal');
                     removeAnchorsInBlock(editor, line);
                     const id = generateAnchorId();
                     insertAnchorBelow(editor, line + 1, scopeAttr, id, this.settings.deepenButtonLabel);
@@ -193,7 +193,7 @@ export default class NovaJournalPlugin extends Plugin {
             }
             if (anchorLine !== null) {
                 editor.replaceRange(`**Nova**: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
-                await typewriterInsert(editor, anchorLine, '**Nova**: ', ai);
+                await typewriterInsert(editor, anchorLine, '**Nova**: ', ai, (this.settings as any).typewriterSpeed ?? 'normal');
                 removeAnchorsInBlock(editor, anchorLine);
                 const id = generateAnchorId();
                 insertAnchorBelow(editor, anchorLine, 'data-scope="note"', id, label);
@@ -202,7 +202,7 @@ export default class NovaJournalPlugin extends Plugin {
                 const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
                 editor.replaceRange(`${needsBreak}**Nova**: \n`, to);
                 const answerLine = editor.lastLine();
-                await typewriterInsert(editor, answerLine, '**Nova**: ', ai);
+                await typewriterInsert(editor, answerLine, '**Nova**: ', ai, (this.settings as any).typewriterSpeed ?? 'normal');
                 removeAnchorsInBlock(editor, answerLine);
                 const id = generateAnchorId();
                 insertAnchorBelow(editor, answerLine, 'data-scope="note"', id, label);
@@ -222,7 +222,7 @@ export default class NovaJournalPlugin extends Plugin {
         try {
             const todayFile = await this.ensureTodayNote();
             await this.openFileIfNotActive(todayFile);
-            // Sanitize date headings to avoid redundancy in content
+            
             await this.removeDateHeadingIfPresent(todayFile);
 
             const view = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -238,14 +238,17 @@ export default class NovaJournalPlugin extends Plugin {
 
             if (this.settings.preventDuplicateForDay) {
                 const noteText = editor.getValue();
-                if (noteText.includes(basePrompt)) {
+                const todayMarker = `<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->`;
+                if (noteText.includes(todayMarker)) {
                     new Notice('Nova Journal: prompt for today already exists in this note.');
                     return;
                 }
             }
 
             const prompt = this.renderFinalPrompt(basePrompt, date);
-            insertAtLocation(editor, prompt, this.settings.insertLocation);
+            insertAtLocation(editor, prompt, this.settings.insertLocation as any, (this.settings as any).insertHeadingName);
+            const marker = `\n<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->\n`;
+            editor.replaceRange(marker, { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length });
             new Notice('Nova Journal: prompt inserted.');
         } catch (error) {
             console.error('Nova Journal insert error', error);
@@ -309,7 +312,7 @@ export default class NovaJournalPlugin extends Plugin {
         new Notice(`Nova Journal: style set to ${next}`);
     }
 
-    private insertAtLocation(editor: Editor, text: string, location: InsertionLocation): void {
+    private insertAtLocation(editor: Editor, text: string, location: EnhancedInsertionLocation, belowHeadingName?: string): void {
         const ensureTrailingNewline = (s: string) => (s.endsWith('\n') ? s : s + '\n');
         const block = ensureTrailingNewline(text);
 
@@ -326,6 +329,19 @@ export default class NovaJournalPlugin extends Plugin {
             const to = { line: lastLine, ch: lastLineText.length };
             editor.replaceRange(insertText, to);
             return;
+        }
+        if (location === 'below-heading') {
+            const target = (belowHeadingName || '').trim();
+            const last = editor.lastLine();
+            const headingRegex = target ? new RegExp(`^\s*#{1,6}\s*${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\s*$`) : null;
+            for (let i = 0; i <= last; i += 1) {
+                const txt = editor.getLine(i);
+                const isMatch = headingRegex ? headingRegex.test(txt.trim()) : /^\s*#{1,6}\s*.+$/.test(txt.trim());
+                if (isMatch) {
+                    editor.replaceRange(`\n${block}`, { line: i + 1, ch: 0 });
+                    return;
+                }
+            }
         }
         editor.replaceSelection(block);
     }
@@ -345,8 +361,12 @@ export default class NovaJournalPlugin extends Plugin {
     }
 
     private async ensureTodayNote(): Promise<TFile> {
-        const folderPath = (this.settings.dailyNoteFolder ?? 'Journal').trim() || 'Journal';
-        const fileName = `${this.formatDate(new Date(), this.settings.dailyNoteFormat)}.md`;
+        const baseFolder = (this.settings.dailyNoteFolder ?? 'Journal').trim() || 'Journal';
+        const now = new Date();
+        const year = this.formatDate(now, 'YYYY');
+        const month = this.formatDate(now, 'MM');
+        const folderPath = (this.settings as any).organizeByYearMonth ? `${baseFolder}/${year}/${month}` : baseFolder;
+        const fileName = `${this.formatDate(now, this.settings.dailyNoteFormat)}.md`;
         const filePath = `${folderPath}/${fileName}`;
 
         const parts = folderPath.split('/').filter(Boolean);

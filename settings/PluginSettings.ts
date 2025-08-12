@@ -1,16 +1,19 @@
 import type { PromptStyle } from '../prompt/PromptRegistry';
 
 export type InsertionLocation = 'cursor' | 'top' | 'bottom';
+export type EnhancedInsertionLocation = InsertionLocation | 'below-heading';
 
 export interface NovaJournalSettings {
   promptStyle: PromptStyle;
-  insertLocation: InsertionLocation;
+  insertLocation: EnhancedInsertionLocation;
   addSectionHeading: boolean;
   sectionHeading: string;
   dailyNoteFolder: string;
   dailyNoteFormat: string; // Limited support: YYYY-MM-DD
   promptTemplate: string; // If provided, used to render the inserted block
   preventDuplicateForDay: boolean;
+  insertHeadingName: string;
+  organizeByYearMonth: boolean;
   aiEnabled: boolean;
   aiApiKey: string;
   aiModel: string;
@@ -22,6 +25,7 @@ export interface NovaJournalSettings {
   aiMaxTokens: number;
   aiRetryCount: number;
   aiFallbackModel: string;
+  typewriterSpeed: 'slow' | 'normal' | 'fast';
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -30,9 +34,11 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   addSectionHeading: true,
   sectionHeading: '## Journal Prompt',
   dailyNoteFolder: 'Journal',
-  dailyNoteFormat: 'YYYY-MM-DD',
+  dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
   promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
   preventDuplicateForDay: true,
+  insertHeadingName: '',
+  organizeByYearMonth: false,
   aiEnabled: false,
   aiApiKey: '',
   aiModel: 'gpt-5-mini',
@@ -44,6 +50,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiMaxTokens: 256,
   aiRetryCount: 2,
   aiFallbackModel: '',
+  typewriterSpeed: 'normal',
 };
 
 export function normalizeSettings(input: NovaJournalSettings): NovaJournalSettings {
@@ -51,7 +58,8 @@ export function normalizeSettings(input: NovaJournalSettings): NovaJournalSettin
   const tpl = (s.promptTemplate || '').replace(/\s+$/, '');
   const allowedFormats = new Set(['YYYY-MM-DD', 'YYYY-MM-DD_HH-mm']);
   const dailyFmt = allowedFormats.has(s.dailyNoteFormat) ? s.dailyNoteFormat : DEFAULT_SETTINGS.dailyNoteFormat;
-  return { ...s, promptTemplate: tpl, dailyNoteFormat: dailyFmt };
+  const speed: 'slow' | 'normal' | 'fast' = (s.typewriterSpeed === 'slow' || s.typewriterSpeed === 'fast' || s.typewriterSpeed === 'normal') ? s.typewriterSpeed : DEFAULT_SETTINGS.typewriterSpeed;
+  return { ...s, promptTemplate: tpl, dailyNoteFormat: dailyFmt, typewriterSpeed: speed };
 }
 
 
