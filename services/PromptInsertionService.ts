@@ -37,13 +37,7 @@ export class PromptInsertionService {
   ): Promise<boolean> {
     if (this.settings.preventDuplicateForDay) {
       const noteText = editor.getValue();
-      const hasDuplicate = PromptRenderingService.checkForDuplicatePrompt(
-        noteText, 
-        basePrompt, 
-        date, 
-        this.settings.useDuplicateMarker !== false
-      );
-      
+      const hasDuplicate = noteText.includes(basePrompt);
       if (hasDuplicate) {
         new Notice('Nova Journal: prompt for today already exists in this note.');
         return false;
@@ -53,10 +47,6 @@ export class PromptInsertionService {
     const prompt = this.renderPrompt(basePrompt, date);
     insertAtLocation(editor, prompt, this.settings.insertLocation, this.settings.insertHeadingName);
     ensureBottomButtons(editor, this.settings.deepenButtonLabel);
-    
-    if (this.settings.useDuplicateMarker !== false) {
-      this.addDuplicateMarker(editor, date);
-    }
     
     return true;
   }
@@ -77,10 +67,5 @@ export class PromptInsertionService {
     );
   }
 
-  private addDuplicateMarker(editor: Editor, date: Date): void {
-    const marker = PromptRenderingService.generateDuplicateMarker(date);
-    const lastLine = editor.lastLine();
-    const insertPos = { line: lastLine, ch: editor.getLine(lastLine).length };
-    editor.replaceRange(marker, insertPos);
-  }
+  private addDuplicateMarker(_editor: Editor, _date: Date): void {}
 }

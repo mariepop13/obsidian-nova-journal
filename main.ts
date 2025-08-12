@@ -195,23 +195,63 @@ export default class NovaJournalPlugin extends Plugin {
                 return;
             }
 
-            new Notice('Analyzing mood data...');
-            
-            const analysis = await this.moodAnalysisService.analyzeMoodData(7);
-            
-            if (!analysis) {
-                return;
-            }
-
+            new Notice('Analyzing mood...');
             const editor = view.editor;
-            const currentPos = editor.getCursor();
-            const analysisText = `\n\n## 🔍 Mood Analysis\n\n${analysis}\n`;
-            
-            editor.replaceRange(analysisText, currentPos);
-            new Notice('Mood analysis added to note.');
+            const noteText = editor.getValue();
+            const analysis = await this.moodAnalysisService.analyzeCurrentNoteContent(noteText);
+            if (!analysis) return;
+
+            // Parse lightweight properties from analysis
+            const props = this.parseSimpleMoodProperties(analysis);
+            this.upsertFrontmatter(editor, props);
+            new Notice('Mood properties updated.');
         } catch (error) {
             console.error('Mood analysis error:', error);
             new Notice('Failed to analyze mood data.');
+        }
+    }
+
+    private parseSimpleMoodProperties(text: string): Record<string, string> {
+        const out: Record<string, string> = {};
+        const lower = text.toLowerCase();
+        if (/\bmood\b.*?(reflective|calm|anxious|happy|sad|stressed|proud|grateful)/i.test(text)) {
+            const m = text.match(/\bmood\b.*?(reflective|calm|anxious|happy|sad|stressed|proud|grateful)/i);
+            if (m) out['mood'] = m[1];
+        }
+        if (/\btone\b.*?(positive|neutral|negative|supportive|encouraging)/i.test(lower)) {
+            const m = lower.match(/\btone\b.*?(positive|neutral|negative|supportive|encouraging)/i);
+            if (m) out['mood_tone'] = m[1];
+        }
+        if (/\benergy\b.*?(\d{1,2})\s*\/\s*10/i.test(text)) {
+            const m = text.match(/\benergy\b.*?(\d{1,2})\s*\/\s*10/i);
+            if (m) out['energy'] = m[1];
+        }
+        return out;
+    }
+
+    private upsertFrontmatter(editor: Editor, data: Record<string, string>): void {
+        const content = editor.getValue();
+        const lines = content.split('\n');
+        let start = -1, end = -1;
+        if (lines[0] === '---') {
+            start = 0;
+            end = lines.findIndex((l, idx) => idx > 0 && l === '---');
+        }
+        const kv = Object.entries(data)
+            .filter(([_, v]) => v != null && v !== '')
+            .map(([k, v]) => `${k}: ${v}`);
+        if (kv.length === 0) return;
+
+        if (start === 0 && end > 0) {
+            const before = lines.slice(0, end);
+            const after = lines.slice(end);
+            const keys = new Set(kv.map(s => s.split(':')[0]!.trim()));
+            const filtered = before.filter((l, idx) => idx === 0 || !keys.has(l.split(':')[0]!.trim()));
+            const merged = [...filtered, ...kv, ...after];
+            editor.setValue(merged.join('\n'));
+        } else {
+            const header = ['---', ...kv, '---', '', content].join('\n');
+            editor.setValue(header);
         }
     }
 

@@ -147,22 +147,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         });
       });
 
-    if (this.plugin.settings.preventDuplicateForDay) {
-      new Setting(containerEl)
-        .setName('Use hidden marker for duplicate detection')
-        .setDesc('If off, fall back to content-based detection')
-        .addToggle((toggle: ToggleComponent) => {
-          toggle.setValue(this.plugin.settings.useDuplicateMarker !== false);
-          toggle.onChange(async (value) => {
-            try {
-              this.plugin.settings.useDuplicateMarker = !!value;
-              await this.plugin.saveSettings();
-            } catch (error) {
-              new Notice('Failed to save marker setting');
-            }
-          });
-        });
-    }
+    // hidden marker logic removed; duplicates use content-based detection only
   }
 
   private renderDailyNoteSettings(containerEl: HTMLElement): void {

@@ -179,10 +179,47 @@ export function ensureBottomButtons(editor: Editor, label: string): void {
     editor.replaceRange('', r.from, r.to);
   }
   const endLine = editor.lastLine();
-  const endCh = editor.getLine(endLine).length;
-  const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
-  const buttons = `${needsBreak}<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
-  editor.replaceRange(buttons, { line: endLine, ch: endCh });
+  let lastNonEmpty = -1;
+  for (let i = endLine; i >= 0; i -= 1) {
+    if (editor.getLine(i).trim().length > 0) { lastNonEmpty = i; break; }
+  }
+  const from = { line: lastNonEmpty + 1, ch: 0 };
+  const to = { line: endLine, ch: editor.getLine(endLine).length };
+  const buttons = `\n<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
+  editor.replaceRange(buttons, from, to);
+}
+
+export function ensureUserPromptLine(editor: Editor, userName: string): void {
+  const namePrefix = `**${userName || 'You'}** (you):`;
+  const last = editor.lastLine();
+  let buttonsLine: number | null = null;
+  for (let i = last; i >= 0; i -= 1) {
+    const t = editor.getLine(i).trim();
+    if (/<button[^>]*class=\"nova-deepen\"[^>]*>|<button[^>]*class=\"nova-mood-analyze\"[^>]*>/.test(t)) {
+      buttonsLine = i;
+      break;
+    }
+  }
+  if (buttonsLine !== null) {
+    let lastNonEmptyAbove = -1;
+    for (let i = buttonsLine - 1; i >= 0; i -= 1) {
+      if (editor.getLine(i).trim().length > 0) { lastNonEmptyAbove = i; break; }
+    }
+    const from = { line: lastNonEmptyAbove + 1, ch: 0 };
+    const to = { line: buttonsLine, ch: 0 };
+    const block = `\n${namePrefix} \n\n`;
+    const existingBetween = editor.getRange(from, to);
+    if (existingBetween !== block) {
+      editor.replaceRange(block, from, to);
+    }
+    return;
+  }
+  const lastText = editor.getLine(last).trim();
+  if (!lastText.startsWith(namePrefix)) {
+    const to = { line: last, ch: editor.getLine(last).length };
+    const block = `\n${namePrefix} \n`;
+    editor.replaceRange(block, to);
+  }
 }
 
 
