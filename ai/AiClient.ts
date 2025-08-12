@@ -28,10 +28,10 @@ async function callOnce(apiKey: string, modelName: string, systemPrompt: string,
     },
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) console.error('Nova AI status', resp.status, resp.statusText);
   if (!resp.ok) {
+    if (debug) console.error('Nova AI status', resp.status, resp.statusText);
     const errText = await resp.text().catch(() => '');
-    console.error('Nova AI error body', errText);
+    if (debug) console.error('Nova AI error body', errText);
     throw new Error(`AI request failed (${resp.status}): ${resp.statusText}`);
   }
   const data = await resp.json();
