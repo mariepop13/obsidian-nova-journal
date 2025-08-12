@@ -41,14 +41,31 @@ export function insertAtLocation(editor: Editor, text: string, location: Inserti
 }
 
 export async function typewriterInsert(editor: Editor, line: number, prefix: string, text: string): Promise<void> {
-  const words = text.split(/\s+/).filter(Boolean);
+  const tokens = text
+    .split(/([.!?]+|\n+)/)
+    .reduce<string[]>((acc, part) => {
+      if (!part) return acc;
+      const last = acc.length ? acc[acc.length - 1] : '';
+      if (/\n+/.test(part)) {
+        acc.push(part);
+      } else if (/[.!?]+/.test(part) && last && !/\n+/.test(last)) {
+        acc[acc.length - 1] = last + part;
+      } else {
+        acc.push(part.trim());
+      }
+      return acc;
+    }, [])
+    .filter(p => p.length > 0);
+
   let current = prefix;
   const maxMs = 4000;
-  const stepDelay = 16;
+  const stepDelay = 50;
   const start = Date.now();
-  for (let i = 0; i < words.length; i += 1) {
+  for (let i = 0; i < tokens.length; i += 1) {
     if (line > editor.lastLine() || Date.now() - start > maxMs) break;
-    current += (i === 0 ? '' : ' ') + words[i];
+    const piece = tokens[i];
+    const sep = i === 0 ? '' : (piece === '\n' ? '' : (/\n+/.test(tokens[i - 1]) ? '' : ' '));
+    current += (/\n+/.test(piece) ? piece : sep + piece);
     editor.replaceRange(current, { line, ch: 0 }, { line, ch: editor.getLine(line).length });
     await new Promise(r => setTimeout(r, stepDelay));
   }
@@ -74,6 +91,49 @@ export function removeDateHeadingInEditor(editor: Editor): void {
     const r = rangesToDelete[i];
     editor.replaceRange('', r.from, r.to);
   }
+}
+
+
+export function generateAnchorId(): string {
+  const rnd = Math.random().toString(36).slice(2, 8);
+  return `conv-${Date.now().toString(36)}-${rnd}`;
+}
+
+export function removeAnchorsInBlock(editor: Editor, startLine: number): void {
+  const last = editor.lastLine();
+  const isSpeaker = (t: string) => /^[^\s].*:\s*$/.test(t);
+  const isBlank = (t: string) => t.trim().length === 0;
+  const isAnchor = (t: string) => /<a[^>]*class=\"nova-deepen\"[^>]*>/.test(t);
+  let end = startLine;
+  let i = startLine + 1;
+  for (; i <= last; i += 1) {
+    const t = editor.getLine(i);
+    if (isBlank(t) || isSpeaker(t)) { end = i - 1; break; }
+    end = i;
+  }
+  for (; i <= last; i += 1) {
+    const t = editor.getLine(i);
+    if (isSpeaker(t)) break;
+    if (!isBlank(t)) break;
+    end = i;
+  }
+  const toDelete: { from: { line: number; ch: number }; to: { line: number; ch: number } }[] = [];
+  for (let j = startLine; j <= end; j += 1) {
+    const t = editor.getLine(j);
+    if (isAnchor(t)) {
+      toDelete.push({ from: { line: j, ch: 0 }, to: { line: j, ch: t.length } });
+    }
+  }
+  for (let k = toDelete.length - 1; k >= 0; k -= 1) {
+    const r = toDelete[k];
+    editor.replaceRange('', r.from, r.to);
+  }
+}
+
+export function insertAnchorBelow(editor: Editor, line: number, scopeAttr: string, id: string, label: string): number {
+  const markup = `\n<a href="#" class="nova-deepen" ${scopeAttr} data-id="${id}">${label}</a>\n`;
+  editor.replaceRange(markup, { line: line + 1, ch: 0 });
+  return line + 2;
 }
 
 
