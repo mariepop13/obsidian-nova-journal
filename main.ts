@@ -45,12 +45,19 @@ export default class NovaJournalPlugin extends Plugin {
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 
         this.registerMarkdownPostProcessor((el) => {
-            el.querySelectorAll('button.nova-deepen').forEach((btn) => {
+            el.querySelectorAll('a.nova-deepen').forEach((btn) => {
                 btn.addEventListener('click', (evt) => {
                     evt.preventDefault();
-                    const lineAttr = (btn as HTMLButtonElement).getAttribute('data-line');
+                    const elBtn = btn as HTMLAnchorElement;
+                    const lineAttr = elBtn.getAttribute('data-line');
+                    const scope = elBtn.getAttribute('data-scope') || '';
+                    const label = elBtn.textContent || this.settings.deepenButtonLabel;
                     const line = lineAttr ? Number(lineAttr) : undefined;
-                    this.deepenLastLine(line).catch(console.error);
+                    if (scope === 'note' || line === undefined) {
+                        this.deepenWholeNote(label).catch(console.error);
+                    } else {
+                        this.deepenLastLine(line).catch(console.error);
+                    }
                 });
             });
         });
@@ -83,7 +90,7 @@ export default class NovaJournalPlugin extends Plugin {
                 if (/^[^\s].*:/.test(t)) break;
             }
             if (buttonLine == null) {
-                editor.replaceRange(`\n<button class=\"nova-deepen\" data-line=\"${line}\">${this.settings.deepenButtonLabel}</button>\n`, { line: line + 1, ch: 0 });
+                editor.replaceRange(`\n<a href=\"#\" class=\"nova-deepen\" data-line=\"${line}\">${this.settings.deepenButtonLabel}</a>\n`, { line: line + 1, ch: 0 });
                 buttonLine = line + 2;
             }
         } else {
@@ -106,7 +113,8 @@ export default class NovaJournalPlugin extends Plugin {
             try {
                 const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
                 const answerPos = { line: line + 1, ch: 0 };
-                const block = `Nova: ${ai}\n<button class=\"nova-deepen\" data-line=\"${line}\">${this.settings.deepenButtonLabel}</button>\n`;
+            const scopeAttr = this.settings.defaultDeepenScope === 'note' ? 'data-scope=\\"note\\"' : `data-line=\\"${line}\\"`;
+            const block = `Nova: ${ai}\n<a href=\"#\" class=\"nova-deepen\" ${scopeAttr}>${this.settings.deepenButtonLabel}</a>\n`;
                 editor.replaceRange(block, answerPos);
             } catch (e) {
                 console.error(e);
@@ -115,6 +123,28 @@ export default class NovaJournalPlugin extends Plugin {
         }
     }
 
+    private async deepenWholeNote(label: string): Promise<void> {
+        if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+            new Notice('Nova Journal: enable AI and set API key in settings.');
+            return;
+        }
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) { new Notice('Nova Journal: open a note.'); return; }
+        const editor = view.editor;
+        const content = editor.getValue();
+        if (!content.trim()) { new Notice('Nova Journal: note is empty.'); return; }
+        try {
+            const system = `${this.settings.aiSystemPrompt}\nYou see the entire note context.`;
+            const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, system, content);
+            const block = `Nova: ${ai}\n<button class=\"nova-deepen\" data-scope=\"note\">${label}</button>\n`;
+            const to = { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length };
+            const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
+            editor.replaceRange(`${needsBreak}${block}`, to);
+        } catch (e) {
+            console.error(e);
+            new Notice('Nova Journal: AI request failed.');
+        }
+    }
     private getDeepenSource(editor: Editor, preferredLine?: number): { text: string; line: number } | null {
         if (preferredLine !== undefined) {
             const t = editor.getLine(preferredLine)?.trim();

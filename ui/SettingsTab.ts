@@ -191,6 +191,18 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             this.plugin.settings.aiDebug = v;
             await this.plugin.saveSettings();
           }));
+
+      new Setting(containerEl)
+        .setName('Default deepen scope')
+        .setDesc('What Explore more targets by default')
+        .addDropdown(d => {
+          d.addOptions({ line: 'Current line', note: 'Whole note' });
+          d.setValue(this.plugin.settings.defaultDeepenScope);
+          d.onChange(async (v) => {
+            this.plugin.settings.defaultDeepenScope = (v as any) || 'line';
+            await this.plugin.saveSettings();
+          });
+        });
     }
   }
 }
