@@ -33,7 +33,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   addDateHeading: false,
   dailyNoteFolder: 'Journal',
   dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
-  promptTemplate: '**Nova**: {{prompt}}\n\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
+  promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
   preventDuplicateForDay: true,
   aiEnabled: false,
   aiApiKey: '',
@@ -56,9 +56,20 @@ export function normalizeSettings(input: NovaJournalSettings): NovaJournalSettin
     const scopeAttr = s.defaultDeepenScope === 'note' ? 'data-scope="note"' : 'data-line="0"';
     tpl = `${tpl}\n\n\n<a href="#" class="nova-deepen" ${scopeAttr}>${s.deepenButtonLabel}</a>`;
   }
-  tpl = tpl.replace(/\n{1,2}(<a[^>]*class=\"nova-deepen\")/g, `\n\n\n$1`).replace(/\n{1,2}(<a[^>]*class="nova-deepen")/g, `\n\n\n$1`);
+  const hasUserLine = /\{\{\s*user_line\s*\}\}/.test(tpl);
+  if (hasUserLine) {
+    tpl = tpl.replace(/\n+(<a[^>]*class=\"nova-deepen\")/g, `\n\n$1`).replace(/\n+(<a[^>]*class="nova-deepen")/g, `\n\n$1`);
+  } else {
+    tpl = tpl.replace(/\n*(<a[^>]*class=\"nova-deepen\")/g, `\n\n$1`).replace(/\n*(<a[^>]*class="nova-deepen")/g, `\n\n$1`);
+  }
+  if (!hasUserLine) {
+    tpl = tpl.replace(/\*\*Nova\*\*:\s*\{\{\s*prompt\s*\}\}/, `**Nova**: {{prompt}}\n\n{{user_line}}`);
+  }
   if (!/\*\*Nova\*\*:\s*/.test(tpl)) {
     tpl = tpl.replace(/\{\{\s*prompt\s*\}\}/g, `**Nova**: {{prompt}}`);
+    if (!/\{\{\s*user_line\s*\}\}/.test(tpl)) {
+      tpl = tpl.replace(/\*\*Nova\*\*:\s*\{\{\s*prompt\s*\}\}/, `**Nova**: {{prompt}}\n\n{{user_line}}`);
+    }
   }
   const dailyFmt = s.dailyNoteFormat === 'YYYY-MM-DD' ? 'YYYY-MM-DD_HH-mm' : s.dailyNoteFormat;
   return { ...s, promptTemplate: tpl, dailyNoteFormat: dailyFmt };

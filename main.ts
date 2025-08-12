@@ -258,8 +258,7 @@ export default class NovaJournalPlugin extends Plugin {
             ? `${this.settings.sectionHeading}\n\n`
             : '';
 
-        const tplRaw = (this.settings.promptTemplate || '').trim();
-        const tpl = normalizeSettings({ ...this.settings, promptTemplate: tplRaw }).promptTemplate.trim();
+        const tpl = (this.settings.promptTemplate || '').trim();
         if (tpl.length > 0) {
             const rendered = this.renderTemplate(tpl, base, date);
             return `${heading}${rendered}\n`;
@@ -269,6 +268,8 @@ export default class NovaJournalPlugin extends Plugin {
 
     private renderTemplate(template: string, prompt: string, date: Date): string {
         let out = template.replace(/\{\{\s*prompt\s*\}\}/g, prompt);
+        const userLine = `**${this.settings.userName || 'You'}** (you): `;
+        out = out.replace(/\{\{\s*user_line\s*\}\}/g, userLine);
         out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, fmt) => {
             const f = typeof fmt === 'string' ? fmt.trim() : 'YYYY-MM-DD';
             return this.formatDate(date, f);
