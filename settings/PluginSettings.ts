@@ -49,11 +49,6 @@ export interface NovaJournalSettings {
   aiRetryCount: number;
   aiFallbackModel: string;
   typewriterSpeed: TypewriterSpeed;
-  moodTrackingEnabled: boolean;
-  moodPromptRequired: boolean;
-  moodDefaultEmojis: string[];
-  energyTrackingEnabled: boolean;
-  customMoodTags: string[];
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -63,7 +58,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   sectionHeading: '## Journal Prompt',
   dailyNoteFolder: 'Journal',
   dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
-  promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
+  promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<button class="nova-deepen" data-scope="note">Explore more</button> <button class="nova-mood-analyze">Analyze mood</button>',
   preventDuplicateForDay: true,
   useDuplicateMarker: true,
   insertHeadingName: '',
@@ -80,18 +75,13 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiRetryCount: RETRY_LIMITS.DEFAULT,
   aiFallbackModel: '',
   typewriterSpeed: 'normal',
-  moodTrackingEnabled: false,
-  moodPromptRequired: false,
-  moodDefaultEmojis: ['😔', '😐', '🙂', '😊', '😍'],
-  energyTrackingEnabled: false,
-  customMoodTags: ['grateful', 'anxious', 'productive', 'tired', 'excited', 'calm'],
 };
 
 export class TemplateFactory {
   private static readonly PRESETS: Record<PromptPreset, string> = {
     minimal: '{{prompt}}\n\n{{user_line}}',
-    conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
-    dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}'
+    conversation: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<button class="nova-deepen" data-scope="note">Explore more</button> <button class="nova-mood-analyze">Analyze mood</button>',
+    dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}\n\n<button class="nova-deepen" data-scope="note">Explore more</button> <button class="nova-mood-analyze">Analyze mood</button>'
   };
 
   static getPreset(type: PromptPreset): string {
