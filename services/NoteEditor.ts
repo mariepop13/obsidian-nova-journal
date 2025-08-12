@@ -41,20 +41,36 @@ export function insertAtLocation(editor: Editor, text: string, location: Enhance
     const target = (belowHeadingName || '').trim();
     const last = editor.lastLine();
     let insertLine = -1;
-    const headingRegex = target ? new RegExp(`^\\s*#{1,6}\\s*${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) : null;
-    for (let i = 0; i <= last; i += 1) {
-      const txt = editor.getLine(i);
-      if (headingRegex ? headingRegex.test(txt.trim()) : /^\\s*#{1,6}\\s*.+$/.test(txt.trim())) {
-        insertLine = i + 1;
+    
+    try {
+      const headingRegex = target 
+        ? new RegExp(`^\\s*#{1,6}\\s*${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')
+        : /^\s*#{1,6}\s*.+$/;
+      
+      for (let i = 0; i <= last; i += 1) {
+        const lineText = editor.getLine(i);
+        if (headingRegex.test(lineText.trim())) {
+          insertLine = i + 1;
+          if (target) break; // If looking for specific heading, stop at first match
+        }
       }
-      if (insertLine >= 0) break;
-    }
-    if (insertLine < 0) {
+      
+      if (insertLine < 0) {
+        editor.replaceSelection(block);
+        return;
+      }
+      
+      // Insert with proper spacing
+      const insertPos = { line: insertLine, ch: 0 };
+      const needsNewline = insertLine <= last && editor.getLine(insertLine).trim().length > 0;
+      const insertText = needsNewline ? `${block}\n` : block;
+      editor.replaceRange(insertText, insertPos);
+      return;
+    } catch (regexError) {
+      console.warn('Nova Journal: Invalid heading name for regex, falling back to cursor insertion', regexError);
       editor.replaceSelection(block);
       return;
     }
-    editor.replaceRange(`\n${block}`, { line: insertLine, ch: 0 });
-    return;
   }
   editor.replaceSelection(block);
 }

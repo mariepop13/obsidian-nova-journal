@@ -11,6 +11,23 @@ export class NovaJournalSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
+  private async saveSettingsWithErrorHandling(
+    operation: () => Promise<void> | void,
+    errorMessage: string,
+    shouldRefresh = false
+  ): Promise<void> {
+    try {
+      await operation();
+      await this.plugin.saveSettings();
+      if (shouldRefresh) {
+        this.display();
+      }
+    } catch (error) {
+      console.error('Nova Journal settings error:', error);
+      new Notice(errorMessage);
+    }
+  }
+
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
@@ -27,13 +44,11 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       .setName('Reset to defaults')
       .setDesc('Restore all Nova Journal settings to factory defaults')
       .addButton(b => b.setButtonText('Reset').onClick(async () => {
-        try {
-          this.plugin.settings = { ...DEFAULT_SETTINGS };
-          await this.plugin.saveSettings();
-          this.display();
-        } catch (error) {
-          new Notice('Failed to reset settings');
-        }
+        await this.saveSettingsWithErrorHandling(
+          () => { this.plugin.settings = { ...DEFAULT_SETTINGS }; },
+          'Failed to reset settings',
+          true
+        );
       }));
   }
 
@@ -53,13 +68,11 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         dropdown.addOptions({ cursor: 'Cursor', top: 'Top', bottom: 'Bottom', 'below-heading': 'Below heading' });
         dropdown.setValue(this.plugin.settings.insertLocation);
         dropdown.onChange(async (value) => {
-          try {
-            this.plugin.settings.insertLocation = value as any;
-            await this.plugin.saveSettings();
-            this.display();
-          } catch (error) {
-            new Notice('Failed to save insert location');
-          }
+          await this.saveSettingsWithErrorHandling(
+            () => { this.plugin.settings.insertLocation = value as any; },
+            'Failed to save insert location',
+            true
+          );
         });
       });
   }
@@ -91,13 +104,11 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       .addToggle((toggle: ToggleComponent) => {
         toggle.setValue(this.plugin.settings.addSectionHeading);
         toggle.onChange(async (value) => {
-          try {
-            this.plugin.settings.addSectionHeading = value;
-            await this.plugin.saveSettings();
-            this.display();
-          } catch (error) {
-            new Notice('Failed to save section heading setting');
-          }
+          await this.saveSettingsWithErrorHandling(
+            () => { this.plugin.settings.addSectionHeading = value; },
+            'Failed to save section heading setting',
+            true
+          );
         });
       });
 
@@ -216,13 +227,11 @@ export class NovaJournalSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Enable AI')
       .addToggle(toggle => toggle.setValue(this.plugin.settings.aiEnabled).onChange(async (value) => {
-        try {
-          this.plugin.settings.aiEnabled = value;
-          await this.plugin.saveSettings();
-          this.display();
-        } catch (error) {
-          new Notice('Failed to save AI setting');
-        }
+        await this.saveSettingsWithErrorHandling(
+          () => { this.plugin.settings.aiEnabled = value; },
+          'Failed to save AI setting',
+          true
+        );
       }));
 
     this.renderAIWarning(containerEl);
