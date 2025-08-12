@@ -30,7 +30,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   addDateHeading: false,
   dailyNoteFolder: 'Journal',
   dailyNoteFormat: 'YYYY-MM-DD',
-  promptTemplate: '',
+  promptTemplate: '{{prompt}}\n\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
   preventDuplicateForDay: true,
   aiEnabled: false,
   aiApiKey: '',
