@@ -25,8 +25,6 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         this.display();
       }));
 
-    
-
     new Setting(containerEl)
       .setName('Insert at')
       .setDesc('Where to insert the prompt in the daily note.')
@@ -65,8 +63,6 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           this.display();
         });
       });
-
-    
 
     new Setting(containerEl)
       .setName('Prevent duplicate prompt for today')
@@ -138,10 +134,26 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         dropdown.onChange(async (value) => {
           this.plugin.settings.dailyNoteFormat = value || 'YYYY-MM-DD';
           await this.plugin.saveSettings();
+          this.display();
         });
       });
 
-    
+    const fmtPreview = containerEl.createEl('div');
+    fmtPreview.style.marginTop = '4px';
+    fmtPreview.style.opacity = '0.8';
+    const nowFmt = (() => {
+      const d = new Date();
+      const yyyy = d.getFullYear().toString();
+      const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+      const dd = d.getDate().toString().padStart(2, '0');
+      const HH = d.getHours().toString().padStart(2, '0');
+      const Min = d.getMinutes().toString().padStart(2, '0');
+      const f = this.plugin.settings.dailyNoteFormat || 'YYYY-MM-DD';
+      return f.replace(/YYYY/g, yyyy).replace(/MM/g, mm).replace(/DD/g, dd).replace(/HH/g, HH).replace(/mm/g, Min);
+    })();
+    fmtPreview.setText(`Example: ${nowFmt}.md`);
+
+
 
     containerEl.createEl('h3', { text: 'AI (OpenAI only)' });
 
@@ -153,7 +165,65 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         this.display();
       }));
 
+    // Warn if template contains AI link while AI is disabled
+    if (!this.plugin.settings.aiEnabled) {
+      const tpl = (this.plugin.settings.promptTemplate || '');
+      if (/<a[^>]*class="nova-deepen"/i.test(tpl)) {
+        const warn = containerEl.createEl('div');
+        warn.style.color = 'var(--text-error)';
+        warn.style.margin = '8px 0';
+        warn.setText('Note: your Prompt template contains the Explore link, but AI is disabled. It will be removed from inserted content.');
+      }
+    }
+
     if (this.plugin.settings.aiEnabled) {
+      let keyLooksValid = (this.plugin.settings.aiApiKey || '').startsWith('sk-');
+      let modelLooksOpenAI = /^(gpt|o\d)/i.test(this.plugin.settings.aiModel || '');
+
+      new Setting(containerEl)
+        .setName('OpenAI API Key')
+        .setDesc(keyLooksValid ? 'Stored locally. Only OpenAI is supported for now.' : 'Key format looks unusual. It should start with sk- for OpenAI.')
+        .addText(t => t.setPlaceholder('sk-...')
+          .setValue(this.plugin.settings.aiApiKey)
+          .onChange(async (v) => {
+            this.plugin.settings.aiApiKey = v;
+            await this.plugin.saveSettings();
+            this.display();
+          }))
+        .addButton(b => b.setButtonText('Test').onClick(async () => {
+          const key = this.plugin.settings.aiApiKey;
+          if (!key) { new Notice('Set your OpenAI API key first.'); return; }
+          try {
+            const resp = await fetch('https://api.openai.com/v1/models', {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${key}` },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+              const count = Array.isArray(data?.data) ? data.data.length : undefined;
+              new Notice(`OpenAI test: OK${count ? ` (${count} models accessible)` : ''}`);
+            } else {
+              const msg = (data?.error?.message || `${resp.status} ${resp.statusText}`).toString();
+              new Notice(`OpenAI test failed: ${msg}`);
+            }
+          } catch (e) {
+            const msg = (e as any)?.message || String(e);
+            new Notice(`OpenAI test error: ${msg}`);
+          }
+        }));
+
+      
+      new Setting(containerEl)
+        .setName('System prompt')
+        .addTextArea((ta: TextAreaComponent) => {
+          ta.setValue(this.plugin.settings.aiSystemPrompt)
+            .onChange(async (v) => {
+              this.plugin.settings.aiSystemPrompt = v;
+              await this.plugin.saveSettings();
+            });
+          ta.inputEl.rows = 3;
+        });
+
       new Setting(containerEl)
         .setName('Daily prompt style')
         .setDesc('Select the style of the daily prompt.')
@@ -200,6 +270,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
                 ? 'dated'
                 : 'custom';
           dd.setValue(currentPreset);
+          (dd as any).selectEl.disabled = currentPreset === 'custom';
           dd.onChange(async (v) => {
             if (v === 'minimal') this.plugin.settings.promptTemplate = presets.minimal;
             else if (v === 'conversation') this.plugin.settings.promptTemplate = presets.conversation;
@@ -228,9 +299,9 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       out = out.replace(/\{\{\s*user_line\s*\}\}/g, `**${this.plugin.settings.userName || 'You'}** (you): `);
       out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, f) => fmt(now, typeof f === 'string' ? f.trim() : 'YYYY-MM-DD'));
       preview.setText(out);
-      
-      const keyLooksValid = (this.plugin.settings.aiApiKey || '').startsWith('sk-');
-      const modelLooksOpenAI = /^(gpt|o\d)/i.test(this.plugin.settings.aiModel || '');
+
+      keyLooksValid = (this.plugin.settings.aiApiKey || '').startsWith('sk-');
+      modelLooksOpenAI = /^(gpt|o\d)/i.test(this.plugin.settings.aiModel || '');
 
       new Setting(containerEl)
         .setName('OpenAI API Key')
@@ -286,19 +357,6 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
-        .setName('System prompt')
-        .addTextArea((ta: TextAreaComponent) => {
-          ta.setValue(this.plugin.settings.aiSystemPrompt)
-            .onChange(async (v) => {
-              this.plugin.settings.aiSystemPrompt = v;
-              await this.plugin.saveSettings();
-            });
-          ta.inputEl.rows = 3;
-        });
-
-      
-
-      new Setting(containerEl)
         .setName('Explore link label')
         .setDesc('Shown under your last line, e.g., “Explore more”')
         .addText(t => t.setValue(this.plugin.settings.deepenButtonLabel)
@@ -316,7 +374,9 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }));
 
-      
+
+
+      containerEl.createEl('h3', { text: 'Advanced' });
 
       new Setting(containerEl)
         .setName('Max tokens')
@@ -352,7 +412,6 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           });
         });
 
-      
       new Setting(containerEl)
         .setName('Typewriter speed')
         .setDesc('Controls the animation speed for AI responses')
@@ -364,9 +423,6 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-
-      
-      
     }
   }
 }
