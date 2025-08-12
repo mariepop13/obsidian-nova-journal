@@ -1,21 +1,17 @@
 name: PR Agent
 on:
-  pull_request_target:
-    types: [opened, reopened, ready_for_review, synchronize]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: PR number to review
-        required: true
-        type: string
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
 jobs:
   pr_agent_job:
     if: ${{ github.event.sender.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
+      issues: write
       pull-requests: write
       contents: write
-    name: Run PR Agent on PRs and comments
+    name: Run pr agent on every pull request, respond to user comments
     steps:
       - name: PR Agent action step
         id: pragent
@@ -25,10 +21,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_AGENT_CONFIG: |
             model: gpt-5-mini
-            review:
-              inline_comments: true
-              max_review_comments: 30
-        with:
-          pr_number: ${{ inputs.pr_number }}
 
 

@@ -8,10 +8,9 @@ export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
     private promptService: PromptService;
 
-	async onload() {
+    async onload() {
         await this.loadSettings();
         this.promptService = new PromptService();
-
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
@@ -37,7 +36,7 @@ export default class NovaJournalPlugin extends Plugin {
             },
         });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
-	}
+    }
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
