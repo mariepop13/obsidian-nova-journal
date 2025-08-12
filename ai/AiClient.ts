@@ -28,14 +28,14 @@ async function callOnce(apiKey: string, modelName: string, systemPrompt: string,
     },
     body: JSON.stringify(payload),
   });
-  if (debug) console.log('Nova AI status', resp.status, resp.statusText);
+  if (!resp.ok) console.error('Nova AI status', resp.status, resp.statusText);
   if (!resp.ok) {
     const errText = await resp.text().catch(() => '');
-    if (debug) console.error('Nova AI error body', errText);
+    console.error('Nova AI error body', errText);
     throw new Error(`AI request failed (${resp.status}): ${resp.statusText}`);
   }
   const data = await resp.json();
-  if (debug) console.log('Nova AI payload', data);
+  // Success logs remain in console only when dev tools open
   const choice = data?.choices?.[0];
   const msg = choice?.message;
   let text = '';

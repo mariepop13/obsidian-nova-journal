@@ -143,7 +143,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 
     
 
-    containerEl.createEl('h3', { text: 'AI (OpenAI only, optional)' });
+    containerEl.createEl('h3', { text: 'AI (OpenAI only)' });
 
     new Setting(containerEl)
       .setName('Enable AI')
@@ -167,7 +167,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         });
 
       new Setting(containerEl)
-        .setName('Prompt template (optional)')
+        .setName('Prompt template')
         .setDesc('Use variables like {{prompt}}, {{date}} or {{date:YYYY-MM-DD}}')
         .addTextArea((ta: TextAreaComponent) => {
           ta.setPlaceholder('{{prompt}}')
@@ -179,6 +179,34 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             });
           ta.inputEl.cols = 40;
           ta.inputEl.rows = 4;
+        });
+
+      new Setting(containerEl)
+        .setName('Template preset')
+        .setDesc('Choose a conversation-friendly prompt template')
+        .addDropdown((dd: DropdownComponent) => {
+          const presets: Record<string, string> = {
+            minimal: '{{prompt}}\n\n{{user_line}}',
+            conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
+            dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}',
+          };
+          dd.addOptions({ minimal: 'Minimal', conversation: 'Conversation', dated: 'With date', custom: 'Custom' });
+          const current = (this.plugin.settings.promptTemplate || '').trim();
+          const currentPreset = current === presets.minimal
+            ? 'minimal'
+            : current === presets.conversation
+              ? 'conversation'
+              : current === presets.dated
+                ? 'dated'
+                : 'custom';
+          dd.setValue(currentPreset);
+          dd.onChange(async (v) => {
+            if (v === 'minimal') this.plugin.settings.promptTemplate = presets.minimal;
+            else if (v === 'conversation') this.plugin.settings.promptTemplate = presets.conversation;
+            else if (v === 'dated') this.plugin.settings.promptTemplate = presets.dated;
+            await this.plugin.saveSettings();
+            this.display();
+          });
         });
 
       const preview = containerEl.createEl('div');
@@ -213,7 +241,28 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             this.plugin.settings.aiApiKey = v;
             await this.plugin.saveSettings();
             this.display();
-          }));
+          }))
+        .addButton(b => b.setButtonText('Test').onClick(async () => {
+          const key = this.plugin.settings.aiApiKey;
+          if (!key) { new Notice('Set your OpenAI API key first.'); return; }
+          try {
+            const resp = await fetch('https://api.openai.com/v1/models', {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${key}` },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+              const count = Array.isArray(data?.data) ? data.data.length : undefined;
+              new Notice(`OpenAI test: OK${count ? ` (${count} models accessible)` : ''}`);
+            } else {
+              const msg = (data?.error?.message || `${resp.status} ${resp.statusText}`).toString();
+              new Notice(`OpenAI test failed: ${msg}`);
+            }
+          } catch (e) {
+            const msg = (e as any)?.message || String(e);
+            new Notice(`OpenAI test error: ${msg}`);
+          }
+        }));
 
       new Setting(containerEl)
         .setName('OpenAI model')
@@ -247,33 +296,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           ta.inputEl.rows = 3;
         });
 
-      new Setting(containerEl)
-        .setName('Template preset (AI only)')
-        .setDesc('Choose a conversation-friendly prompt template')
-        .addDropdown((dd: DropdownComponent) => {
-          const presets: Record<string, string> = {
-            minimal: '{{prompt}}\n\n{{user_line}}',
-            conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
-            dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}',
-          };
-          dd.addOptions({ minimal: 'Minimal', conversation: 'Conversation', dated: 'With date', custom: 'Custom' });
-          const current = (this.plugin.settings.promptTemplate || '').trim();
-          const currentPreset = current === presets.minimal
-            ? 'minimal'
-            : current === presets.conversation
-              ? 'conversation'
-              : current === presets.dated
-                ? 'dated'
-                : 'custom';
-          dd.setValue(currentPreset);
-          dd.onChange(async (v) => {
-            if (v === 'minimal') this.plugin.settings.promptTemplate = presets.minimal;
-            else if (v === 'conversation') this.plugin.settings.promptTemplate = presets.conversation;
-            else if (v === 'dated') this.plugin.settings.promptTemplate = presets.dated;
-            await this.plugin.saveSettings();
-            this.display();
-          });
-        });
+      
 
       new Setting(containerEl)
         .setName('Explore link label')
@@ -293,14 +316,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }));
 
-      new Setting(containerEl)
-        .setName('AI debug logs')
-        .setDesc('Print request/response status to console')
-        .addToggle(t => t.setValue(this.plugin.settings.aiDebug)
-          .onChange(async (v) => {
-            this.plugin.settings.aiDebug = v;
-            await this.plugin.saveSettings();
-          }));
+      
 
       new Setting(containerEl)
         .setName('Max tokens')
@@ -350,24 +366,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         });
 
       
-      new Setting(containerEl)
-        .setName('Test OpenAI')
-        .setDesc('Sends a tiny request to validate your key/model')
-        .addButton(b => b.setButtonText('Run test').onClick(async () => {
-          const key = this.plugin.settings.aiApiKey;
-          const model = this.plugin.settings.aiModel || 'gpt-5-mini';
-          if (!key) { new Notice('Set your OpenAI API key first.'); return; }
-          try {
-            const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-              body: JSON.stringify({ model, messages: [{ role: 'system', content: 'ping' }, { role: 'user', content: 'ping' }], max_tokens: 1 })
-            });
-            if (resp.ok) new Notice('OpenAI test: OK'); else new Notice(`OpenAI test failed: ${resp.status} ${resp.statusText}`);
-          } catch (e: any) {
-            new Notice(`OpenAI test error: ${e?.message || e}`);
-          }
-        }));
+      
     }
   }
 }
