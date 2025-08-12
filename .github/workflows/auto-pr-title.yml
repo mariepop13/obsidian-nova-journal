@@ -1,9 +1,9 @@
 name: Auto PR title/body
 on:
-  pull_request:
-    types: [opened, edited, synchronize]
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 
@@ -152,19 +152,31 @@ jobs:
             const effortLabel = `Review effort ${effort}/5`;
             labelSet.add(effortLabel);
 
-            // Ensure effort label exists (create if missing)
+            // Ensure labels exist (create if missing)
             async function ensureLabel(name, color = 'a371f7', description = '') {
               try {
                 await github.rest.issues.getLabel({ owner, repo, name });
-              } catch {
-                try {
-                  await github.rest.issues.createLabel({ owner, repo, name, color, description });
-                } catch (e2) {
-                  core.warning(`Could not create label "${name}": ${e2.message}`);
+              } catch (e) {
+                if (e.status === 404) {
+                  try {
+                    await github.rest.issues.createLabel({ owner, repo, name, color, description });
+                  } catch (e2) {
+                    core.warning(`Could not create label "${name}": ${e2.message}`);
+                  }
+                } else {
+                  core.warning(`Get label failed for "${name}": ${e.message}`);
                 }
               }
             }
-            await ensureLabel(effortLabel, 'a371f7', 'Estimated review effort');
+            // Proactively ensure common labels
+            await Promise.all([
+              ensureLabel('bug', 'd73a4a', 'Something isn\'t working'),
+              ensureLabel('documentation', '0075ca', 'Improvements or additions to documentation'),
+              ensureLabel('enhancement', 'a2eeef', 'New feature or request'),
+              ensureLabel('chore', 'ededed', 'Chore or maintenance'),
+              ensureLabel('refactor', '0366d6', 'Code refactor'),
+              ensureLabel(effortLabel, 'a371f7', 'Estimated review effort')
+            ]);
 
             // Apply labels
             try {
