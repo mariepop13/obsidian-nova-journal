@@ -17,11 +17,25 @@ export default class NovaJournalPlugin extends Plugin {
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
+        this.addRibbonIcon('gear', 'Nova Journal: Settings', async () => {
+            const settings = (this.app as any).setting;
+            if (settings?.open) settings.open();
+            if (settings?.openTabById) settings.openTabById(this.manifest.id);
+        });
         this.addCommand({
             id: 'nova-insert-todays-prompt',
             name: 'Nova Journal: Insert today\'s prompt',
             callback: async () => {
                 await this.insertTodaysPrompt();
+            },
+        });
+        this.addCommand({
+            id: 'nova-open-settings',
+            name: 'Nova Journal: Open settings',
+            callback: async () => {
+                const settings = (this.app as any).setting;
+                if (settings?.open) settings.open();
+                if (settings?.openTabById) settings.openTabById(this.manifest.id);
             },
         });
 		this.addCommand({
@@ -282,12 +296,19 @@ export default class NovaJournalPlugin extends Plugin {
 
     private renderTemplate(template: string, prompt: string, date: Date): string {
         let out = template.replace(/\{\{\s*prompt\s*\}\}/g, prompt);
-        const userLine = `**${this.settings.userName || 'You'}** (you): `;
-        out = out.replace(/\{\{\s*user_line\s*\}\}/g, userLine);
         out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, fmt) => {
             const f = typeof fmt === 'string' ? fmt.trim() : 'YYYY-MM-DD';
             return this.formatDate(date, f);
         });
+        if (this.settings.aiEnabled) {
+            const userLine = `**${this.settings.userName || 'You'}** (you): `;
+            out = out.replace(/\{\{\s*user_line\s*\}\}/g, userLine);
+        } else {
+            out = out.replace(/\{\{\s*user_line\s*\}\}/g, '');
+            out = out.replace(/^\s*\*\*Nova\*\*:\s*/gm, '');
+            out = out.replace(/<a[^>]*class=\"nova-deepen\"[^>]*>.*?<\/a>\s*/g, '');
+        }
+        out = out.replace(/\n{3,}/g, '\n\n').trimEnd();
         return out;
     }
 
