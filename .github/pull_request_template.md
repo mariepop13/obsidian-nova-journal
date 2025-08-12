@@ -13,4 +13,3 @@ Short summary of the change.
 ## Checklist
 - [ ] Build passes (`npm run build`)
 - [ ] Scope is small and focused
-
