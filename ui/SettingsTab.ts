@@ -123,6 +123,87 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         ta.inputEl.cols = 40;
         ta.inputEl.rows = 4;
       });
+
+    containerEl.createEl('h3', { text: 'AI (optional)' });
+
+    new Setting(containerEl)
+      .setName('Enable AI')
+      .addToggle(t => t.setValue(this.plugin.settings.aiEnabled).onChange(async (v) => {
+        this.plugin.settings.aiEnabled = v;
+        await this.plugin.saveSettings();
+        this.display();
+      }));
+
+    if (this.plugin.settings.aiEnabled) {
+      new Setting(containerEl)
+        .setName('API Key')
+        .setDesc('Stored locally in plugin settings')
+        .addText(t => t.setPlaceholder('sk-...')
+          .setValue(this.plugin.settings.aiApiKey)
+          .onChange(async (v) => {
+            this.plugin.settings.aiApiKey = v;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Model')
+        .addText(t => t.setPlaceholder('gpt-5-mini')
+          .setValue(this.plugin.settings.aiModel)
+          .onChange(async (v) => {
+            this.plugin.settings.aiModel = v || 'gpt-5-mini';
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('System prompt')
+        .addTextArea((ta: TextAreaComponent) => {
+          ta.setValue(this.plugin.settings.aiSystemPrompt)
+            .onChange(async (v) => {
+              this.plugin.settings.aiSystemPrompt = v;
+              await this.plugin.saveSettings();
+            });
+          ta.inputEl.rows = 3;
+        });
+
+      new Setting(containerEl)
+        .setName('Deepen button label')
+        .setDesc('Shown under your last line, e.g., “Explore more”')
+        .addText(t => t.setValue(this.plugin.settings.deepenButtonLabel)
+          .onChange(async (v) => {
+            this.plugin.settings.deepenButtonLabel = v || 'Explore more';
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Display name')
+        .setDesc('Used in conversation blocks (e.g., “Name (you): …”)')
+        .addText(t => t.setValue(this.plugin.settings.userName)
+          .onChange(async (v) => {
+            this.plugin.settings.userName = v || 'You';
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('AI debug logs')
+        .setDesc('Print request/response status to console')
+        .addToggle(t => t.setValue(this.plugin.settings.aiDebug)
+          .onChange(async (v) => {
+            this.plugin.settings.aiDebug = v;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Default deepen scope')
+        .setDesc('What Explore more targets by default')
+        .addDropdown(d => {
+          d.addOptions({ line: 'Current line', note: 'Whole note' });
+          d.setValue(this.plugin.settings.defaultDeepenScope);
+          d.onChange(async (v) => {
+            this.plugin.settings.defaultDeepenScope = (v as any) || 'line';
+            await this.plugin.saveSettings();
+          });
+        });
+    }
   }
 }
 
