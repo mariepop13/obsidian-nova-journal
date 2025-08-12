@@ -80,8 +80,8 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
 export class TemplateFactory {
   private static readonly PRESETS: Record<PromptPreset, string> = {
     minimal: '{{prompt}}\n\n{{user_line}}',
-    conversation: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<button class="nova-deepen" data-scope="note">Explore more</button> <button class="nova-mood-analyze">Analyze mood</button>',
-    dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}\n\n<button class="nova-deepen" data-scope="note">Explore more</button> <button class="nova-mood-analyze">Analyze mood</button>'
+    conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
+    dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}'
   };
 
   static getPreset(type: PromptPreset): string {
