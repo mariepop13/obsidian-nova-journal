@@ -266,6 +266,10 @@ jobs:
               const desiredLower = new Set(desired.map(n => n.toLowerCase()));
               const managedList = ['bug','documentation','enhancement','chore','refactor','needs-review','review effort 1/5','review effort 2/5','review effort 3/5','review effort 4/5','review effort 5/5'];
               const existing = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: prNumber, per_page: 100 });
+              const existingNames = (existing.data || []).map(l => l.name);
+              core.info(`Existing labels: ${existingNames.join(', ') || '(none)'}`);
+              core.info(`Desired labels: ${desired.join(', ') || '(none)'}`);
+              core.info(`Managed categories: ${managedList.join(', ')}`);
               const toRemove = (existing.data || [])
                 .map(l => l.name)
                 .filter(name => {
@@ -275,8 +279,15 @@ jobs:
                   const keep = desiredLower.has(lower);
                   return (isManagedCategory || isManagedEffort) && !keep;
                 });
+              core.info(`Managed labels to remove: ${toRemove.join(', ') || '(none)'}`);
               for (const name of toRemove) {
-                try { await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name }); } catch (e) { core.warning(`Remove label failed for ${name}: ${e.message}`); }
+                try {
+                  core.info(`Removing label: ${name}`);
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name });
+                  core.info(`Removed label: ${name}`);
+                } catch (e) {
+                  core.warning(`Remove label failed for ${name}: ${e.message}`);
+                }
               }
               if (desired.length) {
                 core.info(`Applying labels: ${desired.join(', ')}`);
