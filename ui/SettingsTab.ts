@@ -155,6 +155,16 @@ export class NovaJournalSettingTab extends PluginSettingTab {
           }));
 
       new Setting(containerEl)
+        .setName('Fallback model')
+        .setDesc('Optional model used if the primary model fails')
+        .addText(t => t.setPlaceholder('gpt-4o-mini')
+          .setValue(this.plugin.settings.aiFallbackModel || '')
+          .onChange(async (v) => {
+            this.plugin.settings.aiFallbackModel = v || '';
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
         .setName('System prompt')
         .addTextArea((ta: TextAreaComponent) => {
           ta.setValue(this.plugin.settings.aiSystemPrompt)
@@ -189,6 +199,28 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         .addToggle(t => t.setValue(this.plugin.settings.aiDebug)
           .onChange(async (v) => {
             this.plugin.settings.aiDebug = v;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Max tokens')
+        .setDesc('Upper bound on AI response tokens')
+        .addText(t => t.setPlaceholder('512')
+          .setValue(String(this.plugin.settings.aiMaxTokens))
+          .onChange(async (v) => {
+            const n = Number(v);
+            this.plugin.settings.aiMaxTokens = Number.isFinite(n) && n > 0 ? n : 512;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Retry count')
+        .setDesc('Number of retries on transient AI errors')
+        .addText(t => t.setPlaceholder('2')
+          .setValue(String(this.plugin.settings.aiRetryCount))
+          .onChange(async (v) => {
+            const n = Number(v);
+            this.plugin.settings.aiRetryCount = Number.isFinite(n) && n >= 0 ? n : 2;
             await this.plugin.saveSettings();
           }));
 
