@@ -1,7 +1,7 @@
 name: Auto PR title/body
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
 permissions:
   contents: write
   pull-requests: write
@@ -34,7 +34,7 @@ jobs:
               const first = commits.find(c => !c.commit.message.startsWith('Merge'));
               title = first ? first.commit.message.split('\n')[0] : 'chore: update';
             }
-            await github.rest.pulls.update({ owner, repo, pull_number: number, title });
+            await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title });
 
             // Build an auto body from commits and files
             const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
