@@ -1,7 +1,9 @@
-name: Auto PR title/body
+name: Auto PR title/body + labels
 on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 permissions:
   contents: write
   pull-requests: write
@@ -17,7 +19,72 @@ jobs:
         with:
           script: |
             const {owner, repo, number} = context.issue;
-            const prNumber = context.payload?.pull_request?.number || number;
+            const prNumber = context.payload?.pull_request?.number || context.payload?.issue?.number || number;
+            const isIssueComment = context.eventName === 'issue_comment' && !!context.payload?.issue?.pull_request;
+            const commentBody = (context.payload?.comment?.body || '').trim();
+            const commenterAssoc = context.payload?.comment?.author_association || '';
+            const commenterAllowed = ['MEMBER','OWNER','COLLABORATOR'].includes(commenterAssoc);
+
+            async function addLabels(labels) {
+              if (!labels || labels.length === 0) return;
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
+            }
+
+            async function removeLabels(names) {
+              if (!names || names.length === 0) return;
+              for (const name of names) {
+                try {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name });
+                } catch (e) {
+                  core.warning(`Could not remove label "${name}": ${e.message}`);
+                }
+              }
+            }
+
+            // Handle comment commands for labels
+            if (isIssueComment && commentBody) {
+              if (!commenterAllowed) {
+                core.info(`Skip label mutation from non-member commenter: ${commenterAssoc}`);
+                return;
+              }
+              // /needs-review
+              if (/^\s*\/needs-review\b/i.test(commentBody)) {
+                await addLabels(['needs-review']);
+                return;
+              }
+              // /labels a,b;c
+              const mAdd = commentBody.match(/^\s*\/labels?\s*[:\s]+(.+)$/i);
+              if (mAdd && mAdd[1]) {
+                const list = mAdd[1].split(/[;,]/).map(s => s.trim()).filter(Boolean);
+                if (list.length) await addLabels(list);
+                return;
+              }
+              // /remove-label a,b
+              const mRemove = commentBody.match(/^\s*\/remove-label\s+(.+)$/i);
+              if (mRemove && mRemove[1]) {
+                const list = mRemove[1].split(/[;,]/).map(s => s.trim()).filter(Boolean);
+                if (list.length) await removeLabels(list);
+                return;
+              }
+              // /relabel or /generate_labels -> fall through to heuristic labeling below
+              if (!/^\s*\/(relabel|generate_labels)\b/i.test(commentBody)) {
+                // No recognized command; do nothing
+                return;
+              }
+            }
+            // 1) Add a fixed label when the PR becomes "Ready for review"
+            if (context.payload?.action === 'ready_for_review') {
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  labels: ['needs-review'],
+                });
+              } catch (e) {
+                core.warning(`Could not add 'needs-review' label: ${e.message}`);
+              }
+            }
             const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
 
             const ref = pr.data.head.ref || '';
