@@ -239,16 +239,27 @@ export default class NovaJournalPlugin extends Plugin {
             if (this.settings.preventDuplicateForDay) {
                 const noteText = editor.getValue();
                 const todayMarker = `<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->`;
-                if (noteText.includes(todayMarker)) {
-                    new Notice('Nova Journal: prompt for today already exists in this note.');
-                    return;
+                const byMarker = (this.settings as any).useDuplicateMarker !== false;
+                if (byMarker) {
+                    if (noteText.includes(todayMarker)) {
+                        new Notice('Nova Journal: prompt for today already exists in this note.');
+                        return;
+                    }
+                } else {
+                    if (noteText.includes(basePrompt)) {
+                        new Notice('Nova Journal: prompt for today already exists in this note.');
+                        return;
+                    }
                 }
             }
 
             const prompt = this.renderFinalPrompt(basePrompt, date);
             insertAtLocation(editor, prompt, this.settings.insertLocation as any, (this.settings as any).insertHeadingName);
-            const marker = `\n<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->\n`;
-            editor.replaceRange(marker, { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length });
+            const byMarker = (this.settings as any).useDuplicateMarker !== false;
+            if (byMarker) {
+                const marker = `\n<!-- nova:prompt:${this.formatDate(date, 'YYYY-MM-DD')} -->\n`;
+                editor.replaceRange(marker, { line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length });
+            }
             new Notice('Nova Journal: prompt inserted.');
         } catch (error) {
             console.error('Nova Journal insert error', error);

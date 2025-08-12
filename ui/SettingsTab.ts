@@ -25,17 +25,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         this.display();
       }));
 
-    new Setting(containerEl)
-      .setName('Daily prompt style')
-      .setDesc('Select the style of the daily prompt.')
-      .addDropdown((dropdown: DropdownComponent) => {
-        dropdown.addOptions({ reflective: 'Reflective', gratitude: 'Gratitude', planning: 'Planning' });
-        dropdown.setValue(this.plugin.settings.promptStyle);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.promptStyle = value as any;
-          await this.plugin.saveSettings();
-        });
-      });
+    
 
     new Setting(containerEl)
       .setName('Insert at')
@@ -86,8 +76,22 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         toggle.onChange(async (value) => {
           this.plugin.settings.preventDuplicateForDay = value;
           await this.plugin.saveSettings();
+          this.display();
         });
       });
+
+    if (this.plugin.settings.preventDuplicateForDay) {
+      new Setting(containerEl)
+        .setName('Use hidden marker for duplicate detection')
+        .setDesc('If off, fall back to content-based detection')
+        .addToggle((toggle: ToggleComponent) => {
+          toggle.setValue((this.plugin.settings as any).useDuplicateMarker !== false);
+          toggle.onChange(async (value) => {
+            (this.plugin.settings as any).useDuplicateMarker = !!value;
+            await this.plugin.saveSettings();
+          });
+        });
+    }
 
     if (this.plugin.settings.addSectionHeading) {
       new Setting(containerEl)
@@ -137,71 +141,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl)
-      .setName('Prompt template (optional)')
-      .setDesc('Use variables like {{prompt}}, {{date}} or {{date:YYYY-MM-DD}}')
-      .addTextArea((ta: TextAreaComponent) => {
-        ta.setPlaceholder('{{prompt}}')
-          .setValue(this.plugin.settings.promptTemplate || '')
-          .onChange(async (value) => {
-            this.plugin.settings.promptTemplate = value;
-            await this.plugin.saveSettings();
-            this.display();
-          });
-        ta.inputEl.cols = 40;
-        ta.inputEl.rows = 4;
-      });
-
     
-    new Setting(containerEl)
-      .setName('Template preset')
-      .setDesc('Quickly choose a template')
-      .addDropdown((dd: DropdownComponent) => {
-        const presets: Record<string, string> = {
-          minimal: '{{prompt}}\n\n{{user_line}}',
-          conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
-          dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}',
-        };
-        dd.addOptions({ minimal: 'Minimal', conversation: 'Conversation', dated: 'With date', custom: 'Custom' });
-        const current = (this.plugin.settings.promptTemplate || '').trim();
-        const currentPreset = current === presets.minimal
-          ? 'minimal'
-          : current === presets.conversation
-            ? 'conversation'
-            : current === presets.dated
-              ? 'dated'
-              : 'custom';
-        dd.setValue(currentPreset);
-        dd.onChange(async (v) => {
-          if (v === 'minimal') this.plugin.settings.promptTemplate = presets.minimal;
-          else if (v === 'conversation') this.plugin.settings.promptTemplate = presets.conversation;
-          else if (v === 'dated') this.plugin.settings.promptTemplate = presets.dated;
-          
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
-
-    
-    const preview = containerEl.createEl('div');
-    preview.style.padding = '8px';
-    preview.style.border = '1px solid var(--background-modifier-border)';
-    preview.style.marginBottom = '8px';
-    const now = new Date();
-    const fmt = (d: Date, f: string) => {
-      const yyyy = d.getFullYear().toString();
-      const mm = (d.getMonth() + 1).toString().padStart(2, '0');
-      const dd = d.getDate().toString().padStart(2, '0');
-      const HH = d.getHours().toString().padStart(2, '0');
-      const Min = d.getMinutes().toString().padStart(2, '0');
-      return f.replace(/YYYY/g, yyyy).replace(/MM/g, mm).replace(/DD/g, dd).replace(/HH/g, HH).replace(/mm/g, Min);
-    };
-    const samplePrompt = 'What are you grateful for today?';
-    let out = (this.plugin.settings.promptTemplate || '').trim();
-    out = out.replace(/\{\{\s*prompt\s*\}\}/g, samplePrompt);
-    out = out.replace(/\{\{\s*user_line\s*\}\}/g, `**${this.plugin.settings.userName || 'You'}** (you): `);
-    out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, f) => fmt(now, typeof f === 'string' ? f.trim() : 'YYYY-MM-DD'));
-    preview.setText(out);
 
     containerEl.createEl('h3', { text: 'AI (OpenAI only, optional)' });
 
@@ -214,6 +154,52 @@ export class NovaJournalSettingTab extends PluginSettingTab {
       }));
 
     if (this.plugin.settings.aiEnabled) {
+      new Setting(containerEl)
+        .setName('Daily prompt style')
+        .setDesc('Select the style of the daily prompt.')
+        .addDropdown((dropdown: DropdownComponent) => {
+          dropdown.addOptions({ reflective: 'Reflective', gratitude: 'Gratitude', planning: 'Planning' });
+          dropdown.setValue(this.plugin.settings.promptStyle);
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.promptStyle = value as any;
+            await this.plugin.saveSettings();
+          });
+        });
+
+      new Setting(containerEl)
+        .setName('Prompt template (optional)')
+        .setDesc('Use variables like {{prompt}}, {{date}} or {{date:YYYY-MM-DD}}')
+        .addTextArea((ta: TextAreaComponent) => {
+          ta.setPlaceholder('{{prompt}}')
+            .setValue(this.plugin.settings.promptTemplate || '')
+            .onChange(async (value) => {
+              this.plugin.settings.promptTemplate = value;
+              await this.plugin.saveSettings();
+              this.display();
+            });
+          ta.inputEl.cols = 40;
+          ta.inputEl.rows = 4;
+        });
+
+      const preview = containerEl.createEl('div');
+      preview.style.padding = '8px';
+      preview.style.border = '1px solid var(--background-modifier-border)';
+      preview.style.marginBottom = '8px';
+      const now = new Date();
+      const fmt = (d: Date, f: string) => {
+        const yyyy = d.getFullYear().toString();
+        const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+        const dd = d.getDate().toString().padStart(2, '0');
+        const HH = d.getHours().toString().padStart(2, '0');
+        const Min = d.getMinutes().toString().padStart(2, '0');
+        return f.replace(/YYYY/g, yyyy).replace(/MM/g, mm).replace(/DD/g, dd).replace(/HH/g, HH).replace(/mm/g, Min);
+      };
+      const samplePrompt = 'What are you grateful for today?';
+      let out = (this.plugin.settings.promptTemplate || '').trim();
+      out = out.replace(/\{\{\s*prompt\s*\}\}/g, samplePrompt);
+      out = out.replace(/\{\{\s*user_line\s*\}\}/g, `**${this.plugin.settings.userName || 'You'}** (you): `);
+      out = out.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_m, f) => fmt(now, typeof f === 'string' ? f.trim() : 'YYYY-MM-DD'));
+      preview.setText(out);
       
       const keyLooksValid = (this.plugin.settings.aiApiKey || '').startsWith('sk-');
       const modelLooksOpenAI = /^(gpt|o\d)/i.test(this.plugin.settings.aiModel || '');
@@ -259,6 +245,34 @@ export class NovaJournalSettingTab extends PluginSettingTab {
               await this.plugin.saveSettings();
             });
           ta.inputEl.rows = 3;
+        });
+
+      new Setting(containerEl)
+        .setName('Template preset (AI only)')
+        .setDesc('Choose a conversation-friendly prompt template')
+        .addDropdown((dd: DropdownComponent) => {
+          const presets: Record<string, string> = {
+            minimal: '{{prompt}}\n\n{{user_line}}',
+            conversation: '**Nova**: {{prompt}}\n\n{{user_line}}',
+            dated: '# {{date:YYYY-MM-DD}}\n\n**Nova**: {{prompt}}\n\n{{user_line}}',
+          };
+          dd.addOptions({ minimal: 'Minimal', conversation: 'Conversation', dated: 'With date', custom: 'Custom' });
+          const current = (this.plugin.settings.promptTemplate || '').trim();
+          const currentPreset = current === presets.minimal
+            ? 'minimal'
+            : current === presets.conversation
+              ? 'conversation'
+              : current === presets.dated
+                ? 'dated'
+                : 'custom';
+          dd.setValue(currentPreset);
+          dd.onChange(async (v) => {
+            if (v === 'minimal') this.plugin.settings.promptTemplate = presets.minimal;
+            else if (v === 'conversation') this.plugin.settings.promptTemplate = presets.conversation;
+            else if (v === 'dated') this.plugin.settings.promptTemplate = presets.dated;
+            await this.plugin.saveSettings();
+            this.display();
+          });
         });
 
       new Setting(containerEl)

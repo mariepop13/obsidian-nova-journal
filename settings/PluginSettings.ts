@@ -12,6 +12,7 @@ export interface NovaJournalSettings {
   dailyNoteFormat: string; // Limited support: YYYY-MM-DD
   promptTemplate: string; // If provided, used to render the inserted block
   preventDuplicateForDay: boolean;
+  useDuplicateMarker?: boolean;
   insertHeadingName: string;
   organizeByYearMonth: boolean;
   aiEnabled: boolean;
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
   promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
   preventDuplicateForDay: true,
+  useDuplicateMarker: true,
   insertHeadingName: '',
   organizeByYearMonth: false,
   aiEnabled: false,
@@ -59,7 +61,8 @@ export function normalizeSettings(input: NovaJournalSettings): NovaJournalSettin
   const allowedFormats = new Set(['YYYY-MM-DD', 'YYYY-MM-DD_HH-mm']);
   const dailyFmt = allowedFormats.has(s.dailyNoteFormat) ? s.dailyNoteFormat : DEFAULT_SETTINGS.dailyNoteFormat;
   const speed: 'slow' | 'normal' | 'fast' = (s.typewriterSpeed === 'slow' || s.typewriterSpeed === 'fast' || s.typewriterSpeed === 'normal') ? s.typewriterSpeed : DEFAULT_SETTINGS.typewriterSpeed;
-  return { ...s, promptTemplate: tpl, dailyNoteFormat: dailyFmt, typewriterSpeed: speed };
+  const useMarker = typeof s.useDuplicateMarker === 'boolean' ? s.useDuplicateMarker : true;
+  return { ...s, promptTemplate: tpl, dailyNoteFormat: dailyFmt, typewriterSpeed: speed, useDuplicateMarker: useMarker };
 }
 
 
