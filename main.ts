@@ -158,6 +158,16 @@ export default class NovaJournalPlugin extends Plugin {
                 const t = editor.getLine(i);
                 if (/<a[^>]*class=\"nova-deepen\"[^>]*data-scope=\"note\"/.test(t)) { anchorLine = i; break; }
             }
+            const namePrefix = `${this.settings.userName || 'You'} (you):`;
+            let userLineIdx = (anchorLine !== null ? anchorLine - 1 : editor.lastLine());
+            while (userLineIdx >= 0 && editor.getLine(userLineIdx).trim().length === 0) userLineIdx -= 1;
+            if (userLineIdx >= 0) {
+                const raw = editor.getLine(userLineIdx);
+                const trimmed = raw.trim();
+                if (trimmed && !trimmed.startsWith(namePrefix)) {
+                    editor.replaceRange(`${namePrefix} ${trimmed}`, { line: userLineIdx, ch: 0 }, { line: userLineIdx, ch: raw.length });
+                }
+            }
             if (anchorLine !== null) {
                 editor.replaceRange(`Nova: \n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
                 await typewriterInsert(editor, anchorLine, 'Nova: ', ai);
@@ -354,8 +364,6 @@ export default class NovaJournalPlugin extends Plugin {
             console.warn('Nova Journal: could not sanitize date heading', e);
         }
     }
-
-    
 
     private async openFileIfNotActive(file: TFile): Promise<void> {
         const active = this.app.workspace.getActiveViewOfType(MarkdownView);
