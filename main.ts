@@ -9,6 +9,7 @@ import { PromptInsertionService } from './services/PromptInsertionService';
 import { EditorNotFoundError } from './services/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
+import { MoodAnalysisService } from './services/MoodAnalysisService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
@@ -16,13 +17,15 @@ export default class NovaJournalPlugin extends Plugin {
     private conversationService: ConversationService;
     private fileService: FileService;
     private promptInsertionService: PromptInsertionService;
+    private moodAnalysisService: MoodAnalysisService;
 
 	async onload() {
 		await this.loadSettings();
         this.promptService = new PromptService();
         this.conversationService = new ConversationService(this.settings);
         this.fileService = new FileService(this.app);
-        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings, this.app);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
@@ -70,7 +73,13 @@ export default class NovaJournalPlugin extends Plugin {
         });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 
-        registerDeepenHandlers(this, () => this.settings.deepenButtonLabel, (line) => this.deepenLastLine(line), (label) => this.deepenWholeNote(label));
+        registerDeepenHandlers(
+            this, 
+            () => this.settings.deepenButtonLabel, 
+            (line) => this.deepenLastLine(line), 
+            (label) => this.deepenWholeNote(label),
+            () => this.analyzeMood()
+        );
 	}
 
 	async loadSettings() {
@@ -121,7 +130,8 @@ export default class NovaJournalPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
         this.conversationService = new ConversationService(this.settings);
-        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings, this.app);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
 	}
 
     private async insertTodaysPrompt(): Promise<void> {
@@ -144,8 +154,7 @@ export default class NovaJournalPlugin extends Plugin {
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
                 basePrompt,
-                date,
-                todayFile
+                date
             );
             
             if (wasInserted) {
@@ -176,6 +185,34 @@ export default class NovaJournalPlugin extends Plugin {
         this.settings.promptStyle = next as PromptStyle;
         void this.saveSettings();
         new Notice(`Nova Journal: style set to ${next}`);
+    }
+
+    private async analyzeMood(): Promise<void> {
+        try {
+            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (!view) {
+                new Notice('Nova Journal: open a note to analyze mood.');
+                return;
+            }
+
+            new Notice('Analyzing mood data...');
+            
+            const analysis = await this.moodAnalysisService.analyzeMoodData(7);
+            
+            if (!analysis) {
+                return;
+            }
+
+            const editor = view.editor;
+            const currentPos = editor.getCursor();
+            const analysisText = `\n\n## 🔍 Mood Analysis\n\n${analysis}\n`;
+            
+            editor.replaceRange(analysisText, currentPos);
+            new Notice('Mood analysis added to note.');
+        } catch (error) {
+            console.error('Mood analysis error:', error);
+            new Notice('Failed to analyze mood data.');
+        }
     }
 
 
