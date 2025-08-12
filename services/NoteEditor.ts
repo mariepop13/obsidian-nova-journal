@@ -1,5 +1,5 @@
 import { Editor } from 'obsidian';
-import type { InsertionLocation } from '../settings/PluginSettings';
+import type { EnhancedInsertionLocation } from '../settings/PluginSettings';
 
 export function getDeepenSource(editor: Editor, preferredLine?: number): { text: string; line: number } | null {
   if (preferredLine !== undefined) {
@@ -20,7 +20,7 @@ export function getDeepenSource(editor: Editor, preferredLine?: number): { text:
   return null;
 }
 
-export function insertAtLocation(editor: Editor, text: string, location: InsertionLocation): void {
+export function insertAtLocation(editor: Editor, text: string, location: EnhancedInsertionLocation, belowHeadingName?: string): void {
   const ensureTrailingNewline = (s: string) => (s.endsWith('\n') ? s : s + '\n');
   const block = ensureTrailingNewline(text);
   if (location === 'top') {
@@ -37,10 +37,29 @@ export function insertAtLocation(editor: Editor, text: string, location: Inserti
     editor.replaceRange(insertText, to);
     return;
   }
+  if (location === 'below-heading') {
+    const target = (belowHeadingName || '').trim();
+    const last = editor.lastLine();
+    let insertLine = -1;
+    const headingRegex = target ? new RegExp(`^\s*#{1,6}\s*${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\s*$`) : null;
+    for (let i = 0; i <= last; i += 1) {
+      const txt = editor.getLine(i);
+      if (headingRegex ? headingRegex.test(txt.trim()) : /^\s*#{1,6}\s*.+$/.test(txt.trim())) {
+        insertLine = i + 1;
+      }
+      if (insertLine >= 0) break;
+    }
+    if (insertLine < 0) {
+      editor.replaceSelection(block);
+      return;
+    }
+    editor.replaceRange(`\n${block}`, { line: insertLine, ch: 0 });
+    return;
+  }
   editor.replaceSelection(block);
 }
 
-export async function typewriterInsert(editor: Editor, line: number, prefix: string, text: string): Promise<void> {
+export async function typewriterInsert(editor: Editor, line: number, prefix: string, text: string, speed: 'slow' | 'normal' | 'fast' = 'normal'): Promise<void> {
   const tokens = text
     .split(/([.!?]+|\n+)/)
     .reduce<string[]>((acc, part) => {
@@ -59,7 +78,7 @@ export async function typewriterInsert(editor: Editor, line: number, prefix: str
 
   let current = prefix;
   const maxMs = 4000;
-  const stepDelay = 50;
+  const stepDelay = speed === 'slow' ? 90 : speed === 'fast' ? 25 : 50;
   const start = Date.now();
   for (let i = 0; i < tokens.length; i += 1) {
     if (line > editor.lastLine() || Date.now() - start > maxMs) break;
