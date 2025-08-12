@@ -17,7 +17,8 @@ jobs:
         with:
           script: |
             const {owner, repo, number} = context.issue;
-            const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const prNumber = context.payload?.pull_request?.number || number;
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
 
             const ref = pr.data.head.ref || '';
             const [prefix, ...rest] = ref.split('/');
@@ -29,14 +30,14 @@ jobs:
               const subject = rest.join('/').replace(/[-_]/g, ' ');
               title = `${map[prefix]}: ${subject}`;
             } else {
-              const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+              const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
               const first = commits.find(c => !c.commit.message.startsWith('Merge'));
               title = first ? first.commit.message.split('\n')[0] : 'chore: update';
             }
             await github.rest.pulls.update({ owner, repo, pull_number: number, title });
 
             // Build an auto body from commits and files
-            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
             const sanitizeSubject = (s) => s
               .replace(/^[:*_~`\s\p{Emoji_Presentation}\p{Extended_Pictographic}]+/u, '')
               .replace(/^(feat|fix|refactor|chore|docs|test|build|ci)(\([^)]*\))?:\s*/i, '')
@@ -47,7 +48,7 @@ jobs:
               .filter(s => s && !s.startsWith('Merge'))
               .slice(0, 30);
 
-            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number });
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: prNumber });
             const areas = new Map();
             let additions = 0, deletions = 0, changes = 0;
             for (const f of files) {
@@ -130,7 +131,7 @@ jobs:
             const risk = (changes > 800 || files.length > 30) ? 'High' : (changes > 400 || files.length > 15) ? 'Medium' : 'Low';
 
             const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
-            await github.rest.pulls.update({ owner, repo, pull_number: number, body });
+            await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body });
 
             // Auto labels (default GitHub names + review effort)
             const labelSet = new Set();
@@ -182,7 +183,7 @@ jobs:
             try {
               const labels = Array.from(labelSet);
               if (labels.length) {
-                await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels });
+                await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
               }
             } catch (e) {
               core.warning(`Could not add labels: ${e.message}`);
