@@ -10,10 +10,13 @@ auto_improve = true
 handle_push_trigger = true
 
 [pr_reviewer]
-require_all_thresholds_for_label = true
+require_all_thresholds_for_label = false
 inline_comments = true
 max_review_comments = 30
 enable_help_text = true
+require_focused_review = false
+require_score_review = false
+require_tests_review = false
 extra_instructions = "Focus on TypeScript best practices, Obsidian plugin conventions, and code quality. Look for potential bugs and suggest improvements."
 
 [pr_description]
@@ -26,4 +29,3 @@ extra_instructions = "Create clear, concise descriptions focusing on what change
 auto_review = true
 num_code_suggestions = 5
 extra_instructions = "Suggest improvements for code readability, performance, and maintainability following clean code principles."
-
