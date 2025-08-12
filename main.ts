@@ -35,13 +35,77 @@ export default class NovaJournalPlugin extends Plugin {
                 this.cyclePromptStyle();
             },
         });
+        this.addCommand({
+            id: 'nova-deepen-last-line',
+            name: 'Nova Journal: Deepen last line (AI)',
+            callback: async () => {
+                await this.deepenLastLine();
+            },
+        });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
+
+        // Make [Explore more](nova-deepen) clickable in preview mode
+        this.registerMarkdownPostProcessor((el) => {
+            el.querySelectorAll('a[href^="nova-deepen"]').forEach((a) => {
+                a.addEventListener('click', (evt) => {
+                    evt.preventDefault();
+                    this.deepenLastLine().catch(console.error);
+                });
+            });
+        });
     }
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
+    private async deepenLastLine(): Promise<void> {
+        if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+            new Notice('Nova Journal: enable AI and set API key in settings.');
+            return;
+        }
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) { new Notice('Nova Journal: open a note.'); return; }
+        const editor = view.editor;
+        const line = editor.getCursor().line;
+        const lastLineText = editor.getLine(line).trim();
+        if (!lastLineText) { new Notice('Nova Journal: no text to deepen.'); return; }
+
+        const userName = 'Marie';
+        const header = `${userName} (you): ${lastLineText}`;
+        const button = `[${this.settings.deepenButtonLabel}](nova-deepen)`;
+        editor.replaceRange(`\n\n${header}\n${button}\n`, { line, ch: editor.getLine(line).length });
+
+        try {
+            const ai = await this.callChatApi(this.settings.aiApiKey, this.settings.aiModel, this.settings.aiSystemPrompt, lastLineText);
+            editor.replaceRange(`\nNova: ${ai}\n`, { line: editor.lastLine(), ch: Number.MAX_SAFE_INTEGER });
+        } catch (e) {
+            console.error(e);
+            new Notice('Nova Journal: AI request failed.');
+        }
+    }
+
+    private async callChatApi(apiKey: string, model: string, systemPrompt: string, userText: string): Promise<string> {
+        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: model || 'gpt-5-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userText },
+                ],
+                temperature: 0.5,
+                max_completion_tokens: 200,
+            }),
+        });
+        const data = await resp.json();
+        const text = data?.choices?.[0]?.message?.content?.trim?.() || '';
+        return text;
+    }
     async saveSettings() {
         await this.saveData(this.settings);
     }
