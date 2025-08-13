@@ -1,6 +1,6 @@
 {
 	"name": "nova-journal",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Guided journaling: local-first by default, with optional AI via external APIs.",
 	"main": "main.js",
 	"scripts": {
@@ -8,13 +8,13 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-		"keywords": [],
-		"author": "mariepop13 <contact@mariepop13.com>",
-		"repository": {
-			"type": "git",
-			"url": "https://github.com/mariepop13/obsidian-nova-journal.git"
-		},
-		"license": "MIT",
+	"keywords": [],
+	"author": "mariepop13 <contact@mariepop13.com>",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/mariepop13/obsidian-nova-journal.git"
+	},
+	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
