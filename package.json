@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-nova-journal",
+	"name": "nova-journal",
 	"version": "1.0.0",
 	"description": "Guided journaling for Obsidian: local-first by default, with optional AI via external APIs.",
 	"main": "main.js",
