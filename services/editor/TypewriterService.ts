@@ -14,7 +14,9 @@ interface TypewriterConfig {
 export class TypewriterService {
   private static readonly SENTENCE_ENDINGS = /[.!?]+/;
   private static readonly NEWLINES = /\n+/;
-  private static readonly SPLIT_PATTERN = /([.!?]+|\n+)/;
+  private static readonly COMMAS = /[,;:]+/;
+  private static readonly PAUSES = /[,;:.!?\n]+/;
+  private static readonly SPLIT_PATTERN = /([,;:.!?\n]+)/;
 
   static async typewriterInsert(config: TypewriterConfig): Promise<void> {
     const tokens = this.tokenizeText(config.text);
@@ -34,7 +36,7 @@ export class TypewriterService {
         
         if (this.isNewline(part)) {
           acc.push(part);
-        } else if (this.isSentenceEnding(part) && lastToken && !this.isNewline(lastToken)) {
+        } else if (this.isPauseToken(part) && lastToken && !this.isNewline(lastToken)) {
           acc[acc.length - 1] = lastToken + part;
         } else {
           acc.push(part.trim());
@@ -58,7 +60,7 @@ export class TypewriterService {
     line: number, 
     prefix: string, 
     tokens: string[], 
-    delay: number
+    baseDelay: number
   ): Promise<void> {
     let current = prefix;
     const startTime = Date.now();
@@ -72,7 +74,9 @@ export class TypewriterService {
       current += this.isNewline(token) ? token : separator + token;
       
       this.updateEditorLine(editor, line, current);
-      await this.delay(delay);
+      
+      const contextualDelay = this.getContextualDelay(token, baseDelay);
+      await this.delay(contextualDelay);
     }
   }
 
@@ -121,6 +125,30 @@ export class TypewriterService {
 
   private static isSentenceEnding(text: string): boolean {
     return this.SENTENCE_ENDINGS.test(text);
+  }
+
+  private static getContextualDelay(token: string, baseDelay: number): number {
+    if (this.isNewline(token)) {
+      return baseDelay * TYPEWRITER_DELAYS.PAUSE_MULTIPLIERS.NEWLINE;
+    }
+    
+    if (this.isSentenceEnding(token)) {
+      return baseDelay * TYPEWRITER_DELAYS.PAUSE_MULTIPLIERS.SENTENCE;
+    }
+    
+    if (this.isCommaLike(token)) {
+      return baseDelay * TYPEWRITER_DELAYS.PAUSE_MULTIPLIERS.COMMA;
+    }
+    
+    return baseDelay;
+  }
+
+  private static isCommaLike(text: string): boolean {
+    return this.COMMAS.test(text);
+  }
+
+  private static isPauseToken(text: string): boolean {
+    return this.PAUSES.test(text);
   }
 
   private static async delay(ms: number): Promise<void> {

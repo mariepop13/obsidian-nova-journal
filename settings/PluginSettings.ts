@@ -71,7 +71,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiEnabled: false,
   aiApiKey: '',
   aiModel: MODEL_DEFAULTS.PRIMARY,
-  aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
+  aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. ALWAYS respond in the same language as the user\'s input (French, English, Spanish, etc.). Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
   deepenButtonLabel: 'Explore more',
   userName: 'You',
   aiDebug: false,
