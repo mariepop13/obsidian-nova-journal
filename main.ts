@@ -1,134 +1,213 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TextComponent } from 'obsidian';
+import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
+import { PromptService } from './prompt/PromptService';
+import type { PromptStyle } from './prompt/PromptRegistry';
+import { DEFAULT_SETTINGS, NovaJournalSettings, normalizeSettings } from './settings/PluginSettings';
+import { removeDateHeadingInEditor } from './services/editor/NoteEditor';
+import { ConversationService } from './services/ai/ConversationService';
+import { FileService } from './services/utils/FileService';
+import { PromptInsertionService } from './services/editor/PromptInsertionService';
+import { FrontmatterService } from './services/rendering/FrontmatterService';
+import { SettingsCommandService } from './services/utils/SettingsCommandService';
+import { EditorNotFoundError } from './services/shared/ErrorTypes';
+import { NovaJournalSettingTab } from './ui/SettingsTab';
+import { registerDeepenHandlers } from './ui/DeepenHandlers';
+import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class NovaJournalPlugin extends Plugin {
+    settings: NovaJournalSettings;
+    private promptService: PromptService;
+    private conversationService: ConversationService;
+    private fileService: FileService;
+    private promptInsertionService: PromptInsertionService;
+    private moodAnalysisService: MoodAnalysisService;
 
 	async onload() {
 		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Nova Journal', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
+        this.promptService = new PromptService();
+        this.conversationService = new ConversationService(this.settings);
+        this.fileService = new FileService(this.app);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
+        this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
+            await this.insertTodaysPrompt();
+        });
+        this.addRibbonIcon('gear', 'Nova Journal: Settings', async () => {
+            SettingsCommandService.openSettings(this.app, this.manifest.id);
+        });
+        this.addCommand({
+            id: 'nova-insert-todays-prompt',
+            name: 'Nova Journal: Insert today\'s prompt',
+            callback: async () => {
+                await this.insertTodaysPrompt();
+            },
+        });
+        this.addCommand({
+            id: 'nova-open-settings',
+            name: 'Nova Journal: Open settings',
+            callback: async () => {
+                SettingsCommandService.openSettings(this.app, this.manifest.id);
+            },
+        });
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
+            id: 'nova-insert-prompt-here',
+            name: 'Nova Journal: Insert prompt here',
+            callback: async () => {
+                await this.insertPromptInActiveEditor();
+            },
+        });
 		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
+            id: 'nova-cycle-prompt-style',
+            name: 'Nova Journal: Cycle prompt style',
+            callback: async () => {
+                this.cyclePromptStyle();
+            },
+        });
 		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+            id: 'nova-deepen-last-line',
+            name: 'Nova Journal: Deepen last line (AI)',
+            callback: async () => {
+                await this.deepenLastLine();
+            },
+        });
+        this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
-
-	onunload() {
-
+        registerDeepenHandlers(
+            this, 
+            () => this.settings.deepenButtonLabel, 
+            (line) => this.deepenLastLine(line), 
+            (label) => this.deepenWholeNote(label),
+            () => this.analyzeMood()
+        );
 	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+        const normalized = normalizeSettings(this.settings);
+        if (JSON.stringify(normalized) !== JSON.stringify(this.settings)) {
+            this.settings = normalized;
+            await this.saveSettings();
+        }
+    }
+
+    private async deepenLastLine(targetLine?: number): Promise<void> {
+        try {
+            const editor = this.getActiveEditor();
+            await this.conversationService.deepenLine(editor, targetLine);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private async deepenWholeNote(label: string): Promise<void> {
+        try {
+            const editor = this.getActiveEditor();
+            await this.conversationService.deepenWholeNote(editor, label);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
+
+    private getActiveEditor(): Editor {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) {
+            throw new EditorNotFoundError();
+        }
+        return view.editor;
+    }
+
+    private handleError(error: unknown): void {
+        console.error(error);
+        
+        if (error instanceof EditorNotFoundError) {
+            new Notice(error.message);
+        } else {
+            new Notice('Nova Journal: An unexpected error occurred.');
+        }
+    }
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+        this.conversationService = new ConversationService(this.settings);
+        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
 	}
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+    private async insertTodaysPrompt(): Promise<void> {
+        try {
+            const todayFile = await this.fileService.ensureTodayNote(
+                this.settings.dailyNoteFolder,
+                this.settings.dailyNoteFormat,
+                this.settings.organizeByYearMonth
+            );
+            
+            await this.fileService.openFileIfNotActive(todayFile);
+            await this.fileService.removeDateHeadingFromFile(todayFile);
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
+            const editor = this.getActiveEditor();
+            removeDateHeadingInEditor(editor);
+            
+            const date = new Date();
+            const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+            const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
+                editor,
+                basePrompt,
+                date
+            );
+            
+            if (wasInserted) {
+                new Notice('Nova Journal: prompt inserted.');
+            }
+        } catch (error) {
+            console.error('Nova Journal insert error', error);
+            new Notice('Nova Journal: failed to insert prompt. See console for details.');
+        }
+    }
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+    private async insertPromptInActiveEditor(): Promise<void> {
+        try {
+            const editor = this.getActiveEditor();
+            await this.promptInsertionService.insertPromptAtLocation(editor);
+        } catch (error) {
+            this.handleError(error);
+        }
+    }
 
-		display(): void {
-		const {containerEl} = this;
+    private cyclePromptStyle(): void {
+        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning'];
+        const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
+        const safeIdx = idx >= 0 ? idx : 0;
+        const next = order[(safeIdx + 1) % order.length];
+        this.settings.promptStyle = next as PromptStyle;
+        void this.saveSettings();
+        new Notice(`Nova Journal: style set to ${next}`);
+    }
 
-		containerEl.empty();
+    private async analyzeMood(): Promise<void> {
+        try {
+            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (!view) {
+                new Notice('Nova Journal: open a note to analyze mood.');
+                return;
+            }
 
-			new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-				.addText((text: TextComponent) => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-					.onChange(async (value: string) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+            new Notice('Analyzing mood...');
+            const editor = view.editor;
+            const noteText = editor.getValue();
+            const analysis = await this.moodAnalysisService.analyzeCurrentNoteContent(noteText);
+            if (!analysis) return;
+
+            let props: Record<string, any> = {};
+            try { props = JSON.parse(analysis); } catch {}
+            const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
+            FrontmatterService.upsertFrontmatter(editor, cleaned);
+            new Notice('Mood properties updated.');
+        } catch (error) {
+            console.error('Mood analysis error:', error);
+            new Notice('Failed to analyze mood data.');
+        }
+    }
+
+
+
 }
