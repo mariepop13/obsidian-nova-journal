@@ -698,7 +698,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 			.setDesc("Upper bound on AI response tokens")
 			.addText((text) =>
 				text
-					.setPlaceholder("256")
+					.setPlaceholder("800")
 					.setValue(String(this.plugin.settings.aiMaxTokens))
 					.onChange(async (value) => {
 						try {
