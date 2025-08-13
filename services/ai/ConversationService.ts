@@ -1,10 +1,19 @@
 import { Editor, Notice } from 'obsidian';
 import { chat } from '../../ai/AiClient';
-import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from '../editor/NoteEditor';
 import { ConversationResponseService } from '../editor/ConversationResponseService';
 import { RegexHelpers } from '../utils/RegexHelpers';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
+
+interface ButtonSettings {
+  buttonStyle?: ButtonStyle;
+  buttonPosition?: ButtonPosition;
+  moodButtonLabel?: string;
+  showMoodButton?: boolean;
+  buttonTheme?: string;
+  deepenButtonLabel?: string;
+}
 
 export interface ConversationContext {
   apiKey: string;
@@ -17,6 +26,7 @@ export interface ConversationContext {
   userName: string;
   deepenButtonLabel: string;
   typewriterSpeed: 'slow' | 'normal' | 'fast';
+  buttonSettings: ButtonSettings;
 }
 
 export class ConversationService {
@@ -34,6 +44,14 @@ export class ConversationService {
       userName: settings.userName,
       deepenButtonLabel: settings.deepenButtonLabel,
       typewriterSpeed: settings.typewriterSpeed,
+      buttonSettings: {
+        buttonStyle: settings.buttonStyle,
+        buttonPosition: settings.buttonPosition,
+        moodButtonLabel: settings.moodButtonLabel,
+        showMoodButton: settings.showMoodButton,
+        buttonTheme: settings.buttonTheme,
+        deepenButtonLabel: settings.deepenButtonLabel
+      },
     };
   }
 
@@ -115,7 +133,7 @@ export class ConversationService {
   }
 
   private createNewButton(editor: Editor, line: number): number {
-    ensureBottomButtons(editor, this.context.deepenButtonLabel);
+    ensureBottomButtons(editor, this.context.deepenButtonLabel, this.context.buttonSettings);
     return editor.lastLine();
   }
 
@@ -204,7 +222,7 @@ export class ConversationService {
     
     await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, anchorLine);
-    ensureBottomButtons(editor, label || this.context.deepenButtonLabel);
+    ensureBottomButtons(editor, label || this.context.deepenButtonLabel, this.context.buttonSettings);
     ensureUserPromptLine(editor, this.context.userName);
   }
 
@@ -212,7 +230,7 @@ export class ConversationService {
     editor.replaceRange('**Nova**: \n', { line: line + 1, ch: 0 });
     await typewriterInsert(editor, line + 1, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, line);
-    ensureBottomButtons(editor, this.context.deepenButtonLabel);
+    ensureBottomButtons(editor, this.context.deepenButtonLabel, this.context.buttonSettings);
     ensureUserPromptLine(editor, this.context.userName);
   }
 
@@ -226,7 +244,7 @@ export class ConversationService {
     
     await typewriterInsert(editor, answerLine, '**Nova**: ', response, this.context.typewriterSpeed);
     removeAnchorsInBlock(editor, answerLine);
-    ensureBottomButtons(editor, label);
+    ensureBottomButtons(editor, label, this.context.buttonSettings);
     ensureUserPromptLine(editor, this.context.userName);
   }
 
