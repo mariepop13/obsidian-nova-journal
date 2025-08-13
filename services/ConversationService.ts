@@ -2,6 +2,8 @@ import { Editor, Notice } from 'obsidian';
 import { chat } from '../ai/AiClient';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
 import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from './NoteEditor';
+import { ConversationResponseService } from './ConversationResponseService';
+import { RegexHelpers } from './RegexHelpers';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from './ErrorTypes';
 
 export interface ConversationContext {

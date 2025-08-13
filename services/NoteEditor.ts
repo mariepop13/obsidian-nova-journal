@@ -1,5 +1,7 @@
 import { Editor } from "obsidian";
 import type { EnhancedInsertionLocation } from "../settings/PluginSettings";
+import { TypewriterService } from './TypewriterService';
+import { RegexHelpers } from './RegexHelpers';
 
 export function getDeepenSource(
 	editor: Editor,
@@ -29,69 +31,86 @@ export function insertAtLocation(
 	location: EnhancedInsertionLocation,
 	belowHeadingName?: string
 ): void {
-	const ensureTrailingNewline = (s: string) =>
-		s.endsWith("\n") ? s : s + "\n";
 	const block = ensureTrailingNewline(text);
-	if (location === "top") {
-		const current = editor.getValue();
-		editor.setValue(`${block}${current.replace(/^\n+/, "")}`);
-		return;
+
+	switch (location) {
+		case "top":
+			insertAtTop(editor, block);
+			break;
+		case "bottom":
+			insertAtBottom(editor, block);
+			break;
+		case "below-heading":
+			insertBelowHeading(editor, block, belowHeadingName);
+			break;
+		default:
+			editor.replaceSelection(block);
 	}
-	if (location === "bottom") {
-		const lastLine = editor.lastLine();
-		const lastLineText = editor.getLine(lastLine);
-		const needsLeadingBreak = lastLineText.trim().length > 0;
-		const insertText = (needsLeadingBreak ? "\n\n" : "") + block;
-		const to = { line: lastLine, ch: lastLineText.length };
-		editor.replaceRange(insertText, to);
-		return;
-	}
-	if (location === "below-heading") {
-		const target = (belowHeadingName || "").trim();
-		const last = editor.lastLine();
-		let insertLine = -1;
+}
 
-		try {
-			const headingRegex = target
-				? new RegExp(
-						`^\\s*#{1,6}\\s*${target.replace(
-							/[.*+?^${}()|[\]\\]/g,
-							"\\$&"
-						)}\\s*$`,
-						"i"
-				  )
-				: /^\s*#{1,6}\s*.+$/;
+function ensureTrailingNewline(text: string): string {
+	return text.endsWith("\n") ? text : text + "\n";
+}
 
-			for (let i = 0; i <= last; i += 1) {
-				const lineText = editor.getLine(i);
-				if (headingRegex.test(lineText.trim())) {
-					insertLine = i + 1;
-					if (target) break; // If looking for specific heading, stop at first match
-				}
-			}
+function insertAtTop(editor: Editor, block: string): void {
+	const current = editor.getValue();
+	editor.setValue(`${block}${current.replace(/^\n+/, "")}`);
+}
 
-			if (insertLine < 0) {
-				editor.replaceSelection(block);
-				return;
-			}
+function insertAtBottom(editor: Editor, block: string): void {
+	const lastLine = editor.lastLine();
+	const lastLineText = editor.getLine(lastLine);
+	const needsLeadingBreak = lastLineText.trim().length > 0;
+	const insertText = (needsLeadingBreak ? "\n\n" : "") + block;
+	const to = { line: lastLine, ch: lastLineText.length };
+	editor.replaceRange(insertText, to);
+}
 
-			// Insert with proper spacing
-			const insertPos = { line: insertLine, ch: 0 };
-			const needsNewline =
-				insertLine <= last &&
-				editor.getLine(insertLine).trim().length > 0;
-			const insertText = needsNewline ? `${block}\n` : block;
-			editor.replaceRange(insertText, insertPos);
-			return;
-		} catch (regexError) {
-			console.warn(
-				"Nova Journal: Invalid heading name for regex, falling back to cursor insertion",
-				regexError
-			);
+function insertBelowHeading(editor: Editor, block: string, belowHeadingName?: string): void {
+	try {
+		const insertLine = findHeadingInsertionLine(editor, belowHeadingName);
+		
+		if (insertLine < 0) {
 			editor.replaceSelection(block);
 			return;
 		}
+
+		insertAtHeadingPosition(editor, block, insertLine);
+	} catch (regexError) {
+		handleHeadingRegexError(editor, block, regexError);
 	}
+}
+
+function findHeadingInsertionLine(editor: Editor, headingName?: string): number {
+	const target = (headingName || "").trim();
+	const headingRegex = RegexHelpers.createHeadingRegex(target);
+	const lastLine = editor.lastLine();
+	let insertLine = -1;
+
+	for (let i = 0; i <= lastLine; i += 1) {
+		const lineText = editor.getLine(i);
+		if (headingRegex.test(lineText.trim())) {
+			insertLine = i + 1;
+			if (target) break;
+		}
+	}
+
+	return insertLine;
+}
+
+function insertAtHeadingPosition(editor: Editor, block: string, insertLine: number): void {
+	const insertPos = { line: insertLine, ch: 0 };
+	const needsNewline = insertLine <= editor.lastLine() && 
+					   editor.getLine(insertLine).trim().length > 0;
+	const insertText = needsNewline ? `${block}\n` : block;
+	editor.replaceRange(insertText, insertPos);
+}
+
+function handleHeadingRegexError(editor: Editor, block: string, regexError: any): void {
+	console.warn(
+		"Nova Journal: Invalid heading name for regex, falling back to cursor insertion",
+		regexError
+	);
 	editor.replaceSelection(block);
 }
 
@@ -102,76 +121,48 @@ export async function typewriterInsert(
 	text: string,
 	speed: "slow" | "normal" | "fast" = "normal"
 ): Promise<void> {
-	const tokens = text
-		.split(/([.!?]+|\n+)/)
-		.reduce<string[]>((acc, part) => {
-			if (!part) return acc;
-			const last = acc.length ? acc[acc.length - 1] : "";
-			if (/\n+/.test(part)) {
-				acc.push(part);
-			} else if (/[.!?]+/.test(part) && last && !/\n+/.test(last)) {
-				acc[acc.length - 1] = last + part;
-			} else {
-				acc.push(part.trim());
-			}
-			return acc;
-		}, [])
-		.filter((p) => p.length > 0);
-
-	let current = prefix;
-	const maxMs = 4000;
-	const stepDelay = speed === "slow" ? 90 : speed === "fast" ? 25 : 50;
-	const start = Date.now();
-	for (let i = 0; i < tokens.length; i += 1) {
-		if (line > editor.lastLine() || Date.now() - start > maxMs) break;
-		const piece = tokens[i];
-		const sep =
-			i === 0
-				? ""
-				: piece === "\n"
-				? ""
-				: /\n+/.test(tokens[i - 1])
-				? ""
-				: " ";
-		current += /\n+/.test(piece) ? piece : sep + piece;
-		editor.replaceRange(
-			current,
-			{ line, ch: 0 },
-			{ line, ch: editor.getLine(line).length }
-		);
-		await new Promise((r) => setTimeout(r, stepDelay));
-	}
-	if (line <= editor.lastLine()) {
-		editor.replaceRange(
-			current + "\n",
-			{ line, ch: 0 },
-			{ line, ch: editor.getLine(line).length }
-		);
-	}
+	return TypewriterService.typewriterInsert({
+		editor,
+		line,
+		prefix,
+		text,
+		speed
+	});
 }
 
 export function removeDateHeadingInEditor(editor: Editor): void {
-	const dateHeadingRegex = /^#{1,6}\s*\d{4}-\d{2}-\d{2}\s*$/;
-	const last = editor.lastLine();
-	const rangesToDelete: {
-		from: { line: number; ch: number };
-		to: { line: number; ch: number };
-	}[] = [];
-	for (let line = 0; line <= last; line += 1) {
+	const rangesToDelete = findDateHeadingRanges(editor);
+	deleteRangesInReverse(editor, rangesToDelete);
+}
+
+function findDateHeadingRanges(editor: Editor): Array<{from: {line: number; ch: number}; to: {line: number; ch: number}}> {
+	const ranges = [];
+	const lastLine = editor.lastLine();
+
+	for (let line = 0; line <= lastLine; line += 1) {
 		const text = editor.getLine(line).trim();
-		if (dateHeadingRegex.test(text)) {
-			const nextIsBlank =
-				line + 1 <= last && editor.getLine(line + 1).trim() === "";
-			const from = { line, ch: 0 };
-			const to = nextIsBlank
-				? { line: line + 1, ch: editor.getLine(line + 1).length }
-				: { line, ch: editor.getLine(line).length };
-			rangesToDelete.push({ from, to });
+		if (RegexHelpers.isDateHeading(text)) {
+			const range = createDateHeadingRange(editor, line, lastLine);
+			ranges.push(range);
 		}
 	}
-	for (let i = rangesToDelete.length - 1; i >= 0; i -= 1) {
-		const r = rangesToDelete[i];
-		editor.replaceRange("", r.from, r.to);
+
+	return ranges;
+}
+
+function createDateHeadingRange(editor: Editor, line: number, lastLine: number) {
+	const nextIsBlank = line + 1 <= lastLine && editor.getLine(line + 1).trim() === "";
+	const from = { line, ch: 0 };
+	const to = nextIsBlank
+		? { line: line + 1, ch: editor.getLine(line + 1).length }
+		: { line, ch: editor.getLine(line).length };
+	return { from, to };
+}
+
+function deleteRangesInReverse(editor: Editor, ranges: Array<{from: any; to: any}>): void {
+	for (let i = ranges.length - 1; i >= 0; i -= 1) {
+		const range = ranges[i];
+		editor.replaceRange("", range.from, range.to);
 	}
 }
 
@@ -180,129 +171,179 @@ export function generateAnchorId(): string {
 	return `conv-${Date.now().toString(36)}-${rnd}`;
 }
 
-function hasClassInTag(line: string, className: string): boolean {
-	return /<(a|button)\b[^>]*class=("[^"]*\b${className}\b[^"]*"|'[^']*\b${className}\b[^']*')[^>]*>/i.test(
-		line
-	);
-}
-
 export function isDeepenButtonMarkup(line: string): boolean {
-	return hasClassInTag(line, 'nova-deepen');
+	return RegexHelpers.isDeepenButtonMarkup(line);
 }
 
 export function isMoodAnalyzeButtonMarkup(line: string): boolean {
-	return hasClassInTag(line, 'nova-mood-analyze');
+	return RegexHelpers.isMoodAnalyzeButtonMarkup(line);
 }
 
 export function isNoteScopedDeepenMarkup(line: string): boolean {
-	return isDeepenButtonMarkup(line) && /data-scope=("|')note\1/i.test(line);
+	return RegexHelpers.isNoteScopedDeepenMarkup(line);
 }
 
 export function removeAnchorsInBlock(editor: Editor, startLine: number): void {
-	const last = editor.lastLine();
-	const isSpeaker = (t: string) => /^[^\s].*:\s*$/.test(t);
-	const isBlank = (t: string) => t.trim().length === 0;
-	const isAnchor = (t: string) => isDeepenButtonMarkup(t) || isMoodAnalyzeButtonMarkup(t);
+	const blockEnd = findBlockEnd(editor, startLine);
+	const anchorRanges = findAnchorRanges(editor, startLine, blockEnd);
+	deleteRangesInReverse(editor, anchorRanges);
+}
+
+function findBlockEnd(editor: Editor, startLine: number): number {
+	const lastLine = editor.lastLine();
 	let end = startLine;
 	let i = startLine + 1;
-	for (; i <= last; i += 1) {
-		const t = editor.getLine(i);
-		if (isBlank(t) || isSpeaker(t)) {
+
+	for (; i <= lastLine; i += 1) {
+		const text = editor.getLine(i);
+		if (RegexHelpers.isBlankLine(text) || RegexHelpers.isSpeakerLine(text)) {
 			end = i - 1;
 			break;
 		}
 		end = i;
 	}
-	for (; i <= last; i += 1) {
-		const t = editor.getLine(i);
-		if (isSpeaker(t)) break;
-		if (!isBlank(t)) break;
+
+	for (; i <= lastLine; i += 1) {
+		const text = editor.getLine(i);
+		if (RegexHelpers.isSpeakerLine(text) || !RegexHelpers.isBlankLine(text)) {
+			break;
+		}
 		end = i;
 	}
-	const toDelete: {
-		from: { line: number; ch: number };
-		to: { line: number; ch: number };
-	}[] = [];
-	for (let j = startLine; j <= end; j += 1) {
-		const t = editor.getLine(j);
-		if (isAnchor(t)) {
-			toDelete.push({
-				from: { line: j, ch: 0 },
-				to: { line: j, ch: t.length },
+
+	return end;
+}
+
+function findAnchorRanges(editor: Editor, start: number, end: number): Array<{from: any; to: any}> {
+	const ranges = [];
+
+	for (let line = start; line <= end; line += 1) {
+		const text = editor.getLine(line);
+		if (RegexHelpers.isAnchorMarkup(text)) {
+			ranges.push({
+				from: { line, ch: 0 },
+				to: { line, ch: text.length }
 			});
 		}
 	}
-	for (let k = toDelete.length - 1; k >= 0; k -= 1) {
-		const r = toDelete[k];
-		editor.replaceRange("", r.from, r.to);
-	}
+
+	return ranges;
 }
 
 export function ensureBottomButtons(editor: Editor, label: string): void {
-	const last = editor.lastLine();
-	const linesToDelete: {
-		from: { line: number; ch: number };
-		to: { line: number; ch: number };
-	}[] = [];
-	for (let i = 0; i <= last; i += 1) {
-		const t = editor.getLine(i);
-		if (isDeepenButtonMarkup(t) || isMoodAnalyzeButtonMarkup(t)) {
-			linesToDelete.push({
+	removeExistingButtons(editor);
+	insertBottomButtons(editor, label);
+}
+
+function removeExistingButtons(editor: Editor): void {
+	const buttonRanges = findAllButtonRanges(editor);
+	deleteRangesInReverse(editor, buttonRanges);
+}
+
+function findAllButtonRanges(editor: Editor): Array<{from: any; to: any}> {
+	const ranges = [];
+	const lastLine = editor.lastLine();
+
+	for (let i = 0; i <= lastLine; i += 1) {
+		const text = editor.getLine(i);
+		if (isDeepenButtonMarkup(text) || isMoodAnalyzeButtonMarkup(text)) {
+			ranges.push({
 				from: { line: i, ch: 0 },
-				to: { line: i, ch: t.length },
+				to: { line: i, ch: text.length }
 			});
 		}
 	}
-	for (let k = linesToDelete.length - 1; k >= 0; k -= 1) {
-		const r = linesToDelete[k];
-		editor.replaceRange("", r.from, r.to);
-	}
+
+	return ranges;
+}
+
+function insertBottomButtons(editor: Editor, label: string): void {
+	const insertionPoint = findButtonInsertionPoint(editor);
+	const buttons = createButtonMarkup(label);
+	editor.replaceRange(buttons, insertionPoint.from, insertionPoint.to);
+}
+
+function findButtonInsertionPoint(editor: Editor) {
 	const endLine = editor.lastLine();
-	let lastNonEmpty = -1;
+	const lastNonEmpty = findLastNonEmptyLine(editor, endLine);
+
+	return {
+		from: { line: lastNonEmpty + 1, ch: 0 },
+		to: { line: endLine, ch: editor.getLine(endLine).length }
+	};
+}
+
+function findLastNonEmptyLine(editor: Editor, endLine: number): number {
 	for (let i = endLine; i >= 0; i -= 1) {
 		if (editor.getLine(i).trim().length > 0) {
-			lastNonEmpty = i;
-			break;
+			return i;
 		}
 	}
-	const from = { line: lastNonEmpty + 1, ch: 0 };
-	const to = { line: endLine, ch: editor.getLine(endLine).length };
-	const buttons = `\n<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
-	editor.replaceRange(buttons, from, to);
+	return -1;
+}
+
+function createButtonMarkup(label: string): string {
+	return `\n<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
 }
 
 export function ensureUserPromptLine(editor: Editor, userName: string): void {
-	const namePrefix = `**${userName || "You"}** (you):`;
-	const last = editor.lastLine();
-	let buttonsLine: number | null = null;
-	for (let i = last; i >= 0; i -= 1) {
-		const t = editor.getLine(i).trim();
-		if (isDeepenButtonMarkup(t) || isMoodAnalyzeButtonMarkup(t)) {
-			buttonsLine = i;
-			break;
-		}
-	}
+	const namePrefix = createUserNamePrefix(userName);
+	const buttonsLine = findButtonsLine(editor);
+
 	if (buttonsLine !== null) {
-		let lastNonEmptyAbove = -1;
-		for (let i = buttonsLine - 1; i >= 0; i -= 1) {
-			if (editor.getLine(i).trim().length > 0) {
-				lastNonEmptyAbove = i;
-				break;
-			}
-		}
-		const from = { line: lastNonEmptyAbove + 1, ch: 0 };
-		const to = { line: buttonsLine, ch: 0 };
-		const block = `\n${namePrefix} \n\n`;
-		const existingBetween = editor.getRange(from, to);
-		if (existingBetween !== block) {
-			editor.replaceRange(block, from, to);
-		}
-		return;
+		insertUserPromptAboveButtons(editor, buttonsLine, namePrefix);
+	} else {
+		insertUserPromptAtEnd(editor, namePrefix);
 	}
-	const lastText = editor.getLine(last).trim();
+}
+
+function createUserNamePrefix(userName: string): string {
+	return `**${userName || "You"}** (you):`;
+}
+
+function findButtonsLine(editor: Editor): number | null {
+	const lastLine = editor.lastLine();
+
+	for (let i = lastLine; i >= 0; i -= 1) {
+		const text = editor.getLine(i).trim();
+		if (isDeepenButtonMarkup(text) || isMoodAnalyzeButtonMarkup(text)) {
+			return i;
+		}
+	}
+
+	return null;
+}
+
+function insertUserPromptAboveButtons(editor: Editor, buttonsLine: number, namePrefix: string): void {
+	const lastNonEmptyAbove = findLastNonEmptyLineAbove(editor, buttonsLine);
+	const from = { line: lastNonEmptyAbove + 1, ch: 0 };
+	const to = { line: buttonsLine, ch: 0 };
+	const block = `\n${namePrefix} \n\n`;
+
+	const existingBetween = editor.getRange(from, to);
+	if (existingBetween !== block) {
+		editor.replaceRange(block, from, to);
+	}
+}
+
+function findLastNonEmptyLineAbove(editor: Editor, buttonsLine: number): number {
+	for (let i = buttonsLine - 1; i >= 0; i -= 1) {
+		if (editor.getLine(i).trim().length > 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+function insertUserPromptAtEnd(editor: Editor, namePrefix: string): void {
+	const lastLine = editor.lastLine();
+	const lastText = editor.getLine(lastLine).trim();
+
 	if (!lastText.startsWith(namePrefix)) {
-		const to = { line: last, ch: editor.getLine(last).length };
+		const to = { line: lastLine, ch: editor.getLine(lastLine).length };
 		const block = `\n${namePrefix} \n`;
 		editor.replaceRange(block, to);
 	}
 }
+
+
