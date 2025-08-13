@@ -13,9 +13,6 @@ auto_describe = true
 auto_improve = true
 # Force l'exécution même si la PR est en draft
 enable_auto_approval = false
-# S'assurer que les actions se déclenchent sur tous les événements PR
-trigger_on_pr_opened = true
-trigger_on_pr_updated = true
 
 [pr_reviewer]
 # Configuration pour des reviews approfondis
@@ -39,17 +36,12 @@ use_bullet_points = true
 include_generated_by_header = true
 extra_instructions = "Create clear, concise descriptions focusing on what changed and why. Highlight security fixes and code quality improvements. Use bullet points for better readability."
 
-[pr_code_suggestions]
-# Suggestions d'amélioration automatiques
-num_code_suggestions = 6
-commitable_code_suggestions = true
-# Suggestions plus détaillées
-extra_instructions = "Suggest improvements for code readability, performance, maintainability, and security following clean code principles. Check for proper error handling, regex escaping, and avoid sensitive data exposure. Provide complete, ready-to-apply code suggestions."
 
-[pr_improve_code]
-# Configuration pour /improve automatique
-auto_improve = true
-num_code_suggestions = 6
+
+[pr_code_suggestions]
+# Configuration pour les suggestions de code ✨ via /improve
+num_code_suggestions = 8
+commitable_code_suggestions = true
 rank_suggestions = true
-# Focus sur les améliorations de qualité
-extra_instructions = "Focus on architectural improvements, design patterns, error handling, and code maintainability. Suggest refactoring opportunities and performance optimizations."
+# Focus sur les améliorations de qualité pour TypeScript/Obsidian
+extra_instructions = "Focus on TypeScript/Obsidian plugin best practices, code quality, performance, and security. Provide specific, actionable improvements with proper code examples. Look for: variable shadowing, proper error handling, regex escaping, type safety, and clean architecture patterns."
