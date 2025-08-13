@@ -15,7 +15,12 @@ export const TYPEWRITER_DELAYS = {
   SLOW: 90,
   NORMAL: 50,
   FAST: 25,
-  MAX_DURATION_MS: 4000
+  MAX_DURATION_MS: 4000,
+  PAUSE_MULTIPLIERS: {
+    COMMA: 3,        // virgules, points-virgules, deux-points (150ms pour normal)
+    SENTENCE: 6,     // points, points d'exclamation, points d'interrogation (300ms)
+    NEWLINE: 10      // nouvelles lignes (500ms)
+  }
 } as const;
 
 export const REGEX_PATTERNS = {
