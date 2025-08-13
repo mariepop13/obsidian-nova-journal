@@ -180,14 +180,29 @@ export function generateAnchorId(): string {
 	return `conv-${Date.now().toString(36)}-${rnd}`;
 }
 
+function hasClassInTag(line: string, className: string): boolean {
+	return /<(a|button)\b[^>]*class=("[^"]*\b${className}\b[^"]*"|'[^']*\b${className}\b[^']*')[^>]*>/i.test(
+		line
+	);
+}
+
+export function isDeepenButtonMarkup(line: string): boolean {
+	return hasClassInTag(line, 'nova-deepen');
+}
+
+export function isMoodAnalyzeButtonMarkup(line: string): boolean {
+	return hasClassInTag(line, 'nova-mood-analyze');
+}
+
+export function isNoteScopedDeepenMarkup(line: string): boolean {
+	return isDeepenButtonMarkup(line) && /data-scope=("|')note\1/i.test(line);
+}
+
 export function removeAnchorsInBlock(editor: Editor, startLine: number): void {
 	const last = editor.lastLine();
 	const isSpeaker = (t: string) => /^[^\s].*:\s*$/.test(t);
 	const isBlank = (t: string) => t.trim().length === 0;
-	const isAnchor = (t: string) =>
-		/<a[^>]*class="nova-deepen"[^>]*>|<button[^>]*class="nova-deepen"[^>]*>|<button[^>]*class="nova-mood-analyze"[^>]*>/.test(
-			t
-		);
+	const isAnchor = (t: string) => isDeepenButtonMarkup(t) || isMoodAnalyzeButtonMarkup(t);
 	let end = startLine;
 	let i = startLine + 1;
 	for (; i <= last; i += 1) {
@@ -231,11 +246,7 @@ export function ensureBottomButtons(editor: Editor, label: string): void {
 	}[] = [];
 	for (let i = 0; i <= last; i += 1) {
 		const t = editor.getLine(i);
-		if (
-			/<a[^>]*class="nova-deepen"[^>]*>|<button[^>]*class="nova-deepen"[^>]*>|<button[^>]*class="nova-mood-analyze"[^>]*>/.test(
-				t
-			)
-		) {
+		if (isDeepenButtonMarkup(t) || isMoodAnalyzeButtonMarkup(t)) {
 			linesToDelete.push({
 				from: { line: i, ch: 0 },
 				to: { line: i, ch: t.length },
@@ -266,11 +277,7 @@ export function ensureUserPromptLine(editor: Editor, userName: string): void {
 	let buttonsLine: number | null = null;
 	for (let i = last; i >= 0; i -= 1) {
 		const t = editor.getLine(i).trim();
-		if (
-			/<button[^>]*class=\"nova-deepen\"[^>]*>|<button[^>]*class=\"nova-mood-analyze\"[^>]*>/.test(
-				t
-			)
-		) {
+		if (isDeepenButtonMarkup(t) || isMoodAnalyzeButtonMarkup(t)) {
 			buttonsLine = i;
 			break;
 		}
