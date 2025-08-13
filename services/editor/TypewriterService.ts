@@ -1,5 +1,5 @@
 import { Editor } from 'obsidian';
-import { TYPEWRITER_DELAYS } from './Constants';
+import { TYPEWRITER_DELAYS } from '../shared/Constants';
 
 type TypewriterSpeed = 'slow' | 'normal' | 'fast';
 

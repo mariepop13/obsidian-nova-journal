@@ -1,10 +1,10 @@
 import { Editor, Notice } from 'obsidian';
-import { chat } from '../ai/AiClient';
-import type { NovaJournalSettings } from '../settings/PluginSettings';
-import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from './NoteEditor';
-import { ConversationResponseService } from './ConversationResponseService';
-import { RegexHelpers } from './RegexHelpers';
-import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from './ErrorTypes';
+import { chat } from '../../ai/AiClient';
+import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from '../editor/NoteEditor';
+import { ConversationResponseService } from '../editor/ConversationResponseService';
+import { RegexHelpers } from '../utils/RegexHelpers';
+import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
 
 export interface ConversationContext {
   apiKey: string;
