@@ -74,7 +74,10 @@ export class FrontmatterService {
 
   private static serializeMoodData(data: MoodData): string[] {
     return FRONTMATTER_ORDER
-      .filter(key => data[key as keyof MoodData] != null)
+      .filter(key => {
+        const value = data[key as keyof MoodData];
+        return value != null && Array.isArray(value) && value.length > 0;
+      })
       .map(key => this.serializeProperty(key, data[key as keyof MoodData]));
   }
 
@@ -93,9 +96,17 @@ export class FrontmatterService {
     const after = lines.slice(end);
     const existingKeys = new Set(serializedData.map(line => line.split(':')[0]!.trim()));
     
-    const filtered = before.filter((line, index) => 
-      index === 0 || !existingKeys.has(line.split(':')[0]!.trim())
-    );
+    const allMoodKeys = new Set(FRONTMATTER_ORDER);
+    
+    const filtered = before.filter((line, index) => {
+      if (index === 0) return true; // Keep the opening ---
+      const key = line.split(':')[0]!.trim();
+      const isNewKey = existingKeys.has(key);
+      const isMoodKey = allMoodKeys.has(key as any);
+      const shouldKeep = !isNewKey && !isMoodKey;
+
+      return shouldKeep;
+    });
     
     const merged = [...filtered, ...serializedData, ...after];
     editor.setValue(merged.join('\n'));
