@@ -8,10 +8,14 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+concurrency:
+  group: auto-pr-title-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   set-title-body:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/github-script@v7
         env:
@@ -33,9 +37,15 @@ jobs:
               core.warning(`Failed to load PR #${prNumber}: ${e.message}`);
               return;
             }
+            const actor = context.actor || '';
+            const isBotActor = /\[bot\]$/.test(actor) || actor === 'dependabot[bot]';
             const isFork = !!pr?.data?.head?.repo?.fork;
             if (isFork) {
               core.warning('PR depuis un fork — on ne touche pas aux secrets ni aux labels.');
+              return;
+            }
+            if (pr?.data?.draft && context.payload?.action !== 'ready_for_review' && context.eventName !== 'issue_comment') {
+              core.info('Draft PR and no explicit command; skipping title/body/labels until ready_for_review.');
               return;
             }
             const isIssueComment = context.eventName === 'issue_comment' && !!context.payload?.issue?.pull_request;
@@ -59,10 +69,20 @@ jobs:
               }
             }
 
-            // Handle comment commands for labels
+            // Handle comment commands for labels and maintenance
+            let forceRegenerate = false;
+            let summarizeAsComment = false;
+            let explicitRetitle = null;
             if (isIssueComment && commentBody) {
               if (!commenterAllowed) {
                 core.info(`Skip label mutation from non-member commenter: ${commenterAssoc}`);
+                return;
+              }
+              // /retitle New title here
+              const mRetitle = commentBody.match(/^\s*\/retitle\s+(.+)$/i);
+              if (mRetitle && mRetitle[1]) {
+                explicitRetitle = mRetitle[1].trim();
+                await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title: explicitRetitle });
                 return;
               }
               // /needs-review
@@ -84,8 +104,31 @@ jobs:
                 if (list.length) await removeLabels(list);
                 return;
               }
+              // /clear-labels -> remove managed auto labels
+              if (/^\s*\/clear-labels\b/i.test(commentBody)) {
+                try {
+                  const managedList = ['bug','documentation','enhancement','chore','refactor','needs-review','review effort 1/5','review effort 2/5','review effort 3/5','review effort 4/5','review effort 5/5'];
+                  const existing = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: prNumber, per_page: 100 });
+                  const toRemove = (existing.data || []).map(l => l.name).filter(n => managedList.includes(n.toLowerCase()) || n.toLowerCase().startsWith('review effort '));
+                  for (const name of toRemove) {
+                    try { await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name }); } catch {}
+                  }
+                } catch (e) {
+                  core.warning(`Failed to clear labels: ${e.message}`);
+                }
+                return;
+              }
+              // /rebuild-body -> force regeneration of PR body and labels
+              if (/^\s*\/rebuild-body\b/i.test(commentBody)) {
+                forceRegenerate = true;
+              }
+              // /summarize -> post an AI summary as a comment
+              if (/^\s*\/summarize\b/i.test(commentBody)) {
+                summarizeAsComment = true;
+                forceRegenerate = true;
+              }
               // /relabel or /generate_labels -> fall through to heuristic labeling below
-              if (!/^\s*\/(relabel|generate_labels)\b/i.test(commentBody)) {
+              if (!/^\s*\/(relabel|generate_labels|rebuild-body|summarize)\b/i.test(commentBody)) {
                 // No recognized command; do nothing
                 return;
               }
@@ -118,7 +161,7 @@ jobs:
               const first = commits.find(c => !c.commit.message.startsWith('Merge'));
               title = first ? first.commit.message.split('\n')[0] : 'chore: update';
             }
-            await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title });
+            await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title: explicitRetitle || title });
 
             // Build an auto body from commits and files
             const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
@@ -150,30 +193,35 @@ jobs:
             // Try AI summary (if OPENAI_KEY provided)
             let aiSummary = '';
             try {
-              const patches = files.map(f => (f.patch || '')).join('\n\n');
-              const patchExcerpt = patches.slice(0, 15000);
-              const fileList = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`).join('\n');
-              const commitSubjects = subjects.join('\n');
-              const prompt = `Summarize this Pull Request for changelog and reviewers. Use concise English Markdown with sections: Summary (1-2 lines), Key Changes (bullets), Risk/Impact, Testing Suggestions.\n\nBranch: ${pr.data.head.ref}\nTitle: ${title}\n\nCommits:\n${commitSubjects}\n\nFiles:\n${fileList}\n\nPatch excerpt (may be truncated):\n${patchExcerpt}`;
+              const openaiKey = process.env.OPENAI_KEY || '';
+              if (openaiKey) {
+                const patches = files.map(f => (f.patch || '')).join('\n\n');
+                const patchExcerpt = patches.slice(0, 15000);
+                const fileList = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`).join('\n');
+                const commitSubjects = subjects.join('\n');
+                const prompt = `Summarize this Pull Request for changelog and reviewers. Use concise English Markdown with sections: Summary (1-2 lines), Key Changes (bullets), Risk/Impact, Testing Suggestions.\n\nBranch: ${pr.data.head.ref}\nTitle: ${explicitRetitle || title}\n\nCommits:\n${commitSubjects}\n\nFiles:\n${fileList}\n\nPatch excerpt (may be truncated):\n${patchExcerpt}`;
 
-              const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${process.env.OPENAI_KEY || ''}`,
-                },
-                body: JSON.stringify({
-                  model: 'gpt-5-mini',
-                  messages: [
-                    { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
-                    { role: 'user', content: prompt },
-                  ],
-                  temperature: 0.2,
-                  max_completion_tokens: 700,
-                }),
-              });
-              const data = await resp.json();
-              aiSummary = data?.choices?.[0]?.message?.content?.trim?.() || '';
+                const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiKey}`,
+                  },
+                  body: JSON.stringify({
+                    model: 'gpt-5-mini',
+                    messages: [
+                      { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
+                      { role: 'user', content: prompt },
+                    ],
+                    temperature: 0.2,
+                    max_tokens: 700,
+                  }),
+                });
+                const data = await resp.json();
+                aiSummary = data?.choices?.[0]?.message?.content?.trim?.() || '';
+              } else {
+                core.info('OPENAI_KEY not set; skipping AI summary.');
+              }
               // Remove outer code fences like ```markdown ... ``` if the model wrapped the whole text
               const stripFences = (s) => {
                 if (!s) return s;
@@ -187,6 +235,14 @@ jobs:
               core.warning(`AI summary failed: ${e.message}`);
             }
 
+            if (summarizeAsComment && aiSummary) {
+              try {
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `## AI Summary\n\n${aiSummary}` });
+              } catch (e) {
+                core.warning(`Failed to post AI summary comment: ${e.message}`);
+              }
+              return;
+            }
             // Always include Diagram and File Walkthrough sections
             const diagram = [
               '```mermaid',
