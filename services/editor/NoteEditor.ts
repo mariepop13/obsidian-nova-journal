@@ -1,7 +1,7 @@
 import { Editor } from "obsidian";
-import type { EnhancedInsertionLocation } from "../settings/PluginSettings";
-import { TypewriterService } from "./editor/TypewriterService";
-import { RegexHelpers } from "./utils/RegexHelpers";
+import type { EnhancedInsertionLocation } from "../../settings/PluginSettings";
+import { TypewriterService } from "./TypewriterService";
+import { RegexHelpers } from "../utils/RegexHelpers";
 
 export function getDeepenSource(
 	editor: Editor,
