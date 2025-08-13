@@ -16,7 +16,7 @@ export const MODEL_DEFAULTS = {
 export const TOKEN_LIMITS = {
   MIN: 1,
   MAX: 4096,
-  DEFAULT: 256
+  DEFAULT: 800
 } as const;
 
 export const RETRY_LIMITS = {
