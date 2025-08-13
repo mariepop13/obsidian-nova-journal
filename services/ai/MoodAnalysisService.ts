@@ -30,7 +30,7 @@ export class MoodAnalysisService {
   "sentiment": "positive"|"neutral"|"negative",
   "dominant_emotions": string[],      // 1-5 primary emotions in lowercase, e.g. ["pride","calm"]
   "tags": string[],                   // 1-8 high-level tags, lowercase single words, e.g. ["work","sleep"]
-  "people_present": string[]          // names or roles present, lowercase, e.g. ["partner","team"]
+  "people_present": string[]          // ANY people mentioned: names, family relations (sister, brother, mother, belle-sœur, etc.), friends, colleagues, etc. Use the original language terms, e.g. ["belle-sœur","marie","collègue"]
 }
 Do not add any extra text before or after the JSON. If uncertain, leave arrays empty and mood_emoji to "😐".`;
 
