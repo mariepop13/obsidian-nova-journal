@@ -97,7 +97,12 @@ export class ButtonCustomizationService {
 
   private static formatDataAttributes(attributes: Record<string, string>): string {
     return Object.entries(attributes)
-      .map(([key, value]) => ` ${key}="${value}"`)
+      .filter(([_, v]) => v != null && String(v).length > 0)
+      .map(([key, value]) => {
+        const safeKey = key.startsWith('data-') ? key : `data-${key}`;
+        const safeValue = String(value).replace(/"/g, '&quot;');
+        return ` ${safeKey}="${safeValue}"`;
+      })
       .join('');
   }
 

@@ -1,10 +1,19 @@
 import { Editor, Notice } from 'obsidian';
 import { chat } from '../../ai/AiClient';
-import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from '../editor/NoteEditor';
 import { ConversationResponseService } from '../editor/ConversationResponseService';
 import { RegexHelpers } from '../utils/RegexHelpers';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
+
+interface ButtonSettings {
+  buttonStyle?: ButtonStyle;
+  buttonPosition?: ButtonPosition;
+  moodButtonLabel?: string;
+  showMoodButton?: boolean;
+  buttonTheme?: string;
+  deepenButtonLabel?: string;
+}
 
 export interface ConversationContext {
   apiKey: string;
@@ -17,7 +26,7 @@ export interface ConversationContext {
   userName: string;
   deepenButtonLabel: string;
   typewriterSpeed: 'slow' | 'normal' | 'fast';
-  buttonSettings: any;
+  buttonSettings: ButtonSettings;
 }
 
 export class ConversationService {
