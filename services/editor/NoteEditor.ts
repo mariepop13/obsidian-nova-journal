@@ -269,9 +269,9 @@ function findAnchorRanges(
 	return ranges;
 }
 
-export function ensureBottomButtons(editor: Editor, label: string): void {
+export function ensureBottomButtons(editor: Editor, label: string, settings?: any): void {
 	removeExistingButtons(editor);
-	insertBottomButtons(editor, label);
+	insertBottomButtons(editor, label, settings);
 }
 
 function removeExistingButtons(editor: Editor): void {
@@ -296,9 +296,9 @@ function findAllButtonRanges(editor: Editor): Array<{ from: any; to: any }> {
 	return ranges;
 }
 
-function insertBottomButtons(editor: Editor, label: string): void {
+function insertBottomButtons(editor: Editor, label: string, settings?: any): void {
 	const insertionPoint = findButtonInsertionPoint(editor);
-	const buttons = createButtonMarkup(label);
+	const buttons = createButtonMarkup(label, settings);
 	editor.replaceRange(buttons, insertionPoint.from, insertionPoint.to);
 }
 
@@ -321,7 +321,14 @@ function findLastNonEmptyLine(editor: Editor, endLine: number): number {
 	return -1;
 }
 
-function createButtonMarkup(label: string): string {
+function createButtonMarkup(label: string, settings?: any): string {
+	if (settings?.buttonStyle && settings?.showMoodButton !== undefined) {
+		const { ButtonCustomizationService } = require('./ButtonCustomizationService');
+		const config = ButtonCustomizationService.createFromSettings(settings);
+		config.scope = 'note';
+		return ButtonCustomizationService.generateButtonMarkup(config);
+	}
+	
 	return `\n<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
 }
 
