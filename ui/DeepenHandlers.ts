@@ -4,38 +4,51 @@ export function registerDeepenHandlers(
   plugin: Plugin,
   getLabel: () => string,
   deepenLine: (line: number) => Promise<void>,
-  deepenNote: (label: string) => Promise<void>
+  deepenNote: (label: string) => Promise<void>,
+  analyzeMood?: () => Promise<void>
 ) {
   plugin.registerMarkdownPostProcessor((el) => {
-    el.querySelectorAll('a.nova-deepen').forEach((btn) => {
+    el.querySelectorAll('a.nova-deepen, button.nova-deepen').forEach((btn) => {
       btn.addEventListener('click', (evt) => {
         evt.preventDefault();
-        const elBtn = btn as HTMLAnchorElement;
-        const lineAttr = elBtn.getAttribute('data-line');
-        const scope = elBtn.getAttribute('data-scope') || '';
-        const label = elBtn.textContent || getLabel();
+        const lineAttr = btn.getAttribute('data-line');
+        const scope = btn.getAttribute('data-scope') || '';
+        const label = btn.textContent || getLabel();
         const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
         const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
         if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
         else deepenLine(parsed as number).catch(console.error);
       });
     });
+
+    if (analyzeMood) {
+      el.querySelectorAll('button.nova-mood-analyze').forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          analyzeMood().catch(console.error);
+        });
+      });
+    }
   });
 
   plugin.registerDomEvent(document, 'click', (evt: MouseEvent) => {
     const t = evt.target as HTMLElement;
-    const a = t.closest('a.nova-deepen') as HTMLAnchorElement | null;
-    if (!a) return;
-    evt.preventDefault();
-    const scope = a.getAttribute('data-scope') || '';
-    const label = a.textContent || getLabel();
-    const lineAttr = a.getAttribute('data-line');
-    const id = a.getAttribute('data-id') || '';
-    const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
-    const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-    if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
-    else deepenLine(parsed as number).catch(console.error);
+    const deepenBtn = t.closest('a.nova-deepen, button.nova-deepen');
+    const moodBtn = t.closest('button.nova-mood-analyze');
+    
+    if (deepenBtn) {
+      evt.preventDefault();
+      const scope = deepenBtn.getAttribute('data-scope') || '';
+      const label = deepenBtn.textContent || getLabel();
+      const lineAttr = deepenBtn.getAttribute('data-line');
+      const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
+      const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
+      if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
+      else deepenLine(parsed as number).catch(console.error);
+    } else if (moodBtn && analyzeMood) {
+      evt.preventDefault();
+      analyzeMood().catch(console.error);
+    }
   });
 }
-
 

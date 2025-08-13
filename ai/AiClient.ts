@@ -9,25 +9,54 @@ export interface ChatArgs {
   fallbackModel?: string;
 }
 
-function sanitizeErrorForLogging(error: string): string {
-  return error
-    .replace(/Bearer\s+sk-[A-Za-z0-9\-_]+/gi, 'Bearer [REDACTED]')
-    .replace(/api[_\-]?key['":\s]*[A-Za-z0-9\-_]+/gi, 'api_key: [REDACTED]')
-    .replace(/sk-[A-Za-z0-9\-_]{20,}/gi, '[API_KEY_REDACTED]');
+export interface APICallConfig {
+  apiKey: string;
+  modelName: string;
+  systemPrompt: string;
+  userText: string;
+  maxTokens: number;
+  debug: boolean;
 }
 
-async function callOnce(apiKey: string, modelName: string, systemPrompt: string, userText: string, maxTokens: number, debug: boolean): Promise<string> {
-  const safeMax = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.min(Math.floor(maxTokens), 8192) : 512;
+import { sanitizeForLogging } from '../utils/Sanitizer';
+import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/shared/Constants';
+
+async function callOnce(config: APICallConfig): Promise<string> {
+  const payload = buildPayload(config);
+  const response = await makeAPICall(config.apiKey, payload);
+  
+  if (!response.ok) {
+    await handleAPIError(response, config.debug);
+  }
+  
+  const data = await response.json();
+  return parseResponse(data);
+}
+
+function buildPayload(config: APICallConfig): Record<string, any> {
+  const safeMax = Number.isFinite(config.maxTokens) && config.maxTokens > 0 
+    ? Math.min(Math.floor(config.maxTokens), AI_LIMITS.MAX_TOKENS_HARD_LIMIT) 
+    : AI_LIMITS.DEFAULT_TOKENS;
+    
   const payload: any = {
-    model: modelName,
+    model: config.modelName,
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userText },
+      { role: 'system', content: config.systemPrompt },
+      { role: 'user', content: config.userText },
     ],
   };
-  if (/^gpt-5/i.test(modelName)) payload.max_completion_tokens = safeMax; else payload.max_tokens = safeMax;
+  
+  if (REGEX_PATTERNS.GPT5_MODEL.test(config.modelName)) {
+    payload.max_completion_tokens = safeMax;
+  } else {
+    payload.max_tokens = safeMax;
+  }
+  
+  return payload;
+}
 
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+async function makeAPICall(apiKey: string, payload: Record<string, any>): Promise<Response> {
+  return fetch(API_CONFIG.OPENAI_CHAT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,52 +64,73 @@ async function callOnce(apiKey: string, modelName: string, systemPrompt: string,
     },
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) {
-    if (debug) console.error('Nova AI status', resp.status, resp.statusText);
-    const errText = await resp.text().catch(() => '');
-    if (debug) {
-      const sanitizedError = sanitizeErrorForLogging(errText);
-      console.error('Nova AI error body', sanitizedError);
-    }
-    throw new Error(`AI request failed (${resp.status}): ${resp.statusText}`);
-  }
-  const data = await resp.json();
-  // Success logs remain in console only when dev tools open
+}
+
+async function handleAPIError(response: Response, debug: boolean): Promise<never> {
+  if (debug) console.error('Nova AI status', response.status, response.statusText);
+  
+  const errText = await response.text().catch(() => '');
+  if (debug) console.error('Nova AI error body', sanitizeForLogging(errText));
+  
+  throw new Error(`AI request failed (${response.status}): ${response.statusText}`);
+}
+
+function parseResponse(data: any): string {
   const choice = data?.choices?.[0];
   const msg = choice?.message;
   let text = '';
-  if (typeof msg?.content === 'string') text = msg.content.trim();
-  else if (Array.isArray(msg?.content)) text = msg.content.map((p: any) => (p?.text ?? '')).join('').trim();
-  else if (typeof (msg as any)?.output_text === 'string') text = (msg as any).output_text.trim();
+  
+  if (typeof msg?.content === 'string') {
+    text = msg.content.trim();
+  } else if (Array.isArray(msg?.content)) {
+    text = msg.content.map((p: any) => (p?.text ?? '')).join('').trim();
+  } else if (typeof (msg as any)?.output_text === 'string') {
+    text = (msg as any).output_text.trim();
+  }
+  
   if (!text) {
     throw new Error('AI response missing content');
   }
+  
   return text;
 }
 
-export async function chat({ apiKey, model, systemPrompt, userText, maxTokens = 512, debug = false, retryCount = 0, fallbackModel = '' }: ChatArgs): Promise<string> {
+export async function chat({ apiKey, model, systemPrompt, userText, maxTokens = AI_LIMITS.DEFAULT_TOKENS, debug = false, retryCount = 0, fallbackModel = '' }: ChatArgs): Promise<string> {
   const primary = model || 'gpt-5-mini';
-  const tries = Math.max(0, Math.min(5, retryCount));
+  const tries = Math.max(0, Math.min(AI_LIMITS.MAX_RETRIES, retryCount));
+  
+  const config: APICallConfig = {
+    apiKey,
+    modelName: primary,
+    systemPrompt,
+    userText,
+    maxTokens,
+    debug
+  };
+  
   let lastError: any = null;
+  
   for (let i = 0; i <= tries; i += 1) {
     try {
-      return await callOnce(apiKey, primary, systemPrompt, userText, maxTokens, debug);
+      return await callOnce(config);
     } catch (e) {
       lastError = e;
       if (i < tries) {
-        const backoff = 250 * Math.pow(2, i);
+        const backoff = AI_LIMITS.BACKOFF_BASE_MS * Math.pow(2, i);
         await new Promise(r => setTimeout(r, backoff));
       }
     }
   }
+  
   if (fallbackModel && fallbackModel !== primary) {
     try {
-      return await callOnce(apiKey, fallbackModel, systemPrompt, userText, maxTokens, debug);
+      const fallbackConfig = { ...config, modelName: fallbackModel };
+      return await callOnce(fallbackConfig);
     } catch (e) {
       lastError = e;
     }
   }
+  
   throw lastError || new Error('AI request failed');
 }
-
 

@@ -34,7 +34,6 @@ export interface NovaJournalSettings {
   dailyNoteFormat: string; // Limited support: YYYY-MM-DD
   promptTemplate: string; // If provided, used to render the inserted block
   preventDuplicateForDay: boolean;
-  useDuplicateMarker?: boolean;
   insertHeadingName: string;
   organizeByYearMonth: boolean;
   aiEnabled: boolean;
@@ -58,9 +57,8 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   sectionHeading: '## Journal Prompt',
   dailyNoteFolder: 'Journal',
   dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
-  promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}\n\n<a href="#" class="nova-deepen" data-scope="note">Explore more</a>',
+  promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}',
   preventDuplicateForDay: true,
-  useDuplicateMarker: true,
   insertHeadingName: '',
   organizeByYearMonth: false,
   aiEnabled: false,
@@ -163,8 +161,6 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     defaultDeepenScope: SettingsValidator.validateDeepenScope(s.defaultDeepenScope),
     aiMaxTokens: SettingsValidator.validateTokens(s.aiMaxTokens),
     aiRetryCount: SettingsValidator.validateRetryCount(s.aiRetryCount),
-    useDuplicateMarker: typeof s.useDuplicateMarker === 'boolean' ? s.useDuplicateMarker : true,
   };
 }
-
 

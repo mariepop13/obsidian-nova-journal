@@ -2,13 +2,16 @@ import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
 import { PromptService } from './prompt/PromptService';
 import type { PromptStyle } from './prompt/PromptRegistry';
 import { DEFAULT_SETTINGS, NovaJournalSettings, normalizeSettings } from './settings/PluginSettings';
-import { removeDateHeadingInEditor } from './services/NoteEditor';
-import { ConversationService } from './services/ConversationService';
-import { FileService } from './services/FileService';
-import { PromptInsertionService } from './services/PromptInsertionService';
-import { EditorNotFoundError } from './services/ErrorTypes';
+import { removeDateHeadingInEditor } from './services/editor/NoteEditor';
+import { ConversationService } from './services/ai/ConversationService';
+import { FileService } from './services/utils/FileService';
+import { PromptInsertionService } from './services/editor/PromptInsertionService';
+import { FrontmatterService } from './services/rendering/FrontmatterService';
+import { SettingsCommandService } from './services/utils/SettingsCommandService';
+import { EditorNotFoundError } from './services/shared/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
+import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
@@ -16,6 +19,7 @@ export default class NovaJournalPlugin extends Plugin {
     private conversationService: ConversationService;
     private fileService: FileService;
     private promptInsertionService: PromptInsertionService;
+    private moodAnalysisService: MoodAnalysisService;
 
 	async onload() {
 		await this.loadSettings();
@@ -23,13 +27,12 @@ export default class NovaJournalPlugin extends Plugin {
         this.conversationService = new ConversationService(this.settings);
         this.fileService = new FileService(this.app);
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
         this.addRibbonIcon('gear', 'Nova Journal: Settings', async () => {
-            const settings = (this.app as any).setting;
-            if (settings?.open) settings.open();
-            if (settings?.openTabById) settings.openTabById(this.manifest.id);
+            SettingsCommandService.openSettings(this.app, this.manifest.id);
         });
         this.addCommand({
             id: 'nova-insert-todays-prompt',
@@ -42,9 +45,7 @@ export default class NovaJournalPlugin extends Plugin {
             id: 'nova-open-settings',
             name: 'Nova Journal: Open settings',
             callback: async () => {
-                const settings = (this.app as any).setting;
-                if (settings?.open) settings.open();
-                if (settings?.openTabById) settings.openTabById(this.manifest.id);
+                SettingsCommandService.openSettings(this.app, this.manifest.id);
             },
         });
 		this.addCommand({
@@ -70,7 +71,13 @@ export default class NovaJournalPlugin extends Plugin {
         });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 
-        registerDeepenHandlers(this, () => this.settings.deepenButtonLabel, (line) => this.deepenLastLine(line), (label) => this.deepenWholeNote(label));
+        registerDeepenHandlers(
+            this, 
+            () => this.settings.deepenButtonLabel, 
+            (line) => this.deepenLastLine(line), 
+            (label) => this.deepenWholeNote(label),
+            () => this.analyzeMood()
+        );
 	}
 
 	async loadSettings() {
@@ -122,6 +129,7 @@ export default class NovaJournalPlugin extends Plugin {
 		await this.saveData(this.settings);
         this.conversationService = new ConversationService(this.settings);
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
+        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
 	}
 
     private async insertTodaysPrompt(): Promise<void> {
@@ -156,8 +164,6 @@ export default class NovaJournalPlugin extends Plugin {
         }
     }
 
-
-
     private async insertPromptInActiveEditor(): Promise<void> {
         try {
             const editor = this.getActiveEditor();
@@ -177,6 +183,30 @@ export default class NovaJournalPlugin extends Plugin {
         new Notice(`Nova Journal: style set to ${next}`);
     }
 
+    private async analyzeMood(): Promise<void> {
+        try {
+            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (!view) {
+                new Notice('Nova Journal: open a note to analyze mood.');
+                return;
+            }
+
+            new Notice('Analyzing mood...');
+            const editor = view.editor;
+            const noteText = editor.getValue();
+            const analysis = await this.moodAnalysisService.analyzeCurrentNoteContent(noteText);
+            if (!analysis) return;
+
+            let props: Record<string, any> = {};
+            try { props = JSON.parse(analysis); } catch {}
+            const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
+            FrontmatterService.upsertFrontmatter(editor, cleaned);
+            new Notice('Mood properties updated.');
+        } catch (error) {
+            console.error('Mood analysis error:', error);
+            new Notice('Failed to analyze mood data.');
+        }
+    }
 
 
 

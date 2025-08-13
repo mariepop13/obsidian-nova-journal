@@ -1,5 +1,5 @@
-import { DateFormatter } from '../settings/PluginSettings';
-import { TEMPLATE_PATTERNS } from './shared/Constants';
+import { DateFormatter } from '../../settings/PluginSettings';
+import { TEMPLATE_PATTERNS } from '../shared/Constants';
 
 export interface TemplateContext {
   prompt: string;
