@@ -3,7 +3,7 @@ import { PromptService } from '../prompt/PromptService';
 import type { PromptStyle } from '../prompt/PromptRegistry';
 import type { NovaJournalSettings, EnhancedInsertionLocation } from '../settings/PluginSettings';
 import { insertAtLocation, removeDateHeadingInEditor, ensureBottomButtons } from './NoteEditor';
-import { PromptRenderingService } from './PromptRenderingService';
+import { PromptRenderingService, type RenderConfig } from './PromptRenderingService';
 
 export class PromptInsertionService {
   constructor(
@@ -56,14 +56,15 @@ export class PromptInsertionService {
   }
 
   private renderPrompt(basePrompt: string, date: Date): string {
-    return PromptRenderingService.renderFinalPrompt(
+    const config: RenderConfig = {
       basePrompt,
       date,
-      this.settings.addSectionHeading,
-      this.settings.sectionHeading,
-      this.settings.promptTemplate,
-      this.settings.userName,
-      this.settings.aiEnabled
-    );
+      addSectionHeading: this.settings.addSectionHeading,
+      sectionHeading: this.settings.sectionHeading,
+      promptTemplate: this.settings.promptTemplate,
+      userName: this.settings.userName,
+      aiEnabled: this.settings.aiEnabled
+    };
+    return PromptRenderingService.renderFinalPrompt(config);
   }
 }

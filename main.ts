@@ -6,6 +6,8 @@ import { removeDateHeadingInEditor } from './services/NoteEditor';
 import { ConversationService } from './services/ConversationService';
 import { FileService } from './services/FileService';
 import { PromptInsertionService } from './services/PromptInsertionService';
+import { FrontmatterService } from './services/FrontmatterService';
+import { SettingsCommandService } from './services/SettingsCommandService';
 import { EditorNotFoundError } from './services/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
@@ -30,9 +32,7 @@ export default class NovaJournalPlugin extends Plugin {
             await this.insertTodaysPrompt();
         });
         this.addRibbonIcon('gear', 'Nova Journal: Settings', async () => {
-            const settings = (this.app as any).setting;
-            if (settings?.open) settings.open();
-            if (settings?.openTabById) settings.openTabById(this.manifest.id);
+            SettingsCommandService.openSettings(this.app, this.manifest.id);
         });
         this.addCommand({
             id: 'nova-insert-todays-prompt',
@@ -45,9 +45,7 @@ export default class NovaJournalPlugin extends Plugin {
             id: 'nova-open-settings',
             name: 'Nova Journal: Open settings',
             callback: async () => {
-                const settings = (this.app as any).setting;
-                if (settings?.open) settings.open();
-                if (settings?.openTabById) settings.openTabById(this.manifest.id);
+                SettingsCommandService.openSettings(this.app, this.manifest.id);
             },
         });
 		this.addCommand({
@@ -201,8 +199,8 @@ export default class NovaJournalPlugin extends Plugin {
 
             let props: Record<string, any> = {};
             try { props = JSON.parse(analysis); } catch {}
-            const cleaned = this.normalizeMoodProps(props);
-            this.upsertFrontmatter(editor, cleaned);
+            const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
+            FrontmatterService.upsertFrontmatter(editor, cleaned);
             new Notice('Mood properties updated.');
         } catch (error) {
             console.error('Mood analysis error:', error);
@@ -210,56 +208,6 @@ export default class NovaJournalPlugin extends Plugin {
         }
     }
 
-    private normalizeMoodProps(input: Record<string, any>): Record<string, any> {
-        const moodEmoji = typeof input?.mood_emoji === 'string' && input.mood_emoji.trim().length > 0 ? input.mood_emoji.trim() : '😐';
-        const sentiment = ['positive','neutral','negative'].includes((input?.sentiment || '').toLowerCase()) ? String(input.sentiment).toLowerCase() : 'neutral';
-        const dominants = Array.isArray(input?.dominant_emotions) ? input.dominant_emotions.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.toLowerCase()) : [];
-        const tags = Array.isArray(input?.tags) ? input.tags.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.toLowerCase()) : [];
-        const peopleRaw = Array.isArray(input?.people_present) ? input.people_present.filter((s: any) => typeof s === 'string' && s.trim()).map((s: string) => s.toLowerCase()) : [];
-        const excludeNames = new Set<string>(['nova', 'ai', 'assistant', (this.settings.userName || 'you').toLowerCase(), 'you', 'me']);
-        const people = peopleRaw.filter(p => !excludeNames.has(p));
-        return {
-            mood_emoji: [moodEmoji],
-            sentiment: [sentiment],
-            dominant_emotions: dominants.slice(0, 5),
-            tags: tags.slice(0, 8),
-            people_present: people.slice(0, 10)
-        };
-    }
 
-    private upsertFrontmatter(editor: Editor, data: Record<string, any>): void {
-        const content = editor.getValue();
-        const lines = content.split('\n');
-        let start = -1, end = -1;
-        if (lines[0] === '---') {
-            start = 0;
-            end = lines.findIndex((l, idx) => idx > 0 && l === '---');
-        }
-        const serialize = (k: string, v: any): string => {
-            if (Array.isArray(v)) {
-                const items = v.map(s => `"${String(s).replace(/"/g, '\\"')}"`).join(', ');
-                return `${k}: [${items}]`;
-            }
-            const val = String(v);
-            return `${k}: ["${val.replace(/"/g, '\\"')}"]`;
-        };
-        const order = ['mood_emoji','sentiment','dominant_emotions','tags','people_present'];
-        const kv = order
-            .filter(k => data[k] != null)
-            .map(k => serialize(k, data[k]));
-        if (kv.length === 0) return;
-
-        if (start === 0 && end > 0) {
-            const before = lines.slice(0, end);
-            const after = lines.slice(end);
-            const keys = new Set(kv.map(s => s.split(':')[0]!.trim()));
-            const filtered = before.filter((l, idx) => idx === 0 || !keys.has(l.split(':')[0]!.trim()));
-            const merged = [...filtered, ...kv, ...after];
-            editor.setValue(merged.join('\n'));
-        } else {
-            const header = ['---', ...kv, '---', '', content].join('\n');
-            editor.setValue(header);
-        }
-    }
 
 }

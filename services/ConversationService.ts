@@ -151,11 +151,9 @@ export class ConversationService {
   }
 
   private findAnchorLine(editor: Editor, startLine: number): number | null {
-    const anchorRegex = /<a[^>]*class="nova-deepen"[^>]*>|<button[^>]*class="nova-deepen"[^>]*>/;
-    
     for (let i = startLine + 1; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i);
-      if (anchorRegex.test(lineText)) return i;
+      if (/<(a|button)\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*>/.test(lineText)) return i;
       if (/^[^\s].*:/.test(lineText)) break;
     }
     return null;
@@ -164,7 +162,7 @@ export class ConversationService {
   private findNoteScopeAnchor(editor: Editor): number | null {
     for (let i = 0; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i);
-      if (/(<a[^>]*class="nova-deepen"[^>]*data-scope="note"|<button[^>]*class="nova-deepen"[^>]*data-scope="note")/.test(lineText)) {
+      if (/(<(a|button))\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*data-scope=("|')note\4/.test(lineText)) {
         return i;
       }
     }
