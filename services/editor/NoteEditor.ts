@@ -2,6 +2,7 @@ import { Editor } from "obsidian";
 import type { EnhancedInsertionLocation } from "../../settings/PluginSettings";
 import { TypewriterService } from "./TypewriterService";
 import { RegexHelpers } from "../utils/RegexHelpers";
+import { ButtonCustomizationService } from "./ButtonCustomizationService";
 
 export function getDeepenSource(
 	editor: Editor,
@@ -151,9 +152,7 @@ export function removeDateHeadingInEditor(editor: Editor): void {
 	deleteRangesInReverse(editor, rangesToDelete);
 }
 
-function findDateHeadingRanges(
-	editor: Editor
-): Array<{
+function findDateHeadingRanges(editor: Editor): Array<{
 	from: { line: number; ch: number };
 	to: { line: number; ch: number };
 }> {
@@ -269,7 +268,11 @@ function findAnchorRanges(
 	return ranges;
 }
 
-export function ensureBottomButtons(editor: Editor, label: string, settings?: any): void {
+export function ensureBottomButtons(
+	editor: Editor,
+	label: string,
+	settings?: any
+): void {
 	removeExistingButtons(editor);
 	insertBottomButtons(editor, label, settings);
 }
@@ -296,7 +299,11 @@ function findAllButtonRanges(editor: Editor): Array<{ from: any; to: any }> {
 	return ranges;
 }
 
-function insertBottomButtons(editor: Editor, label: string, settings?: any): void {
+function insertBottomButtons(
+	editor: Editor,
+	label: string,
+	settings?: any
+): void {
 	const insertionPoint = findButtonInsertionPoint(editor);
 	const buttons = createButtonMarkup(label, settings);
 	editor.replaceRange(buttons, insertionPoint.from, insertionPoint.to);
@@ -323,12 +330,18 @@ function findLastNonEmptyLine(editor: Editor, endLine: number): number {
 
 function createButtonMarkup(label: string, settings?: any): string {
 	if (settings) {
-		const { ButtonCustomizationService } = require('./ButtonCustomizationService');
-		const config = ButtonCustomizationService.createFromSettings(settings);
-		config.scope = 'note';
-		return ButtonCustomizationService.generateButtonMarkup(config);
+		try {
+			const config =
+				ButtonCustomizationService.createFromSettings(settings);
+			config.scope = "note";
+			const markup =
+				ButtonCustomizationService.generateButtonMarkup(config);
+			if (typeof markup === "string" && markup.length) return markup;
+		} catch (e) {
+			// fallthrough to safe default
+		}
 	}
-	
+
 	return `\n<button class="nova-deepen" data-scope="note">${label}</button> <button class="nova-mood-analyze">Analyze mood</button>\n`;
 }
 

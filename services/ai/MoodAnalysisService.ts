@@ -269,14 +269,17 @@ Please provide insights about patterns, trends, and suggestions for maintaining 
 	}
 
 	private extractMeaningfulContent(noteText: string): string {
-		const contentWithoutFrontmatter =
-			this.removeMarkdownFrontmatter(noteText);
+		const contentWithoutFrontmatter = this.removeMarkdownFrontmatter(noteText);
 
 		const cleanedContent = contentWithoutFrontmatter
+			.replace(/^---[\s\S]*?^---/gm, "")
 			.replace(/^#+\s+.*$/gm, "")
-			.replace(/^\s*[-*+]\s*$/gm, "")
-			.replace(/^\s*\d+\.\s*$/gm, "")
-			.replace(/^\s*$\n/gm, "")
+			.replace(/^\s*[-*+]\s*(?=\s*$)/gm, "")
+			.replace(/^\s*\d+\.\s*(?=\s*$)/gm, "")
+			.replace(/<[^>]*>/g, "")
+			.replace(/\*\*([^*]+)\*\*/g, "$1")
+			.replace(/\*([^*]+)\*/g, "$1")
+			.replace(/\n\s*\n\s*\n/g, "\n\n")
 			.replace(/\s+/g, " ")
 			.trim();
 
