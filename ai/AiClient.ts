@@ -11,9 +11,9 @@ export interface ChatArgs {
 
 function sanitizeErrorForLogging(error: string): string {
   return error
-    .replace(/Bearer\s+sk-[A-Za-z0-9\-_]+/gi, 'Bearer [REDACTED]')
-    .replace(/api[_\-]?key['":\s]*[A-Za-z0-9\-_]+/gi, 'api_key: [REDACTED]')
-    .replace(/sk-[A-Za-z0-9\-_]{20,}/gi, '[API_KEY_REDACTED]');
+    .replace(/Bearer\s+sk-[A-Za-z0-9-_]+/gi, 'Bearer [REDACTED]')
+    .replace(/api[_-]?key['":\s]*[A-Za-z0-9-_]+/gi, 'api_key: [REDACTED]')
+    .replace(/sk-[A-Za-z0-9-_]{20,}/gi, '[API_KEY_REDACTED]');
 }
 
 async function callOnce(apiKey: string, modelName: string, systemPrompt: string, userText: string, maxTokens: number, debug: boolean): Promise<string> {
@@ -82,5 +82,4 @@ export async function chat({ apiKey, model, systemPrompt, userText, maxTokens = 
   }
   throw lastError || new Error('AI request failed');
 }
-
 

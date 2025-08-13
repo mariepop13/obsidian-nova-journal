@@ -197,7 +197,7 @@ export class ConversationService {
     editor: Editor, 
     anchorLine: number, 
     response: string, 
-    scopeAttr: string, 
+    _scopeAttr: string, 
     label?: string
   ): Promise<void> {
     editor.replaceRange('**Nova**: \n', { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });

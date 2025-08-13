@@ -166,8 +166,6 @@ export default class NovaJournalPlugin extends Plugin {
         }
     }
 
-
-
     private async insertPromptInActiveEditor(): Promise<void> {
         try {
             const editor = this.getActiveEditor();
@@ -263,8 +261,5 @@ export default class NovaJournalPlugin extends Plugin {
             editor.setValue(header);
         }
     }
-
-
-
 
 }

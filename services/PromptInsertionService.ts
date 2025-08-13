@@ -66,6 +66,4 @@ export class PromptInsertionService {
       this.settings.aiEnabled
     );
   }
-
-  private addDuplicateMarker(_editor: Editor, _date: Date): void {}
 }

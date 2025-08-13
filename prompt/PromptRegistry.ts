@@ -21,4 +21,3 @@ export const promptPacks: Record<PromptStyle, string[]> = {
   ],
 };
 
-
