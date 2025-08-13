@@ -56,7 +56,7 @@ ${noteText}`;
     }
   }
 
-  async analyzeMoodData(daysBack: number = 7): Promise<string | null> {
+  async analyzeMoodData(daysBack = 7): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
       new Notice('AI must be enabled for mood analysis.');
       return null;
@@ -165,7 +165,7 @@ ${noteText}`;
     return lines.slice(endIndex + 1).join('\n').trim();
   }
 
-  private extractNoteExcerpt(content: string, maxLength: number = 200): string {
+  private extractNoteExcerpt(content: string, maxLength = 200): string {
     const cleanContent = content
       .replace(/^#+\s+.*$/gm, '')
       .replace(/\*\*.*?\*\*/g, '')

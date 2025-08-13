@@ -164,4 +164,3 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
   };
 }
 
-

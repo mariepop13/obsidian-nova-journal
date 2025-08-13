@@ -466,8 +466,6 @@ export class NovaJournalSettingTab extends PluginSettingTab {
         }));
   }
 
-
-
   private renderAdvancedSection(containerEl: HTMLElement): void {
     containerEl.createEl('h3', { text: 'Advanced' });
 
