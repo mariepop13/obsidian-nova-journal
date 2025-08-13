@@ -26,7 +26,7 @@ export class PromptInsertionService {
     const insertLocation = location || this.settings.insertLocation;
     
     insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
-    ensureBottomButtons(editor, this.settings.deepenButtonLabel);
+    ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
     new Notice('Nova Journal: prompt inserted.');
   }
 
@@ -42,7 +42,7 @@ export class PromptInsertionService {
 
     const prompt = this.renderPrompt(basePrompt, date);
     insertAtLocation(editor, prompt, this.settings.insertLocation, this.settings.insertHeadingName);
-    ensureBottomButtons(editor, this.settings.deepenButtonLabel);
+    ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
     
     return true;
   }
@@ -62,5 +62,16 @@ export class PromptInsertionService {
       aiEnabled: this.settings.aiEnabled
     };
     return PromptRenderingService.renderFinalPrompt(config);
+  }
+
+  private createButtonSettings(): any {
+    return {
+      buttonStyle: this.settings.buttonStyle,
+      buttonPosition: this.settings.buttonPosition,
+      moodButtonLabel: this.settings.moodButtonLabel,
+      showMoodButton: this.settings.showMoodButton,
+      buttonTheme: this.settings.buttonTheme,
+      deepenButtonLabel: this.settings.deepenButtonLabel
+    };
   }
 }

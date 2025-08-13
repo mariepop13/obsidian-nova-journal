@@ -5,6 +5,8 @@ export type EnhancedInsertionLocation = InsertionLocation | 'below-heading';
 export type TypewriterSpeed = 'slow' | 'normal' | 'fast';
 export type DeepenScope = 'line' | 'note';
 export type PromptPreset = 'minimal' | 'conversation' | 'dated';
+export type ButtonStyle = 'button' | 'link' | 'minimal' | 'pill';
+export type ButtonPosition = 'bottom' | 'inline' | 'both';
 
 export const MODEL_DEFAULTS = {
   PRIMARY: 'gpt-4o-mini',
@@ -14,7 +16,7 @@ export const MODEL_DEFAULTS = {
 export const TOKEN_LIMITS = {
   MIN: 1,
   MAX: 4096,
-  DEFAULT: 256
+  DEFAULT: 800
 } as const;
 
 export const RETRY_LIMITS = {
@@ -48,6 +50,11 @@ export interface NovaJournalSettings {
   aiRetryCount: number;
   aiFallbackModel: string;
   typewriterSpeed: TypewriterSpeed;
+  buttonStyle: ButtonStyle;
+  buttonPosition: ButtonPosition;
+  moodButtonLabel: string;
+  showMoodButton: boolean;
+  buttonTheme: string;
 }
 
 export const DEFAULT_SETTINGS: NovaJournalSettings = {
@@ -64,7 +71,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiEnabled: false,
   aiApiKey: '',
   aiModel: MODEL_DEFAULTS.PRIMARY,
-  aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
+  aiSystemPrompt: 'You are Nova, a concise reflective journaling companion. ALWAYS respond in the same language as the user\'s input (French, English, Spanish, etc.). Respond in 1-3 short sentences that deepen the user\'s thought with empathy and specificity.',
   deepenButtonLabel: 'Explore more',
   userName: 'You',
   aiDebug: false,
@@ -73,6 +80,11 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   aiRetryCount: RETRY_LIMITS.DEFAULT,
   aiFallbackModel: '',
   typewriterSpeed: 'normal',
+  buttonStyle: 'button',
+  buttonPosition: 'bottom',
+  moodButtonLabel: 'Analyze mood',
+  showMoodButton: true,
+  buttonTheme: 'default',
 };
 
 export class TemplateFactory {
@@ -148,6 +160,20 @@ export class SettingsValidator {
       ? scope as DeepenScope
       : DEFAULT_SETTINGS.defaultDeepenScope;
   }
+
+  static validateButtonStyle(style: string): ButtonStyle {
+    const validStyles: ButtonStyle[] = ['button', 'link', 'minimal', 'pill'];
+    return validStyles.includes(style as ButtonStyle)
+      ? style as ButtonStyle
+      : DEFAULT_SETTINGS.buttonStyle;
+  }
+
+  static validateButtonPosition(position: string): ButtonPosition {
+    const validPositions: ButtonPosition[] = ['bottom', 'inline', 'both'];
+    return validPositions.includes(position as ButtonPosition)
+      ? position as ButtonPosition
+      : DEFAULT_SETTINGS.buttonPosition;
+  }
 }
 
 export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJournalSettings {
@@ -161,6 +187,11 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     defaultDeepenScope: SettingsValidator.validateDeepenScope(s.defaultDeepenScope),
     aiMaxTokens: SettingsValidator.validateTokens(s.aiMaxTokens),
     aiRetryCount: SettingsValidator.validateRetryCount(s.aiRetryCount),
+    buttonStyle: SettingsValidator.validateButtonStyle(s.buttonStyle),
+    buttonPosition: SettingsValidator.validateButtonPosition(s.buttonPosition),
+    moodButtonLabel: (s.moodButtonLabel || '').trim() || DEFAULT_SETTINGS.moodButtonLabel,
+    deepenButtonLabel: (s.deepenButtonLabel || '').trim() || DEFAULT_SETTINGS.deepenButtonLabel,
+    buttonTheme: (s.buttonTheme || '').trim() || DEFAULT_SETTINGS.buttonTheme,
   };
 }
 
