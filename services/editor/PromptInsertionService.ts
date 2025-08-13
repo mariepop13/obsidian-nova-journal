@@ -1,9 +1,9 @@
 import { Editor, Notice } from 'obsidian';
-import { PromptService } from '../prompt/PromptService';
-import type { PromptStyle } from '../prompt/PromptRegistry';
-import type { NovaJournalSettings, EnhancedInsertionLocation } from '../settings/PluginSettings';
+import { PromptService } from '../../prompt/PromptService';
+import type { PromptStyle } from '../../prompt/PromptRegistry';
+import type { NovaJournalSettings, EnhancedInsertionLocation } from '../../settings/PluginSettings';
 import { insertAtLocation, removeDateHeadingInEditor, ensureBottomButtons } from './NoteEditor';
-import { PromptRenderingService, type RenderConfig } from './PromptRenderingService';
+import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
 
 export class PromptInsertionService {
   constructor(

@@ -1,5 +1,5 @@
 import { Editor } from 'obsidian';
-import { MOOD_LIMITS, EXCLUDED_NAMES, VALID_SENTIMENTS, FRONTMATTER_ORDER } from './Constants';
+import { MOOD_LIMITS, EXCLUDED_NAMES, VALID_SENTIMENTS, FRONTMATTER_ORDER } from '../shared/Constants';
 
 export interface MoodData {
   mood_emoji: string[];

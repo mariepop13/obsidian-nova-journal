@@ -1,5 +1,5 @@
 import { App, TFile, MarkdownView } from 'obsidian';
-import { DateFormatter } from '../settings/PluginSettings';
+import { DateFormatter } from '../../settings/PluginSettings';
 
 export class FileService {
   constructor(private readonly app: App) {}

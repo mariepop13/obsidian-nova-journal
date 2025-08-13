@@ -19,7 +19,7 @@ export interface APICallConfig {
 }
 
 import { sanitizeForLogging } from '../utils/Sanitizer';
-import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/Constants';
+import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/shared/Constants';
 
 async function callOnce(config: APICallConfig): Promise<string> {
   const payload = buildPayload(config);

@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 import { OPENAI_API_KEY_REGEX, sanitizeForLogging } from './Sanitizer';
-import { API_CONFIG } from '../services/Constants';
+import { API_CONFIG } from '../services/shared/Constants';
 
 export class ApiTester {
   private static readonly TIMEOUT_MS = API_CONFIG.TIMEOUT_MS;

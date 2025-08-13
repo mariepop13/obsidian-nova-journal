@@ -1,6 +1,6 @@
 import { TFile, Notice } from 'obsidian';
-import { chat } from '../ai/AiClient';
-import type { NovaJournalSettings } from '../settings/PluginSettings';
+import { chat } from '../../ai/AiClient';
+import type { NovaJournalSettings } from '../../settings/PluginSettings';
 export interface FrontmatterData { [key: string]: any; mood?: string; mood_level?: number; energy?: number; tags?: string[] }
 
 export interface MoodHistoryEntry {

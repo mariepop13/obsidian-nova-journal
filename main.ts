@@ -2,16 +2,16 @@ import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
 import { PromptService } from './prompt/PromptService';
 import type { PromptStyle } from './prompt/PromptRegistry';
 import { DEFAULT_SETTINGS, NovaJournalSettings, normalizeSettings } from './settings/PluginSettings';
-import { removeDateHeadingInEditor } from './services/NoteEditor';
-import { ConversationService } from './services/ConversationService';
-import { FileService } from './services/FileService';
-import { PromptInsertionService } from './services/PromptInsertionService';
-import { FrontmatterService } from './services/FrontmatterService';
-import { SettingsCommandService } from './services/SettingsCommandService';
-import { EditorNotFoundError } from './services/ErrorTypes';
+import { removeDateHeadingInEditor } from './services/editor/NoteEditor';
+import { ConversationService } from './services/ai/ConversationService';
+import { FileService } from './services/utils/FileService';
+import { PromptInsertionService } from './services/editor/PromptInsertionService';
+import { FrontmatterService } from './services/rendering/FrontmatterService';
+import { SettingsCommandService } from './services/utils/SettingsCommandService';
+import { EditorNotFoundError } from './services/shared/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
-import { MoodAnalysisService } from './services/MoodAnalysisService';
+import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
