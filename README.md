@@ -19,6 +19,11 @@ ln -s /path/to/obsidian-nova-journal /path/to/YourVault/.obsidian/plugins/nova-j
 ```
 5) Dans Obsidian: Settings → Community plugins → Enable “Nova Journal”
 
+### Installation
+- In Obsidian: Settings → Community plugins → Browse
+- Search "Nova Journal" → Install → Enable
+- Requires Obsidian 0.15.0+
+
 ### Development
 - Build production:
 ```bash

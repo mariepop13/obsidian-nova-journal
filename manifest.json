@@ -4,8 +4,8 @@
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "Guided journaling for Obsidian: daily prompts and insights. Local-first by default, with optional AI via external APIs.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
+	"author": "Marie-Sarah Beaugrand",
+	"authorUrl": "https://mariepop13.com",
     "fundingUrl": "https://buymeacoffee.com/mariepop13",
 	"isDesktopOnly": false
 }
