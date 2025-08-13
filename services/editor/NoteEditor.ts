@@ -322,7 +322,7 @@ function findLastNonEmptyLine(editor: Editor, endLine: number): number {
 }
 
 function createButtonMarkup(label: string, settings?: any): string {
-	if (settings?.buttonStyle && settings?.showMoodButton !== undefined) {
+	if (settings) {
 		const { ButtonCustomizationService } = require('./ButtonCustomizationService');
 		const config = ButtonCustomizationService.createFromSettings(settings);
 		config.scope = 'note';
