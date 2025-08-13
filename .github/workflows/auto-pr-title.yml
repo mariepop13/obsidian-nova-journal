@@ -25,6 +25,19 @@ jobs:
               core.warning('No PR number resolved from context; skipping.');
               return;
             }
+            // Guard against forks: do not use secrets or mutate labels on forked PRs
+            let pr;
+            try {
+              pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            } catch (e) {
+              core.warning(`Failed to load PR #${prNumber}: ${e.message}`);
+              return;
+            }
+            const isFork = !!pr?.data?.head?.repo?.fork;
+            if (isFork) {
+              core.warning('PR depuis un fork — on ne touche pas aux secrets ni aux labels.');
+              return;
+            }
             const isIssueComment = context.eventName === 'issue_comment' && !!context.payload?.issue?.pull_request;
             const commentBody = (context.payload?.comment?.body || '').trim();
             const commenterAssoc = context.payload?.comment?.author_association || '';
@@ -90,7 +103,6 @@ jobs:
                 core.warning(`Could not add 'needs-review' label: ${e.message}`);
               }
             }
-            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
 
             const ref = pr.data.head.ref || '';
             const [prefix, ...rest] = ref.split('/');
