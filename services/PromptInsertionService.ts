@@ -35,13 +35,9 @@ export class PromptInsertionService {
     basePrompt: string, 
     date: Date
   ): Promise<boolean> {
-    if (this.settings.preventDuplicateForDay) {
-      const noteText = editor.getValue();
-      const hasDuplicate = noteText.includes(basePrompt);
-      if (hasDuplicate) {
-        new Notice('Nova Journal: prompt for today already exists in this note.');
-        return false;
-      }
+    if (this.isDuplicatePrompt(editor, basePrompt)) {
+      new Notice('Nova Journal: prompt for today already exists in this note.');
+      return false;
     }
 
     const prompt = this.renderPrompt(basePrompt, date);
