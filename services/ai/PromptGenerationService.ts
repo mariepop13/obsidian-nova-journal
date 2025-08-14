@@ -43,17 +43,23 @@ Styles:
 
     let ragContext = '';
     try {
-      const embeddingService = new EmbeddingService((window as any).app, this.settings);
-      const top = await embeddingService.topK(noteText || 'general', 3);
-      
-      if (top.length > 0) {
-        const enriched = top.map((t, i) => {
-          const preview = t.text.substring(0, 400);
-          return `${i+1}. ${preview}...`;
-        }).join('\n');
-        ragContext = `\n\nYour recent notes context (use specific details when relevant):\n${enriched}`;
+      if (noteText && noteText.trim().length > 0) {
+        const appRef = (window as any)?.app;
+        if (appRef) {
+          const embeddingService = new EmbeddingService(appRef, this.settings);
+          const top = await embeddingService.topK(noteText, 3);
+          if (Array.isArray(top) && top.length > 0) {
+            const enriched = top.map((t, i) => {
+              const preview = (t.text || '').substring(0, 400);
+              return `${i + 1}. ${preview}...`;
+            }).join('\n');
+            ragContext = `\n\nYour recent notes context (use specific details when relevant):\n${enriched}`;
+          }
+        }
       }
-    } catch {}
+    } catch (err) {
+      console.error('[PromptGenerationService] RAG fetch failed', err);
+    }
 
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
     const userPrompt = `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext}

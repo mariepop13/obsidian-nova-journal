@@ -47,15 +47,23 @@ export async function embed({ apiKey, model = 'text-embedding-3-small', inputs }
   });
   
   if (!res.ok) {
-    const errorText = await res.text();
+    const errorText = await res.text().catch(() => '<non-text error>');
     console.error(`[Embedding Debug] API Error ${res.status}:`, errorText);
     console.error(`[Embedding Debug] Request payload size: ${JSON.stringify(payload).length} bytes`);
     console.error(`[Embedding Debug] Sample inputs:`, filteredInputs.slice(0, 3).map(t => t.substring(0, 100)));
     throw new Error(`Embedding API error ${res.status}: ${errorText}`);
   }
   
-  const json = await res.json();
-  const vectors = (json?.data || []).map((d: any) => d.embedding as number[]);
+  let json: any;
+  try {
+    json = await res.json();
+  } catch (e) {
+    throw new Error('Embedding API returned invalid JSON');
+  }
+  const data = Array.isArray(json?.data) ? json.data : [];
+  const vectors = data
+    .map((d: any) => Array.isArray(d?.embedding) ? (d.embedding as number[]) : undefined)
+    .filter((v: any): v is number[] => Array.isArray(v));
   console.log(`[Embedding Debug] Success: ${vectors.length} embeddings received`);
   return { embeddings: vectors };
 }
