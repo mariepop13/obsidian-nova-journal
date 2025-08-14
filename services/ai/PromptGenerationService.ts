@@ -127,7 +127,7 @@ Generate a question that:
       const text = (response || '').trim();
       if (!text) return null;
 
-      // Heuristic cleanup: strip surrounding quotes if any model returns them
+
       const cleaned = text.replace(/^"|"$/g, '').trim();
       return cleaned || null;
     } catch {

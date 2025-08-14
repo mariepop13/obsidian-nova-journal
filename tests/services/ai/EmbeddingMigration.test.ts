@@ -1,6 +1,6 @@
 import { EmbeddingMigrationService } from '../../../services/ai/EmbeddingMigrationService';
 
-// Mock EnhancedEmbeddingService at module level
+
 jest.mock('../../../services/ai/EnhancedEmbeddingService', () => ({
   EnhancedEmbeddingService: jest.fn().mockImplementation(() => ({
     incrementalUpdateIndex: jest.fn().mockResolvedValue(undefined),
@@ -28,7 +28,7 @@ describe('EmbeddingMigrationService', () => {
 
     service = new EmbeddingMigrationService(mockApp, mockSettings);
 
-    // Clear localStorage
+
     (localStorage.getItem as jest.Mock).mockClear();
     (localStorage.setItem as jest.Mock).mockClear();
     (localStorage.removeItem as jest.Mock).mockClear();
@@ -90,7 +90,7 @@ describe('EmbeddingMigrationService', () => {
         throw new Error('localStorage error');
       });
 
-      // Should not throw
+
       await expect(service.cleanupLegacyIndex()).resolves.toBeUndefined();
     });
   });
@@ -105,7 +105,7 @@ describe('EmbeddingMigrationService', () => {
     });
 
     test('should return false on migration failure', async () => {
-      // Mock localStorage to fail during backup
+
       (localStorage.getItem as jest.Mock).mockImplementation(() => {
         throw new Error('localStorage failure');
       });

@@ -37,12 +37,7 @@ Never add any text before or after the JSON.`;
         fallbackModel: this.settings.aiFallbackModel || ''
       });
 
-      let jsonText = '';
-      if (typeof response === 'string') {
-        jsonText = response;
-      } else if (response && typeof response === 'object') {
-        jsonText = response.content || response?.choices?.[0]?.message?.content || JSON.stringify(response);
-      }
+      const jsonText = response;
       try {
         const parsed = JSON.parse(jsonText);
         const style = String(parsed?.recommended_style || '').toLowerCase();
@@ -50,7 +45,6 @@ Never add any text before or after the JSON.`;
           return style as PromptStyle;
         }
       } catch {
-        // ignore parse errors
       }
       return null;
     } catch {

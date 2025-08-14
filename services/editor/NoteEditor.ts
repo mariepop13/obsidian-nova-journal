@@ -338,7 +338,6 @@ function createButtonMarkup(label: string, settings?: any): string {
 				ButtonCustomizationService.generateButtonMarkup(config);
 			if (typeof markup === "string" && markup.length) return markup;
 		} catch (e) {
-			// fallthrough to safe default
 		}
 	}
 
