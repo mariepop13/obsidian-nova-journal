@@ -15,7 +15,11 @@ export class PromptInsertionService {
     removeDateHeadingInEditor(editor);
     
     const date = new Date();
-    const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
+    const { prompt: basePrompt } = this.promptService.getContextAwarePrompt(
+      this.settings.promptStyle as PromptStyle,
+      date,
+      editor.getValue()
+    );
 
     if (this.isDuplicatePrompt(editor, basePrompt)) {
       new Notice('Nova Journal: this prompt already exists in this note.');
