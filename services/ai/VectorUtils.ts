@@ -2,17 +2,22 @@ import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 
 export class VectorUtils {
   static cosineSimilarity(a: number[], b: number[]): number {
-    let dot = 0, na = 0, nb = 0;
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || b.length === 0) return 0;
     const len = Math.min(a.length, b.length);
+    let dot = 0, na = 0, nb = 0;
     
     for (let i = 0; i < len; i += 1) {
-      dot += a[i] * b[i];
-      na += a[i] * a[i];
-      nb += b[i] * b[i];
+      const ai = a[i] || 0;
+      const bi = b[i] || 0;
+      dot += ai * bi;
+      na += ai * ai;
+      nb += bi * bi;
     }
     
-    if (na === 0 || nb === 0) return 0;
-    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+    const denom = Math.sqrt(na) * Math.sqrt(nb);
+    const EPS = 1e-12;
+    if (!isFinite(denom) || denom < EPS) return 0;
+    return dot / denom;
   }
 
   static applyDiversityFilter(

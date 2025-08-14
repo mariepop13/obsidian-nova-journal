@@ -197,7 +197,10 @@ export class EnhancedEmbeddingService {
         inputs: texts.slice(0, this.maxChunksPerBatch),
       });
 
-      if (!embeddings || embeddings.length === 0) return;
+      if (!embeddings || embeddings.length === 0) {
+        this.index!.fileHashes[file.path] = fileHash;
+        return;
+      }
 
       for (let i = 0; i < Math.min(chunks.length, embeddings.length); i++) {
         const vector = embeddings[i];
