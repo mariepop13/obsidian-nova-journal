@@ -69,9 +69,9 @@ export class EnhancedEmbeddingService {
 
       for (const f of files) {
         const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
-        const mtime = stat?.stat?.mtime || Date.now();
+        const fileDate = this.extractDateFromFilename(f.name) || Date.now();
         
-        if (mtime < cutoff) continue;
+        if (fileDate < cutoff) continue;
 
         const currentHash = await this.computeFileHash(f);
         const storedHash = this.index.fileHashes[f.path];
@@ -159,7 +159,7 @@ export class EnhancedEmbeddingService {
     return this.contextualSearch(query, k, {
       contextTypes: ['emotional', 'general'],
       emotionalFilter: emotionalTags,
-      boostRecent: sentiment === 'negative',
+      boostRecent: sentiment?.includes('negative'),
       diversityThreshold: 0.4
     });
   }
@@ -211,9 +211,9 @@ export class EnhancedEmbeddingService {
 
     for (const file of files) {
       const stat = this.app.vault.getAbstractFileByPath(file.path) as TFile;
-      const mtime = stat?.stat?.mtime || Date.now();
+      const fileDate = this.extractDateFromFilename(file.name) || Date.now();
       
-      if (mtime < cutoff) continue;
+      if (fileDate < cutoff) continue;
       
       try {
         await this.updateFileChunks(file);
@@ -264,7 +264,7 @@ export class EnhancedEmbeddingService {
   }
 
   private createEnhancedChunks(content: string, file: TFile): Omit<EnhancedIndexedChunk, 'vector'>[] {
-    const mtime = file.stat?.mtime || Date.now();
+    const fileDate = this.extractDateFromFilename(file.name) || Date.now();
     const chunks: Omit<EnhancedIndexedChunk, 'vector'>[] = [];
     
     const textChunks = this.splitIntoChunks(content);
@@ -274,8 +274,8 @@ export class EnhancedEmbeddingService {
 
       const chunk: Omit<EnhancedIndexedChunk, 'vector'> = {
         path: file.path,
-        date: mtime,
-        lastModified: mtime,
+        date: fileDate,
+        lastModified: fileDate,
         text: text.trim(),
         contextType: this.determineContextType(text),
         emotionalTags: this.extractEmotionalTags(text),
@@ -536,6 +536,19 @@ export class EnhancedEmbeddingService {
     
     if (na === 0 || nb === 0) return 0;
     return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  }
+
+  private extractDateFromFilename(filename: string): number | null {
+    // Support format YYYY-MM-DD_HH-ss or YYYY-MM-DD
+    const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})(?:_(\d{2})-(\d{2}))?/);
+    if (!dateMatch) return null;
+
+    const datePart = dateMatch[1];
+    const hourPart = dateMatch[2] || '00';
+    const minutePart = dateMatch[3] || '00';
+    
+    const date = new Date(`${datePart}T${hourPart}:${minutePart}:00`);
+    return isNaN(date.getTime()) ? null : date.getTime();
   }
 
   private formatDate(timestamp: number): string {
