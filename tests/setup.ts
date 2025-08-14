@@ -4,14 +4,16 @@
 const mockApp = {
   vault: {
     getName: () => 'test-vault',
-    getFiles: jest.fn(() => [
-      { path: 'test-file.md', name: 'test-file.md', extension: 'md' }
-    ]),
+    getFiles: () => [
+      { path: 'Journal/test-file.md', name: 'test-file.md', extension: 'md' },
+      { path: 'test-file2.md', name: 'test-file2.md', extension: 'md' }
+    ],
     read: jest.fn(async () => 'Mock file content'),
     getAbstractFileByPath: jest.fn(() => null),
-    getMarkdownFiles: jest.fn(() => [
-      { path: 'test-file.md', name: 'test-file.md', extension: 'md' }
-    ]),
+    getMarkdownFiles: () => [
+      { path: 'Journal/test-file.md', name: 'test-file.md', extension: 'md' },
+      { path: 'test-file2.md', name: 'test-file2.md', extension: 'md' }
+    ],
     adapter: {
       exists: jest.fn(() => Promise.resolve(true)),
       read: jest.fn(() => Promise.resolve('Mock file content')),
