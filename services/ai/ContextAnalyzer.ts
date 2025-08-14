@@ -12,13 +12,13 @@ export class ContextAnalyzer {
       thematic: 0
     };
 
-    const emotionalMatches = text.match(emotionalKeywords);
-    const temporalMatches = text.match(temporalKeywords);
-    const thematicMatches = text.match(thematicKeywords);
+    const emotionalMatches = text.match(new RegExp(emotionalKeywords.source, 'gi')) || [];
+    const temporalMatches = text.match(new RegExp(temporalKeywords.source, 'gi')) || [];
+    const thematicMatches = text.match(new RegExp(thematicKeywords.source, 'gi')) || [];
 
-    if (emotionalMatches) scores.emotional = emotionalMatches.length;
-    if (temporalMatches) scores.temporal = temporalMatches.length;
-    if (thematicMatches) scores.thematic = thematicMatches.length;
+    scores.emotional = emotionalMatches.length;
+    scores.temporal = temporalMatches.length;
+    scores.thematic = thematicMatches.length;
 
     const maxScore = Math.max(scores.emotional, scores.temporal, scores.thematic);
     
