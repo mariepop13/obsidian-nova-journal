@@ -1,5 +1,13 @@
 import { EmbeddingMigrationService } from '../../../services/ai/EmbeddingMigrationService';
 
+// Mock EnhancedEmbeddingService at module level
+jest.mock('../../../services/ai/EnhancedEmbeddingService', () => ({
+  EnhancedEmbeddingService: jest.fn().mockImplementation(() => ({
+    incrementalUpdateIndex: jest.fn().mockResolvedValue(undefined),
+    fullRebuild: jest.fn().mockResolvedValue(undefined)
+  }))
+}));
+
 describe('EmbeddingMigrationService', () => {
   let service: EmbeddingMigrationService;
   let mockApp: any;
@@ -90,13 +98,6 @@ describe('EmbeddingMigrationService', () => {
   describe('migrateToEnhancedSystem', () => {
     test('should perform backup and migration', async () => {
       (localStorage.getItem as jest.Mock).mockReturnValue('{"items": []}');
-      
-      // Mock the enhanced embedding service methods
-      jest.mock('../../../services/ai/EnhancedEmbeddingService', () => ({
-        EnhancedEmbeddingService: jest.fn().mockImplementation(() => ({
-          incrementalUpdateIndex: jest.fn().mockResolvedValue(undefined)
-        }))
-      }));
 
       const result = await service.migrateToEnhancedSystem();
       
@@ -104,12 +105,10 @@ describe('EmbeddingMigrationService', () => {
     });
 
     test('should return false on migration failure', async () => {
-      // Force an error during migration
-      jest.mock('../../../services/ai/EnhancedEmbeddingService', () => ({
-        EnhancedEmbeddingService: jest.fn().mockImplementation(() => ({
-          incrementalUpdateIndex: jest.fn().mockRejectedValue(new Error('Migration failed'))
-        }))
-      }));
+      // Mock localStorage to fail during backup
+      (localStorage.getItem as jest.Mock).mockImplementation(() => {
+        throw new Error('localStorage failure');
+      });
 
       const result = await service.migrateToEnhancedSystem();
       

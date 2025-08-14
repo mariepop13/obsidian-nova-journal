@@ -55,6 +55,7 @@ export class EmbeddingMigrationService {
       }
     } catch (error) {
       console.error('[EmbeddingMigrationService] Failed to backup legacy index', error);
+      throw error; // Propagate the error to fail the migration
     }
   }
 
