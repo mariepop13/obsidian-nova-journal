@@ -1,0 +1,317 @@
+import { App, TFile } from "obsidian";
+import { embed } from "../../ai/EmbeddingClient";
+import type { NovaJournalSettings } from "../../settings/PluginSettings";
+import type { MoodData } from "../rendering/FrontmatterService";
+import { ContextAnalyzer } from './ContextAnalyzer';
+import { TemporalUtils } from './TemporalUtils';
+import { VectorUtils } from './VectorUtils';
+import { ContextualSearchEngine } from './ContextualSearchEngine';
+
+export type ContextType = 'emotional' | 'temporal' | 'thematic' | 'general';
+
+export interface EnhancedIndexedChunk {
+  path: string;
+  date: number;
+  lastModified: number;
+  text: string;
+  vector: number[];
+  contextType: ContextType;
+  emotionalTags?: string[];
+  thematicTags?: string[];
+  temporalMarkers?: string[];
+  hash: string;
+}
+
+export interface EnhancedIndexData {
+  model: string;
+  updatedAt: number;
+  version: string;
+  items: EnhancedIndexedChunk[];
+  fileHashes: Record<string, string>;
+}
+
+export interface SearchOptions {
+  contextTypes?: ContextType[];
+  emotionalFilter?: string[];
+  thematicFilter?: string[];
+  temporalRange?: { start: Date; end: Date };
+  boostRecent?: boolean;
+  diversityThreshold?: number;
+}
+
+export class EnhancedEmbeddingService {
+  private readonly indexPath = "nova-journal-enhanced-index.json";
+  private readonly maxDays = 180;
+  private readonly maxChunksPerBatch = 50;
+  private readonly version = "2.0.0";
+  private index: EnhancedIndexData | null = null;
+  private readonly contextAnalyzer = new ContextAnalyzer();
+  private readonly searchEngine: ContextualSearchEngine;
+
+  constructor(
+    private readonly app: App,
+    private readonly settings: NovaJournalSettings
+  ) {
+    this.searchEngine = new ContextualSearchEngine(settings);
+  }
+
+  async incrementalUpdateIndex(folder: string): Promise<void> {
+    if (!this.settings.aiEnabled || !this.settings.aiApiKey) return;
+
+    try {
+      await this.ensureIndexLoaded();
+      
+      if (!this.index || this.index.version !== this.version) {
+        await this.fullRebuild(folder);
+        return;
+      }
+
+      const files = this.getMarkdownFilesInFolder(folder);
+      const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+      
+      const filesToUpdate: TFile[] = [];
+      const filesToRemove: string[] = [];
+      const currentFilePaths = new Set(files.map(f => f.path));
+
+      for (const f of files) {
+        const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
+        const fileDate = TemporalUtils.extractDateFromFilename(f.name) || Date.now();
+        
+        if (fileDate < cutoff) continue;
+
+        const currentHash = await this.computeFileHash(f);
+        const storedHash = this.index.fileHashes[f.path];
+        
+        if (!storedHash || storedHash !== currentHash) {
+          filesToUpdate.push(f);
+        }
+      }
+
+      for (const path of Object.keys(this.index.fileHashes)) {
+        if (!currentFilePaths.has(path)) {
+          filesToRemove.push(path);
+        }
+      }
+
+      if (filesToUpdate.length === 0 && filesToRemove.length === 0) {
+        console.log('[EnhancedEmbeddingService] Index is up to date');
+        return;
+      }
+
+      console.log(`[EnhancedEmbeddingService] Updating ${filesToUpdate.length} files, removing ${filesToRemove.length} files`);
+
+      this.removeChunksForFiles(filesToRemove);
+
+      for (const file of filesToUpdate) {
+        await this.updateFileChunks(file);
+      }
+
+      this.index.updatedAt = Date.now();
+      await this.saveIndex();
+
+    } catch (error) {
+      console.error('[EnhancedEmbeddingService] Incremental update failed', error);
+      await this.fullRebuild(folder);
+    }
+  }
+
+  async contextualSearch(
+    query: string, 
+    k: number, 
+    options: SearchOptions = {}
+  ): Promise<EnhancedIndexedChunk[]> {
+    await this.ensureIndexLoaded();
+    if (!this.index || this.index.items.length === 0) return [];
+    
+    return this.searchEngine.performContextualSearch(query, k, this.index.items, options);
+  }
+
+  async emotionalSearch(query: string, mood: Partial<MoodData>, k: number = 5): Promise<EnhancedIndexedChunk[]> {
+    await this.ensureIndexLoaded();
+    if (!this.index || this.index.items.length === 0) return [];
+    
+    return this.searchEngine.emotionalSearch(query, mood, k, this.index.items);
+  }
+
+  async temporalSearch(query: string, timeFrame: 'recent' | 'week' | 'month', k: number = 5): Promise<EnhancedIndexedChunk[]> {
+    await this.ensureIndexLoaded();
+    if (!this.index || this.index.items.length === 0) return [];
+    
+    return this.searchEngine.temporalSearch(query, timeFrame, k, this.index.items);
+  }
+
+  async thematicSearch(query: string, themes: string[], k: number = 5): Promise<EnhancedIndexedChunk[]> {
+    await this.ensureIndexLoaded();
+    if (!this.index || this.index.items.length === 0) return [];
+    
+    return this.searchEngine.thematicSearch(query, themes, k, this.index.items);
+  }
+
+  private async fullRebuild(folder: string): Promise<void> {
+    console.log('[EnhancedEmbeddingService] Performing full rebuild');
+    
+    const files = this.getMarkdownFilesInFolder(folder);
+    const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+
+    this.index = {
+      model: "text-embedding-3-small",
+      updatedAt: Date.now(),
+      version: this.version,
+      items: [],
+      fileHashes: {}
+    };
+
+    for (const file of files) {
+      const stat = this.app.vault.getAbstractFileByPath(file.path) as TFile;
+      const fileDate = TemporalUtils.extractDateFromFilename(file.name) || Date.now();
+      
+      if (fileDate < cutoff) continue;
+      
+      try {
+        await this.updateFileChunks(file);
+      } catch (error) {
+        console.error(`[EnhancedEmbeddingService] Failed to process ${file.path}:`, error);
+      }
+    }
+
+    await this.saveIndex();
+  }
+
+  private async updateFileChunks(file: TFile): Promise<void> {
+    try {
+      this.removeChunksForFiles([file.path]);
+
+      const content = await this.app.vault.read(file);
+      const fileHash = await this.computeFileHash(file);
+      
+      const chunks = this.createEnhancedChunks(content, file);
+      const texts = chunks.map(c => c.text);
+
+      if (texts.length === 0) {
+        this.index!.fileHashes[file.path] = fileHash;
+        return;
+      }
+
+      const { embeddings } = await embed({
+        apiKey: this.settings.aiApiKey,
+        inputs: texts.slice(0, this.maxChunksPerBatch),
+      });
+
+      if (!embeddings || embeddings.length === 0) {
+        this.index!.fileHashes[file.path] = fileHash;
+        return;
+      }
+
+      for (let i = 0; i < Math.min(chunks.length, embeddings.length); i++) {
+        const vector = embeddings[i];
+        if (!Array.isArray(vector) || vector.length === 0) continue;
+
+        this.index!.items.push({
+          ...chunks[i],
+          vector,
+        });
+      }
+
+      this.index!.fileHashes[file.path] = fileHash;
+    } catch (error) {
+      console.error(`[EnhancedEmbeddingService] Failed to update chunks for ${file.path}:`, error);
+    }
+  }
+
+  private createEnhancedChunks(content: string, file: TFile): Omit<EnhancedIndexedChunk, 'vector'>[] {
+    const fileDate = TemporalUtils.extractDateFromFilename(file.name) || Date.now();
+    const chunks: Omit<EnhancedIndexedChunk, 'vector'>[] = [];
+    
+    const textChunks = VectorUtils.splitIntoChunks(content);
+    
+    for (const text of textChunks) {
+      if (text.trim().length < 50) continue;
+
+      const chunk: Omit<EnhancedIndexedChunk, 'vector'> = {
+        path: file.path,
+        date: fileDate,
+        lastModified: fileDate,
+        text: text.trim(),
+        contextType: this.contextAnalyzer.determineContextType(text),
+        emotionalTags: this.contextAnalyzer.extractEmotionalTags(text),
+        thematicTags: this.contextAnalyzer.extractThematicTags(text),
+        temporalMarkers: this.contextAnalyzer.extractTemporalMarkers(text),
+        hash: VectorUtils.hashString(text)
+      };
+
+      chunks.push(chunk);
+    }
+
+    return chunks;
+  }
+
+
+
+  private removeChunksForFiles(filePaths: string[]): void {
+    if (!this.index) return;
+    
+    this.index.items = this.index.items.filter(item => 
+      !filePaths.includes(item.path)
+    );
+    
+    for (const path of filePaths) {
+      delete this.index.fileHashes[path];
+    }
+  }
+
+  private async computeFileHash(file: TFile): Promise<string> {
+    const content = await this.app.vault.read(file);
+    const mtime = file.stat?.mtime || 0;
+    return VectorUtils.hashString(content + mtime.toString());
+  }
+
+
+
+
+
+  private getMarkdownFilesInFolder(folder: string): TFile[] {
+    const files: TFile[] = [];
+    const targetFolder = folder || 'Journal';
+    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
+    
+    const all = this.app.vault.getFiles();
+    for (const f of all) {
+      if (!f.path.toLowerCase().endsWith(".md")) continue;
+      if (f.path.includes("/.trash/") || f.path.includes("/.obsidian/")) continue;
+      
+      if (!f.path.startsWith(normalizedFolder)) continue;
+      
+      files.push(f);
+    }
+    
+    return files;
+  }
+
+  private async ensureIndexLoaded(): Promise<void> {
+    if (this.index) return;
+    
+    try {
+      const json = localStorage.getItem(
+        `nova-journal-enhanced-index-${this.app.vault.getName()}`
+      );
+      if (json) {
+        const loaded = JSON.parse(json) as EnhancedIndexData;
+        if (loaded.version === this.version) {
+          this.index = loaded;
+        }
+      }
+    } catch {
+      this.index = null;
+    }
+  }
+
+  private async saveIndex(): Promise<void> {
+    if (!this.index) return;
+    
+    const payload = JSON.stringify(this.index);
+    localStorage.setItem(
+      `nova-journal-enhanced-index-${this.app.vault.getName()}`,
+      payload
+    );
+  }
+}

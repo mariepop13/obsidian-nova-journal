@@ -278,7 +278,28 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 			this.renderUserInterfaceSection(containerEl);
 			this.renderButtonCustomizationSection(containerEl);
 			this.renderAdvancedSection(containerEl);
+			this.renderDebugSection(containerEl);
 		}
+	}
+
+	private renderDebugSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Debug" });
+
+		new Setting(containerEl)
+			.setName("Enable AI debug logs")
+			.setDesc("Show detailed logs in the console for RAG and AI operations")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.aiDebug)
+					.onChange(async (value) => {
+						try {
+							this.plugin.settings.aiDebug = value;
+							await this.plugin.saveSettings();
+						} catch (error) {
+							new Notice("Failed to save debug setting");
+						}
+					})
+			);
 	}
 
 	private renderAIWarning(containerEl: HTMLElement): void {
@@ -305,7 +326,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 					? "Stored locally. Only OpenAI is supported for now."
 					: "Key format looks unusual. It should start with sk- for OpenAI."
 			)
-			.addText((text) =>
+			.addText((text) => {
 				text
 					.setPlaceholder("sk-...")
 					.setValue(this.plugin.settings.aiApiKey)
@@ -313,12 +334,14 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 						try {
 							this.plugin.settings.aiApiKey = value;
 							await this.plugin.saveSettings();
-							this.display();
 						} catch (error) {
 							new Notice("Failed to save API key");
 						}
-					})
-			)
+					});
+				text.inputEl.addEventListener("blur", () => {
+					this.display();
+				});
+			})
 			.addButton((button) =>
 				button.setButtonText("Test").onClick(async () => {
 					await ApiTester.testOpenAIConnection(
@@ -355,6 +378,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 					reflective: "Reflective",
 					gratitude: "Gratitude",
 					planning: "Planning",
+					dreams: "Dreams",
 				});
 				dropdown.setValue(this.plugin.settings.promptStyle);
 				dropdown.onChange(async (value) => {
@@ -382,13 +406,15 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 						try {
 							this.plugin.settings.promptTemplate = value;
 							await this.plugin.saveSettings();
-							this.display();
 						} catch (error) {
 							new Notice("Failed to save template");
 						}
 					});
 				textArea.inputEl.cols = 40;
 				textArea.inputEl.rows = 4;
+				textArea.inputEl.addEventListener("blur", () => {
+					this.display();
+				});
 			});
 
 		this.renderTemplatePresetSection(containerEl);
@@ -471,7 +497,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 					? "e.g., gpt-4o-mini. Only OpenAI models are supported for now."
 					: "Model name may not be an OpenAI model (e.g., gpt-4o-mini)."
 			)
-			.addText((text) =>
+			.addText((text) => {
 				text
 					.setPlaceholder("gpt-4o-mini")
 					.setValue(this.plugin.settings.aiModel)
@@ -480,12 +506,14 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 							this.plugin.settings.aiModel =
 								value || "gpt-4o-mini";
 							await this.plugin.saveSettings();
-							this.display();
 						} catch (error) {
 							new Notice("Failed to save model");
 						}
-					})
-			);
+					});
+				text.inputEl.addEventListener("blur", () => {
+					this.display();
+				});
+			});
 
 		new Setting(containerEl)
 			.setName("Fallback OpenAI model")
