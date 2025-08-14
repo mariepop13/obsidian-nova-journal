@@ -1,141 +1,203 @@
-import { App, TFile } from 'obsidian';
-import { embed } from '../../ai/EmbeddingClient';
-import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import { App, TFile } from "obsidian";
+import { embed } from "../../ai/EmbeddingClient";
+import type { NovaJournalSettings } from "../../settings/PluginSettings";
 
 type IndexedChunk = {
-  path: string;
-  date: number;
-  text: string;
-  vector: number[];
+	path: string;
+	date: number;
+	text: string;
+	vector: number[];
 };
 
 type IndexData = {
-  model: string;
-  updatedAt: number;
-  items: IndexedChunk[];
+	model: string;
+	updatedAt: number;
+	items: IndexedChunk[];
 };
 
 export class EmbeddingService {
-  private readonly indexPath = '.obsidian/plugins/nova-journal/index.json';
-  private readonly maxDays = 90;
-  private readonly chunkSize = 500;
-  private readonly overlap = 100;
-  private index: IndexData | null = null;
+	private readonly indexPath = "nova-journal-index.json";
+	private readonly maxDays = 90;
+	private readonly chunkSize = 500;
+	private readonly overlap = 100;
+	private index: IndexData | null = null;
 
-  constructor(private readonly app: App, private readonly settings: NovaJournalSettings) {}
+	constructor(
+		private readonly app: App,
+		private readonly settings: NovaJournalSettings
+	) {}
 
-  async rebuildIndexFromFolder(folder: string): Promise<void> {
-    if (!this.settings.aiEnabled || !this.settings.aiApiKey) return;
-    const files = this.getMarkdownFilesInFolder(folder);
-    const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+	async rebuildIndexFromFolder(folder: string): Promise<void> {
+		if (!this.settings.aiEnabled || !this.settings.aiApiKey) return;
 
-    const chunks: { path: string; date: number; text: string }[] = [];
-    for (const f of files) {
-      const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
-      const mtime = (stat?.stat?.mtime || Date.now());
-      if (mtime < cutoff) continue;
-      const content = await this.app.vault.read(stat);
-      const pieces = this.splitIntoChunks(content);
-      for (const p of pieces) {
-        if (p.trim().length === 0) continue;
-        chunks.push({ path: f.path, date: mtime, text: p });
-      }
-    }
+		try {
+			const files = this.getMarkdownFilesInFolder(folder);
+			const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
 
-    const inputs = chunks.map(c => c.text);
-    if (inputs.length === 0) {
-      this.index = { model: 'text-embedding-3-small', updatedAt: Date.now(), items: [] };
-      await this.saveIndex();
-      return;
-    }
+			const chunks: { path: string; date: number; text: string }[] = [];
+			for (const f of files) {
+				try {
+					const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
+					const mtime = stat?.stat?.mtime || Date.now();
+					if (mtime < cutoff) continue;
+					const content = await this.app.vault.read(stat);
+					const pieces = this.splitIntoChunks(content);
+					for (const p of pieces) {
+						const cleaned = p.trim();
+						if (cleaned.length < 50) continue;
+						chunks.push({ path: f.path, date: mtime, text: cleaned });
+					}
+				} catch {
+					continue;
+				}
+			}
 
-    const { embeddings } = await embed({ apiKey: this.settings.aiApiKey, inputs });
-    const items: IndexedChunk[] = chunks.map((c, i) => ({ ...c, vector: embeddings[i] }));
-    this.index = { model: 'text-embedding-3-small', updatedAt: Date.now(), items };
-    await this.saveIndex();
-  }
+			const inputs = chunks.map((c) => c.text).filter(t => t.length > 0);
+			if (inputs.length === 0) {
+				this.index = {
+					model: "text-embedding-3-small",
+					updatedAt: Date.now(),
+					items: [],
+				};
+				await this.saveIndex();
+				return;
+			}
 
-  async topK(query: string, k: number): Promise<IndexedChunk[]> {
-    await this.ensureIndexLoaded();
-    if (!this.index || this.index.items.length === 0) return [];
-    const { embeddings } = await embed({ apiKey: this.settings.aiApiKey, inputs: [query] });
-    const q = embeddings[0];
-    const scored = this.index.items
-      .map(item => ({ item, score: this.cosineSimilarity(q, item.vector) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, Math.max(0, k))
-      .map(s => s.item);
-    return scored;
-  }
+			const { embeddings } = await embed({
+				apiKey: this.settings.aiApiKey,
+				inputs,
+			});
+			
+			const items: IndexedChunk[] = chunks.map((c, i) => ({
+				...c,
+				vector: embeddings[i] || [],
+			})).filter(item => item.vector.length > 0);
+			
+			this.index = {
+				model: "text-embedding-3-small",
+				updatedAt: Date.now(),
+				items,
+			};
+			await this.saveIndex();
+		} catch (error) {
+			this.index = {
+				model: "text-embedding-3-small",
+				updatedAt: Date.now(),
+				items: [],
+			};
+			await this.saveIndex();
+		}
+	}
 
-  private getMarkdownFilesInFolder(folder: string): TFile[] {
-    const files: TFile[] = [];
-    const base = folder.endsWith('/') ? folder : folder + '/';
-    const all = this.app.vault.getFiles();
-    for (const f of all) {
-      if (!f.path.startsWith(base)) continue;
-      if (!f.path.toLowerCase().endsWith('.md')) continue;
-      files.push(f);
-    }
-    return files;
-  }
+	async topK(query: string, k: number): Promise<IndexedChunk[]> {
+		try {
+			await this.ensureIndexLoaded();
+			if (!this.index || this.index.items.length === 0) return [];
+			
+			const { embeddings } = await embed({
+				apiKey: this.settings.aiApiKey,
+				inputs: [query.trim()],
+			});
+			
+			if (!embeddings || embeddings.length === 0) return [];
+			
+			const q = embeddings[0];
+			const scored = this.index.items
+				.filter(item => item.vector && item.vector.length > 0)
+				.map((item) => ({
+					item: {
+						...item,
+						text: `[${this.formatDate(item.date)}] ${item.text}`,
+					},
+					score: this.cosineSimilarity(q, item.vector),
+				}))
+				.sort((a, b) => b.score - a.score)
+				.slice(0, Math.max(0, k))
+				.map((s) => s.item);
+			return scored;
+		} catch {
+			return [];
+		}
+	}
 
-  private splitIntoChunks(content: string): string[] {
-    const tokens = content.split(/\s+/);
-    const chunks: string[] = [];
-    let i = 0;
-    while (i < tokens.length) {
-      const part = tokens.slice(i, i + this.chunkSize).join(' ').trim();
-      if (part) chunks.push(part);
-      if (i + this.chunkSize >= tokens.length) break;
-      i += this.chunkSize - this.overlap;
-      if (i < 0) i = 0;
-    }
-    return chunks;
-  }
+	private formatDate(timestamp: number): string {
+		const date = new Date(timestamp);
+		const now = new Date();
+		const diffDays = Math.floor(
+			(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+		);
 
-  private cosineSimilarity(a: number[], b: number[]): number {
-    let dot = 0, na = 0, nb = 0;
-    const len = Math.min(a.length, b.length);
-    for (let i = 0; i < len; i += 1) {
-      dot += a[i] * b[i];
-      na += a[i] * a[i];
-      nb += b[i] * b[i];
-    }
-    if (na === 0 || nb === 0) return 0;
-    return dot / (Math.sqrt(na) * Math.sqrt(nb));
-  }
+		if (diffDays === 0) return "aujourd'hui";
+		if (diffDays === 1) return "hier";
+		if (diffDays < 7) return `il y a ${diffDays} jours`;
+		if (diffDays < 30) return `il y a ${Math.floor(diffDays / 7)} semaines`;
+		return date.toLocaleDateString("fr-FR", {
+			month: "long",
+			day: "numeric",
+		});
+	}
 
-  private async ensureIndexLoaded(): Promise<void> {
-    if (this.index) return;
-    const file = this.app.vault.getAbstractFileByPath(this.indexPath) as TFile | null;
-    if (!file) return;
-    try {
-      const json = await this.app.vault.read(file);
-      this.index = JSON.parse(json) as IndexData;
-    } catch {
-      this.index = null;
-    }
-  }
+	private getMarkdownFilesInFolder(folder: string): TFile[] {
+		const files: TFile[] = [];
+		const all = this.app.vault.getFiles();
+		for (const f of all) {
+			if (!f.path.toLowerCase().endsWith(".md")) continue;
+			if (f.path.includes("/.trash/") || f.path.includes("/.obsidian/")) continue;
+			files.push(f);
+		}
+		return files;
+	}
 
-  private async saveIndex(): Promise<void> {
-    const payload = JSON.stringify(this.index || { items: [] });
-    const existing = this.app.vault.getAbstractFileByPath(this.indexPath);
-    if (existing instanceof TFile) {
-      await this.app.vault.modify(existing, payload);
-      return;
-    }
-    const parts = this.indexPath.split('/');
-    parts.pop();
-    let current = '';
-    for (const p of parts) {
-      current = current ? `${current}/${p}` : p;
-      if (!this.app.vault.getAbstractFileByPath(current)) {
-        await this.app.vault.createFolder(current);
-      }
-    }
-    await this.app.vault.create(this.indexPath, payload);
-  }
+	private splitIntoChunks(content: string): string[] {
+		const tokens = content.split(/\s+/);
+		const chunks: string[] = [];
+		let i = 0;
+		while (i < tokens.length) {
+			const part = tokens
+				.slice(i, i + this.chunkSize)
+				.join(" ")
+				.trim();
+			if (part) chunks.push(part);
+			if (i + this.chunkSize >= tokens.length) break;
+			i += this.chunkSize - this.overlap;
+			if (i < 0) i = 0;
+		}
+		return chunks;
+	}
+
+	private cosineSimilarity(a: number[], b: number[]): number {
+		let dot = 0,
+			na = 0,
+			nb = 0;
+		const len = Math.min(a.length, b.length);
+		for (let i = 0; i < len; i += 1) {
+			dot += a[i] * b[i];
+			na += a[i] * a[i];
+			nb += b[i] * b[i];
+		}
+		if (na === 0 || nb === 0) return 0;
+		return dot / (Math.sqrt(na) * Math.sqrt(nb));
+	}
+
+	private async ensureIndexLoaded(): Promise<void> {
+		if (this.index) return;
+		try {
+			const json = localStorage.getItem(
+				`nova-journal-index-${this.app.vault.getName()}`
+			);
+			if (json) {
+				this.index = JSON.parse(json) as IndexData;
+			}
+		} catch {
+			this.index = null;
+		}
+	}
+
+	private async saveIndex(): Promise<void> {
+		const payload = JSON.stringify(this.index || { items: [] });
+		localStorage.setItem(
+			`nova-journal-index-${this.app.vault.getName()}`,
+			payload
+		);
+	}
 }
-
-

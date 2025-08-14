@@ -30,7 +30,7 @@ export default class NovaJournalPlugin extends Plugin {
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
         this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
         const emb = new EmbeddingService(this.app, this.settings);
-        void emb.rebuildIndexFromFolder(this.settings.dailyNoteFolder);
+        setTimeout(() => void emb.rebuildIndexFromFolder(''), 2000);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
