@@ -48,11 +48,11 @@ export class ApiTester {
     } catch (error) {
       clearTimeout(timeoutId);
 
-      if ((error as any).name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         new Notice('OpenAI test timed out. Check your connection.');
       } else {
         const errorMessage = sanitizeForLogging(
-          (error as any)?.message || 'Unknown error'
+          error instanceof Error ? error.message : 'Unknown error'
         );
         new Notice(`OpenAI test error: ${errorMessage}`);
       }
