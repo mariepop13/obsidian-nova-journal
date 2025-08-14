@@ -14,23 +14,23 @@ export class PromptGenerationService {
   ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
-    const systemPrompt = `Generate ONE highly personalized journaling question using the user's own context and patterns, in their language.
+    const systemPrompt = `Generate ONE journaling question that builds on the user's current note and recent context, in their language.
 
 Rules:
 - Output ONLY the question text (no quotes/labels).
-- One sentence, concise (<= 30 words).
-- MUST reference specific elements from the personal context when available.
-- MUST include temporal references like "comme tu mentionnais hier/la semaine dernière" when relevant.
-- Use the user's language from the note content.
+- One sentence, concise (<= 25 words).
+- Stay CLOSELY related to the current note topic.
+- Use EXACT temporal references from the personal context (dates shown in brackets).
+- Only reference past elements that are directly relevant to the current topic.
 
-Personalization examples:
-- "Comme tu mentionnais hier avec [personne], comment cette conversation a-t-elle changé ta perspective ?"
-- "Ce projet dont tu parlais la semaine dernière, quelle première action pourrait débloquer la situation ?"
-- "Tu évoquais cette difficulté récemment - qu'est-ce qui a évolué depuis ?"
+Personalization approach:
+- If current note mentions "conversation with brother" → find past notes about brother/family relationships
+- If current note mentions "work project" → find past notes about same project/work stress
+- Use the EXACT date indicators from personal context [hier], [il y a 3 jours], etc.
 
 Styles:
 - reflective: deep self-inquiry connecting past and present
-- gratitude: appreciative focus on specific positives
+- gratitude: appreciative focus on specific positives  
 - planning: actionable next steps for specific situations
 - dreams: exploration of symbols/feelings from specific dreams`;
 
@@ -40,15 +40,22 @@ Styles:
       const top = await embeddingService.topK(noteText || 'general', 5);
       
       if (top.length > 0) {
-        const joined = top.map((t, i) => `${i+1}. ${t.text.substring(0, 300)}...`).join('\n');
-        ragContext = `\n\nPersonal context from your recent notes (reference these specifically):\n${joined}`;
+        const enriched = top.map((t, i) => {
+          const preview = t.text.substring(0, 400);
+          return `${i+1}. ${preview}...`;
+        }).join('\n');
+        ragContext = `\n\nRelevant personal context (use ONLY if directly related to current topic):\n${enriched}`;
       }
     } catch {}
 
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
     const userPrompt = `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext}
 
-Generate a question that specifically references elements from the personal context above, making clear connections to the current situation.`;
+Generate a question that:
+1. Focuses PRIMARILY on the current note topic
+2. Only references past context if directly relevant to the same subject
+3. Uses exact temporal markers from the context [hier], [il y a X jours]
+4. Avoids mixing unrelated past topics with current reflection`;
 
     try {
       const response = await chat({
