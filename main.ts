@@ -12,9 +12,6 @@ import { EditorNotFoundError } from './services/shared/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
 import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
-import { EmbeddingService } from './services/ai/EmbeddingService';
-import { EnhancedEmbeddingService } from './services/ai/EnhancedEmbeddingService';
-import { EmbeddingMigrationService } from './services/ai/EmbeddingMigrationService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
@@ -26,27 +23,11 @@ export default class NovaJournalPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-        this.promptService = new PromptService(this.settings);
+        this.promptService = new PromptService();
         this.conversationService = new ConversationService(this.settings);
         this.fileService = new FileService(this.app);
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
         this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
-        
-        const migration = new EmbeddingMigrationService(this.app, this.settings);
-        const enhancedEmb = new EnhancedEmbeddingService(this.app, this.settings);
-        
-        setTimeout(async () => {
-            const needsMigration = await migration.checkMigrationNeeded();
-            if (needsMigration) {
-                console.log('[NovaJournal] Migrating to enhanced embedding system...');
-                const success = await migration.migrateToEnhancedSystem();
-                if (success) {
-                    await migration.cleanupLegacyIndex();
-                }
-            } else {
-                await enhancedEmb.incrementalUpdateIndex(this.settings.dailyNoteFolder);
-            }
-        }, 3000);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
@@ -166,18 +147,11 @@ export default class NovaJournalPlugin extends Plugin {
             removeDateHeadingInEditor(editor);
             
             const date = new Date();
-            const mood = FrontmatterService.readMoodProps(editor);
-            const { style, prompt: fallbackPrompt } = await this.promptService.getContextAwarePrompt(
-                this.settings.promptStyle as PromptStyle,
-                date,
-                editor.getValue(),
-                mood
-            );
+            const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
 
-            // Let insertion service try AI-generated opening in user's language and fallback gracefully
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
-                fallbackPrompt,
+                basePrompt,
                 date
             );
             
@@ -200,7 +174,7 @@ export default class NovaJournalPlugin extends Plugin {
     }
 
     private cyclePromptStyle(): void {
-        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning', 'dreams'];
+        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning'];
         const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
         const safeIdx = idx >= 0 ? idx : 0;
         const next = order[(safeIdx + 1) % order.length];

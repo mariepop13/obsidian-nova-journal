@@ -62,7 +62,7 @@ export const DEFAULT_SETTINGS: NovaJournalSettings = {
   insertLocation: 'cursor',
   addSectionHeading: true,
   sectionHeading: '## Journal Prompt',
-  dailyNoteFolder: 'Marie/Journal',
+  dailyNoteFolder: 'Journal',
   dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
   promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}',
   preventDuplicateForDay: true,

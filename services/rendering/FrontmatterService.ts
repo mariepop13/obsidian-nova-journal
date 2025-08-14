@@ -42,50 +42,6 @@ export class FrontmatterService {
 		};
 	}
 
-	static readMoodProps(editor: Editor): Partial<MoodData> | undefined {
-		const content = editor.getValue();
-		const lines = content.split("\n");
-		const bounds = this.findFrontmatterBounds(lines);
-		if (!this.hasFrontmatter(bounds)) return undefined;
-
-		const data: Partial<MoodData> = {};
-		for (let i = bounds.start + 1; i < bounds.end; i += 1) {
-			const line = lines[i];
-					const match = /^([\w_]+)\s*:\s*\[(.*)\]\s*$/.exec(line.trim());
-		if (!match) continue;
-		const key = match[1];
-		const arrayContent = match[2];
-		const items: string[] = [];
-		for (const raw of arrayContent.split(',')) {
-			const t = raw.trim().replace(/^["']|["']$/g, '');
-			if (t) items.push(t);
-		}
-
-			if (items.length === 0) continue;
-			switch (key) {
-				case 'mood_emoji':
-					(data as any).mood_emoji = items;
-					break;
-				case 'sentiment':
-					(data as any).sentiment = items;
-					break;
-				case 'dominant_emotions':
-					(data as any).dominant_emotions = items;
-					break;
-				case 'tags':
-					(data as any).tags = items;
-					break;
-				case 'people_present':
-					(data as any).people_present = items;
-					break;
-				default:
-					break;
-			}
-		}
-
-		return data;
-	}
-
 	static upsertFrontmatter(editor: Editor, data: MoodData): void {
 		const content = editor.getValue();
 		const lines = content.split("\n");

@@ -12,12 +12,9 @@
     "isolatedModules": true,
     "strictNullChecks": true,
     "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "types": [
       "node",
-      "obsidian",
-      "jest"
+      "obsidian"
     ],
     "lib": [
       "DOM",
