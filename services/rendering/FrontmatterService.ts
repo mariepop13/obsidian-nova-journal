@@ -69,7 +69,7 @@ export class FrontmatterService {
 
 	private static extractSentiment(input: Record<string, any>): string {
 		const sentiment = (input?.sentiment || "").toLowerCase();
-		return VALID_SENTIMENTS.includes(sentiment as any)
+		return VALID_SENTIMENTS.includes(sentiment as typeof VALID_SENTIMENTS[number])
 			? sentiment
 			: "neutral";
 	}
@@ -197,7 +197,7 @@ export class FrontmatterService {
 			}
 
 			const key = line.split(":")[0]!.trim();
-			const isMoodKey = allMoodKeys.has(key as any);
+			const isMoodKey = allMoodKeys.has(key as keyof MoodData);
 			return !isMoodKey;
 		});
 	}

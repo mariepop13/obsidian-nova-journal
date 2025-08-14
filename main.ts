@@ -36,35 +36,35 @@ export default class NovaJournalPlugin extends Plugin {
         });
         this.addCommand({
             id: 'nova-insert-todays-prompt',
-            name: 'Nova Journal: Insert today\'s prompt',
+            name: 'Insert today\'s prompt',
             callback: async () => {
                 await this.insertTodaysPrompt();
             },
         });
         this.addCommand({
             id: 'nova-open-settings',
-            name: 'Nova Journal: Open settings',
+            name: 'Open settings',
             callback: async () => {
                 SettingsCommandService.openSettings(this.app, this.manifest.id);
             },
         });
 		this.addCommand({
             id: 'nova-insert-prompt-here',
-            name: 'Nova Journal: Insert prompt here',
+            name: 'Insert prompt here',
             callback: async () => {
                 await this.insertPromptInActiveEditor();
             },
         });
 		this.addCommand({
             id: 'nova-cycle-prompt-style',
-            name: 'Nova Journal: Cycle prompt style',
+            name: 'Cycle prompt style',
             callback: async () => {
                 this.cyclePromptStyle();
             },
         });
 		this.addCommand({
             id: 'nova-deepen-last-line',
-            name: 'Nova Journal: Deepen last line (AI)',
+            name: 'Deepen last line (AI)',
             callback: async () => {
                 await this.deepenLastLine();
             },

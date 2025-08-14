@@ -83,9 +83,9 @@ function parseResponse(data: any): string {
   if (typeof msg?.content === 'string') {
     text = msg.content.trim();
   } else if (Array.isArray(msg?.content)) {
-    text = msg.content.map((p: any) => (p?.text ?? '')).join('').trim();
-  } else if (typeof (msg as any)?.output_text === 'string') {
-    text = (msg as any).output_text.trim();
+    text = msg.content.map((p: { text?: string }) => (p?.text ?? '')).join('').trim();
+  } else if (typeof (msg as { output_text?: string })?.output_text === 'string') {
+    text = (msg as { output_text: string }).output_text.trim();
   }
   
   if (!text) {
