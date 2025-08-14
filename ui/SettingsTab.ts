@@ -278,7 +278,28 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 			this.renderUserInterfaceSection(containerEl);
 			this.renderButtonCustomizationSection(containerEl);
 			this.renderAdvancedSection(containerEl);
+			this.renderDebugSection(containerEl);
 		}
+	}
+
+	private renderDebugSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Debug" });
+
+		new Setting(containerEl)
+			.setName("Enable AI debug logs")
+			.setDesc("Show detailed logs in the console for RAG and AI operations")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.aiDebug)
+					.onChange(async (value) => {
+						try {
+							this.plugin.settings.aiDebug = value;
+							await this.plugin.saveSettings();
+						} catch (error) {
+							new Notice("Failed to save debug setting");
+						}
+					})
+			);
 	}
 
 	private renderAIWarning(containerEl: HTMLElement): void {

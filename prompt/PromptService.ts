@@ -1,7 +1,16 @@
 import { promptPacks, PromptStyle } from './PromptRegistry';
 import type { MoodData } from '../services/rendering/FrontmatterService';
+import { PromptStyleSelectorService } from '../services/ai/PromptStyleSelectorService';
+import type { NovaJournalSettings } from '../settings/PluginSettings';
 
 export class PromptService {
+  private selector?: PromptStyleSelectorService;
+
+  constructor(settings?: NovaJournalSettings) {
+    if (settings) {
+      this.selector = new PromptStyleSelectorService(settings);
+    }
+  }
   getPromptForDate(style: PromptStyle, date: Date): string {
     const prompts = promptPacks[style] ?? promptPacks.reflective;
     const seed = this.generateDateSeed(style, date);
@@ -9,13 +18,23 @@ export class PromptService {
     return prompts[index];
   }
 
-  getContextAwarePrompt(
+  async getContextAwarePrompt(
     preferredStyle: PromptStyle,
     date: Date,
     noteText?: string,
     moodData?: Partial<MoodData>
-  ): { style: PromptStyle; prompt: string } {
-    const style = this.selectStyleFromContext(preferredStyle, noteText, moodData);
+  ): Promise<{ style: PromptStyle; prompt: string }> {
+    let style = preferredStyle;
+    if (this.selector && noteText) {
+      const aiStyle = await this.selector.recommendStyle(noteText, moodData);
+      if (aiStyle) {
+        style = aiStyle;
+      } else {
+        style = this.selectStyleFromContext(preferredStyle, noteText, moodData);
+      }
+    } else {
+      style = this.selectStyleFromContext(preferredStyle, noteText, moodData);
+    }
     return { style, prompt: this.getPromptForDate(style, date) };
   }
 
@@ -26,13 +45,11 @@ export class PromptService {
   ): PromptStyle {
     const text = (noteText || '').toLowerCase();
 
-    // Heuristics: if user mentions dreams, switch to dreams
     const indicatesDream = /\b(dream|rêve|reves|rêves|nightmare|cauchemar)\b/i.test(text);
     if (indicatesDream) {
       return 'dreams';
     }
 
-    // Heuristics based on mood tags/emotions
     const tags = (moodData?.tags || []).map((t) => t.toLowerCase());
     const emotions = (moodData?.dominant_emotions || []).map((e) => e.toLowerCase());
     if (tags.includes('sleep') || tags.includes('dreams') || emotions.includes('curious')) {

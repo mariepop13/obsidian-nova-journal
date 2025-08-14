@@ -12,6 +12,7 @@ import { EditorNotFoundError } from './services/shared/ErrorTypes';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
 import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
+import { EmbeddingService } from './services/ai/EmbeddingService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
@@ -23,11 +24,13 @@ export default class NovaJournalPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-        this.promptService = new PromptService();
+        this.promptService = new PromptService(this.settings);
         this.conversationService = new ConversationService(this.settings);
         this.fileService = new FileService(this.app);
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
         this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
+        const emb = new EmbeddingService(this.app, this.settings);
+        setTimeout(() => void emb.rebuildIndexFromFolder(this.settings.dailyNoteFolder), 5000);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
@@ -147,15 +150,18 @@ export default class NovaJournalPlugin extends Plugin {
             removeDateHeadingInEditor(editor);
             
             const date = new Date();
-            const { prompt: basePrompt } = this.promptService.getContextAwarePrompt(
+            const mood = FrontmatterService.readMoodProps(editor);
+            const { style, prompt: fallbackPrompt } = await this.promptService.getContextAwarePrompt(
                 this.settings.promptStyle as PromptStyle,
                 date,
-                editor.getValue()
+                editor.getValue(),
+                mood
             );
 
+            // Let insertion service try AI-generated opening in user's language and fallback gracefully
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
-                basePrompt,
+                fallbackPrompt,
                 date
             );
             
