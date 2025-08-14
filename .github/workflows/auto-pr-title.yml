@@ -15,7 +15,7 @@ concurrency:
 jobs:
   set-title-body:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/github-script@v7
         env:
@@ -196,10 +196,10 @@ jobs:
               const openaiKey = process.env.OPENAI_KEY || '';
               if (openaiKey) {
                 const patches = files.map(f => (f.patch || '')).join('\n\n');
-                const patchExcerpt = patches.slice(0, 15000);
+                const patchExcerpt = patches.slice(0, 12000);
                 const fileList = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`).join('\n');
                 const commitSubjects = subjects.join('\n');
-                const prompt = `Summarize this Pull Request for changelog and reviewers. Use concise English Markdown with sections: Summary (1-2 lines), Key Changes (bullets), Risk/Impact, Testing Suggestions.\n\nBranch: ${pr.data.head.ref}\nTitle: ${explicitRetitle || title}\n\nCommits:\n${commitSubjects}\n\nFiles:\n${fileList}\n\nPatch excerpt (may be truncated):\n${patchExcerpt}`;
+                const prompt = `Summarize this PR concisely for reviewers in max 300 words. Format: Summary (1 line), Key Changes (3-5 bullets), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileList.slice(0, 10).join('\n')}\nCommits:\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
 
                 const resp = await fetch('https://api.openai.com/v1/chat/completions', {
                   method: 'POST',
@@ -213,8 +213,8 @@ jobs:
                       { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
                       { role: 'user', content: prompt },
                     ],
-                    temperature: 0.2,
-                    max_tokens: 700,
+                    temperature: 0.1,
+                    max_tokens: 500,
                   }),
                 });
                 const data = await resp.json();
@@ -255,8 +255,8 @@ jobs:
 
             const fileWalk = files.map(f => `- ${f.filename} (${(f.status || 'modified').toLowerCase()})`).join('\n') || '- n/a';
 
-            const CHANGE_LIMIT = 500;
-            const FILE_LIMIT = 20;
+            const CHANGE_LIMIT = 300;
+            const FILE_LIMIT = 15;
             const scopeOk = changes <= CHANGE_LIMIT && files.length <= FILE_LIMIT;
             const scopeReasons = [];
             if (changes > CHANGE_LIMIT) scopeReasons.push(`${changes} changes > ${CHANGE_LIMIT}`);
@@ -268,7 +268,7 @@ jobs:
             const summaryLine = aiFirstLine || (subjects[0] ? subjects[0] : title);
 
             // Risk heuristic
-            const risk = (changes > 800 || files.length > 30) ? 'High' : (changes > 400 || files.length > 15) ? 'Medium' : 'Low';
+            const risk = (changes > 600 || files.length > 25) ? 'High' : (changes > 300 || files.length > 12) ? 'Medium' : 'Low';
 
             const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body });
@@ -289,7 +289,7 @@ jobs:
             if ((mdCount + docsFolderCount) > 0) labelSet.add('documentation');
 
             // Review effort label based on diff size
-            const effort = changes > 800 ? 5 : changes > 400 ? 4 : changes > 200 ? 3 : changes > 100 ? 2 : 1;
+            const effort = changes > 600 ? 5 : changes > 300 ? 4 : changes > 150 ? 3 : changes > 75 ? 2 : 1;
             const effortLabel = `Review effort ${effort}/5`;
             labelSet.add(effortLabel);
 
@@ -318,7 +318,7 @@ jobs:
               }
             }
             // Proactively ensure common labels
-            await Promise.all([
+            await Promise.allSettled([
               ensureLabel('bug', 'd73a4a', 'Something isn\'t working'),
               ensureLabel('documentation', '0075ca', 'Improvements or additions to documentation'),
               ensureLabel('enhancement', 'a2eeef', 'New feature or request'),
