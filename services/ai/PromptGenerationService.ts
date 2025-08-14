@@ -3,9 +3,14 @@ import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
+import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
 
 export class PromptGenerationService {
-  constructor(private readonly settings: NovaJournalSettings) {}
+  private enhancedService: EnhancedPromptGenerationService;
+
+  constructor(private readonly settings: NovaJournalSettings) {
+    this.enhancedService = new EnhancedPromptGenerationService(settings);
+  }
 
   async generateOpeningPrompt(
     style: PromptStyle,
@@ -13,6 +18,33 @@ export class PromptGenerationService {
     mood?: Partial<MoodData>
   ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
+
+    try {
+      if (mood?.dominant_emotions && mood.dominant_emotions.length > 0) {
+        return await this.enhancedService.generateEmotionallyAwarePrompt(style, noteText, mood);
+      }
+      
+      if (mood?.tags && mood.tags.length > 0) {
+        return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
+      }
+      
+      return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
+        prioritizeRecent: true,
+        includeEmotionalContext: true,
+        includeThematicContext: true,
+        maxContextChunks: 3
+      });
+    } catch (error) {
+      console.error('[PromptGenerationService] Enhanced generation failed, falling back to legacy', error);
+      return this.generateLegacyPrompt(style, noteText, mood);
+    }
+  }
+
+  private async generateLegacyPrompt(
+    style: PromptStyle,
+    noteText: string,
+    mood?: Partial<MoodData>
+  ): Promise<string | null> {
 
     const systemPrompt = `Generate ONE simple journaling question based ONLY on the current note content, in the user's language.
 
