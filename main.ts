@@ -13,6 +13,8 @@ import { NovaJournalSettingTab } from './ui/SettingsTab';
 import { registerDeepenHandlers } from './ui/DeepenHandlers';
 import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
 import { EmbeddingService } from './services/ai/EmbeddingService';
+import { EnhancedEmbeddingService } from './services/ai/EnhancedEmbeddingService';
+import { EmbeddingMigrationService } from './services/ai/EmbeddingMigrationService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
@@ -29,8 +31,22 @@ export default class NovaJournalPlugin extends Plugin {
         this.fileService = new FileService(this.app);
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
         this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
-        const emb = new EmbeddingService(this.app, this.settings);
-        setTimeout(() => void emb.rebuildIndexFromFolder(this.settings.dailyNoteFolder), 5000);
+        
+        const migration = new EmbeddingMigrationService(this.app, this.settings);
+        const enhancedEmb = new EnhancedEmbeddingService(this.app, this.settings);
+        
+        setTimeout(async () => {
+            const needsMigration = await migration.checkMigrationNeeded();
+            if (needsMigration) {
+                console.log('[NovaJournal] Migrating to enhanced embedding system...');
+                const success = await migration.migrateToEnhancedSystem();
+                if (success) {
+                    await migration.cleanupLegacyIndex();
+                }
+            } else {
+                await enhancedEmb.incrementalUpdateIndex(this.settings.dailyNoteFolder);
+            }
+        }, 3000);
         this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
             await this.insertTodaysPrompt();
         });
