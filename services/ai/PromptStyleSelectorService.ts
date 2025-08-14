@@ -37,14 +37,14 @@ Never add any text before or after the JSON.`;
         fallbackModel: this.settings.aiFallbackModel || ''
       });
 
+      const jsonText = response;
       try {
-        const parsed = JSON.parse(response);
+        const parsed = JSON.parse(jsonText);
         const style = String(parsed?.recommended_style || '').toLowerCase();
         if (style === 'reflective' || style === 'gratitude' || style === 'planning' || style === 'dreams') {
           return style as PromptStyle;
         }
       } catch {
-        // ignore parse errors
       }
       return null;
     } catch {

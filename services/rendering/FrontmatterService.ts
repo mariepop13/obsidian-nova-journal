@@ -51,16 +51,15 @@ export class FrontmatterService {
 		const data: Partial<MoodData> = {};
 		for (let i = bounds.start + 1; i < bounds.end; i += 1) {
 			const line = lines[i];
-			const match = /^(\w+)\s*:\s*\[(.*)\]\s*$/.exec(line.trim());
-			if (!match) continue;
-			const key = match[1];
-			const arrayContent = match[2];
-			const items: string[] = [];
-			const regex = /"([^"]+)"/g;
-			let m: RegExpExecArray | null;
-			while ((m = regex.exec(arrayContent)) !== null) {
-				items.push(m[1]);
-			}
+					const match = /^([\w_]+)\s*:\s*\[(.*)\]\s*$/.exec(line.trim());
+		if (!match) continue;
+		const key = match[1];
+		const arrayContent = match[2];
+		const items: string[] = [];
+		for (const raw of arrayContent.split(',')) {
+			const t = raw.trim().replace(/^["']|["']$/g, '');
+			if (t) items.push(t);
+		}
 
 			if (items.length === 0) continue;
 			switch (key) {
