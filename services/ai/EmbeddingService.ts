@@ -68,15 +68,27 @@ export class EmbeddingService {
 			const limitedInputs = inputs.slice(0, this.maxChunksPerBatch);
 			const limitedChunks = chunks.slice(0, this.maxChunksPerBatch);
 
-			const { embeddings } = await embed({
-				apiKey: this.settings.aiApiKey,
-				inputs: limitedInputs,
-			});
-			
-			const items: IndexedChunk[] = limitedChunks.map((c, i) => ({
-				...c,
-				vector: embeddings[i] || [],
-			})).filter(item => item.vector.length > 0);
+			let embeddings: number[][] = [];
+			try {
+				const resp = await embed({
+					apiKey: this.settings.aiApiKey,
+					inputs: limitedInputs,
+				});
+				embeddings = Array.isArray(resp?.embeddings) ? resp.embeddings : [];
+			} catch (err) {
+				console.error('[EmbeddingService] embed() failed', err);
+				embeddings = [];
+			}
+
+			const items: IndexedChunk[] = [];
+			for (let i = 0; i < limitedChunks.length; i += 1) {
+				const vec = embeddings[i];
+				if (!Array.isArray(vec) || vec.length === 0) continue;
+				items.push({
+					...limitedChunks[i],
+					vector: vec,
+				});
+			}
 			
 			this.index = {
 				model: "text-embedding-3-small",
