@@ -55,7 +55,21 @@ export class PromptInsertionService {
       return false;
     }
 
-    const prompt = this.renderPrompt(basePrompt, date);
+    let effectivePrompt = basePrompt;
+    const mood = FrontmatterService.readMoodProps(editor);
+    const { style } = await this.promptService.getContextAwarePrompt(
+      this.settings.promptStyle as PromptStyle,
+      date,
+      editor.getValue(),
+      mood
+    );
+    const generator = new PromptGenerationService(this.settings);
+    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood);
+    if (aiPrompt && aiPrompt.length > 0) {
+      effectivePrompt = aiPrompt;
+    }
+
+    const prompt = this.renderPrompt(effectivePrompt, date);
     insertAtLocation(editor, prompt, this.settings.insertLocation, this.settings.insertHeadingName);
     ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
     
