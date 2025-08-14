@@ -4,6 +4,8 @@ import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { NovaJournalSettings, EnhancedInsertionLocation } from '../../settings/PluginSettings';
 import { insertAtLocation, removeDateHeadingInEditor, ensureBottomButtons } from './NoteEditor';
 import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
+import { FrontmatterService } from '../rendering/FrontmatterService';
+import { PromptGenerationService } from '../ai/PromptGenerationService';
 
 export class PromptInsertionService {
   constructor(
@@ -15,11 +17,20 @@ export class PromptInsertionService {
     removeDateHeadingInEditor(editor);
     
     const date = new Date();
-    const { prompt: basePrompt } = this.promptService.getContextAwarePrompt(
+    const mood = FrontmatterService.readMoodProps(editor);
+    const { style, prompt: fallbackPrompt } = await this.promptService.getContextAwarePrompt(
       this.settings.promptStyle as PromptStyle,
       date,
-      editor.getValue()
+      editor.getValue(),
+      mood
     );
+
+    let basePrompt = fallbackPrompt;
+    const generator = new PromptGenerationService(this.settings);
+    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood);
+    if (aiPrompt && aiPrompt.length > 0) {
+      basePrompt = aiPrompt;
+    }
 
     if (this.isDuplicatePrompt(editor, basePrompt)) {
       new Notice('Nova Journal: this prompt already exists in this note.');

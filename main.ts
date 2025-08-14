@@ -23,7 +23,7 @@ export default class NovaJournalPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-        this.promptService = new PromptService();
+        this.promptService = new PromptService(this.settings);
         this.conversationService = new ConversationService(this.settings);
         this.fileService = new FileService(this.app);
         this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
@@ -147,15 +147,18 @@ export default class NovaJournalPlugin extends Plugin {
             removeDateHeadingInEditor(editor);
             
             const date = new Date();
-            const { prompt: basePrompt } = this.promptService.getContextAwarePrompt(
+            const mood = FrontmatterService.readMoodProps(editor);
+            const { style, prompt: fallbackPrompt } = await this.promptService.getContextAwarePrompt(
                 this.settings.promptStyle as PromptStyle,
                 date,
-                editor.getValue()
+                editor.getValue(),
+                mood
             );
 
+            // Let insertion service try AI-generated opening in user's language and fallback gracefully
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
-                basePrompt,
+                fallbackPrompt,
                 date
             );
             
