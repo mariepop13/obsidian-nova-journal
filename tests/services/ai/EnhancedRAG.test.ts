@@ -1,5 +1,7 @@
 import { EnhancedEmbeddingService, type ContextType } from '../../../services/ai/EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPromptGenerationService';
+import { ContextAnalyzer } from '../../../services/ai/ContextAnalyzer';
+import { VectorUtils } from '../../../services/ai/VectorUtils';
 
 interface MockApp {
   vault: {
@@ -45,8 +47,10 @@ describe('EnhancedEmbeddingService', () => {
   let service: EnhancedEmbeddingService;
   let mockApp: MockApp;
   let mockSettings: MockSettings;
+  let contextAnalyzer: ContextAnalyzer;
 
   beforeEach(() => {
+    contextAnalyzer = new ContextAnalyzer();
     mockApp = createMockApp();
     mockSettings = createMockSettings();
     service = new EnhancedEmbeddingService(mockApp as any, mockSettings as any);
@@ -67,15 +71,15 @@ describe('EnhancedEmbeddingService', () => {
     const thematicText = "Working on my career goals and family relationships";
     const generalText = "Just some random thoughts about life";
 
-    expect((service as any).determineContextType(emotionalText)).toBe('emotional');
-    expect((service as any).determineContextType(temporalText)).toBe('temporal');
-    expect((service as any).determineContextType(thematicText)).toBe('thematic');
-    expect((service as any).determineContextType(generalText)).toBe('general');
+    expect(contextAnalyzer.determineContextType(emotionalText)).toBe('emotional');
+    expect(contextAnalyzer.determineContextType(temporalText)).toBe('temporal');
+    expect(contextAnalyzer.determineContextType(thematicText)).toBe('thematic');
+    expect(contextAnalyzer.determineContextType(generalText)).toBe('general');
   });
 
   test('should extract emotional tags correctly', () => {
     const text = "I feel happy but also a bit worried about work";
-    const tags = (service as any).extractEmotionalTags(text);
+    const tags = contextAnalyzer.extractEmotionalTags(text);
     
     expect(tags).toContain('positive');
     expect(tags).toContain('negative');
@@ -83,7 +87,7 @@ describe('EnhancedEmbeddingService', () => {
 
   test('should extract thematic tags correctly', () => {
     const text = "Had a great day at work and then spent time with family";
-    const tags = (service as any).extractThematicTags(text);
+    const tags = contextAnalyzer.extractThematicTags(text);
     
     expect(tags).toContain('work');
     expect(tags).toContain('personal');
@@ -91,7 +95,7 @@ describe('EnhancedEmbeddingService', () => {
 
   test('should extract temporal markers correctly', () => {
     const text = "Today at 2:30 PM I met with my boss, yesterday was difficult";
-    const markers = (service as any).extractTemporalMarkers(text);
+    const markers = contextAnalyzer.extractTemporalMarkers(text);
     
     expect(markers).toContain('today');
     expect(markers).toContain('2:30');
@@ -99,14 +103,24 @@ describe('EnhancedEmbeddingService', () => {
   });
 
   test('should apply diversity filter correctly', () => {
+    const createMockChunk = (vector: number[], text: string): any => ({
+      path: 'test/path.md',
+      date: Date.now(),
+      lastModified: Date.now(),
+      text,
+      vector,
+      contextType: 'general' as const,
+      hash: 'test-hash'
+    });
+
     const scored = [
-      { item: { vector: [1, 0, 0] }, score: 0.9 },
-      { item: { vector: [1, 0.1, 0] }, score: 0.8 },
-      { item: { vector: [0, 1, 0] }, score: 0.7 },
-      { item: { vector: [0, 0, 1] }, score: 0.6 }
+      { item: createMockChunk([1, 0, 0], 'First chunk'), score: 0.9 },
+      { item: createMockChunk([1, 0.1, 0], 'Similar chunk'), score: 0.8 },
+      { item: createMockChunk([0, 1, 0], 'Different chunk'), score: 0.7 },
+      { item: createMockChunk([0, 0, 1], 'Another different chunk'), score: 0.6 }
     ];
 
-    const filtered = (service as any).applyDiversityFilter(scored, 0.5);
+    const filtered = VectorUtils.applyDiversityFilter(scored, 0.5);
     
     expect(filtered.length).toBeLessThan(scored.length);
     expect(filtered[0].score).toBe(0.9);
@@ -205,7 +219,8 @@ describe('Context Type Classification', () => {
 
   testCases.forEach(({ text, expected }) => {
     test(`should classify "${text.substring(0, 30)}..." as ${expected}`, () => {
-      const result = (service as any).determineContextType(text);
+      const contextAnalyzer = new ContextAnalyzer();
+      const result = contextAnalyzer.determineContextType(text);
       expect(result).toBe(expected);
     });
   });
