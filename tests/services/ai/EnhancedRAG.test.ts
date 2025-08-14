@@ -1,5 +1,5 @@
-import { EnhancedEmbeddingService, type ContextType } from './EnhancedEmbeddingService';
-import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
+import { EnhancedEmbeddingService, type ContextType } from '../../../services/ai/EnhancedEmbeddingService';
+import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPromptGenerationService';
 
 interface MockApp {
   vault: {

@@ -152,9 +152,12 @@ describe('PromptGenerationService', () => {
     });
 
     test('should return null on total failure', async () => {
+      // Mock enhanced service to fail
       mockEnhancedService.generateContextualPrompt = jest.fn().mockRejectedValue(new Error('Total failure'));
       
-      // Mock legacy fallback to also fail
+      // Mock fetch to also fail (legacy fallback)
+      global.fetch = jest.fn().mockRejectedValue(new Error('API failure'));
+      
       const originalConsoleError = console.error;
       console.error = jest.fn();
 
@@ -163,6 +166,31 @@ describe('PromptGenerationService', () => {
       expect(result).toBeNull();
       
       console.error = originalConsoleError;
+      
+      // Restore original fetch
+      global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers(),
+          redirected: false,
+          type: 'basic' as ResponseType,
+          url: '',
+          clone: jest.fn(),
+          body: null,
+          bodyUsed: false,
+          arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+          blob: () => Promise.resolve(new Blob()),
+          formData: () => Promise.resolve(new FormData()),
+          bytes: () => Promise.resolve(new Uint8Array()),
+          json: () => Promise.resolve({
+            choices: [{ message: { content: 'Mock AI response' } }],
+            data: [{ embedding: [0.1, 0.2, 0.3] }]
+          }),
+          text: () => Promise.resolve('Mock response text')
+        } as Response)
+      ) as jest.MockedFunction<typeof fetch>;
     });
   });
 });

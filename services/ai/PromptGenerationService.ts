@@ -6,10 +6,15 @@ import { EmbeddingService } from './EmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
 
 export class PromptGenerationService {
-  private enhancedService: EnhancedPromptGenerationService;
+  private enhancedService: EnhancedPromptGenerationService | null = null;
 
   constructor(private readonly settings: NovaJournalSettings) {
-    this.enhancedService = new EnhancedPromptGenerationService(settings);
+    try {
+      this.enhancedService = new EnhancedPromptGenerationService(settings);
+    } catch (error) {
+      console.warn('[PromptGenerationService] Enhanced service initialization failed, will use legacy mode:', error);
+      this.enhancedService = null;
+    }
   }
 
   async generateOpeningPrompt(
@@ -20,20 +25,24 @@ export class PromptGenerationService {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
     try {
-      if (mood?.dominant_emotions && mood.dominant_emotions.length > 0) {
-        return await this.enhancedService.generateEmotionallyAwarePrompt(style, noteText, mood);
+      if (this.enhancedService) {
+        if (mood?.dominant_emotions && mood.dominant_emotions.length > 0) {
+          return await this.enhancedService.generateEmotionallyAwarePrompt(style, noteText, mood);
+        }
+        
+        if (mood?.tags && mood.tags.length > 0) {
+          return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
+        }
+        
+        return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
+          prioritizeRecent: true,
+          includeEmotionalContext: true,
+          includeThematicContext: true,
+          maxContextChunks: 3
+        });
+      } else {
+        return this.generateLegacyPrompt(style, noteText, mood);
       }
-      
-      if (mood?.tags && mood.tags.length > 0) {
-        return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
-      }
-      
-      return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
-        prioritizeRecent: true,
-        includeEmotionalContext: true,
-        includeThematicContext: true,
-        maxContextChunks: 3
-      });
     } catch (error) {
       console.error('[PromptGenerationService] Enhanced generation failed, falling back to legacy', error);
       return this.generateLegacyPrompt(style, noteText, mood);

@@ -4,12 +4,31 @@
 const mockApp = {
   vault: {
     getName: () => 'test-vault',
-    getFiles: () => [],
-    read: async () => '',
-    getAbstractFileByPath: () => null
+    getFiles: jest.fn(() => [
+      { path: 'test-file.md', name: 'test-file.md', extension: 'md' }
+    ]),
+    read: jest.fn(async () => 'Mock file content'),
+    getAbstractFileByPath: jest.fn(() => null),
+    getMarkdownFiles: jest.fn(() => [
+      { path: 'test-file.md', name: 'test-file.md', extension: 'md' }
+    ]),
+    adapter: {
+      exists: jest.fn(() => Promise.resolve(true)),
+      read: jest.fn(() => Promise.resolve('Mock file content')),
+      write: jest.fn(() => Promise.resolve()),
+      list: jest.fn(() => Promise.resolve({ files: [], folders: [] }))
+    }
   },
   workspace: {
-    getActiveViewOfType: () => null
+    getActiveViewOfType: () => null,
+    getActiveFile: () => null,
+    getLeaf: () => ({
+      openFile: jest.fn()
+    })
+  },
+  metadataCache: {
+    getFileCache: jest.fn(() => null),
+    getCache: jest.fn(() => null)
   }
 };
 
@@ -28,13 +47,30 @@ Object.defineProperty(global, 'window', {
   writable: true
 });
 
+// Mock localStorage with proper error handling
+const mockLocalStorage = {
+  getItem: jest.fn((key: string) => {
+    if (key === 'nova-journal-embeddings') return JSON.stringify({});
+    return null;
+  }),
+  setItem: jest.fn(),
+  removeItem: jest.fn((key: string) => {
+    if (key.includes('error')) {
+      throw new Error('localStorage error');
+    }
+  }),
+  clear: jest.fn(),
+  length: 0,
+  key: jest.fn()
+};
+
 Object.defineProperty(global, 'localStorage', {
-  value: {
-    getItem: jest.fn(),
-    setItem: jest.fn(),
-    removeItem: jest.fn(),
-    clear: jest.fn()
-  },
+  value: mockLocalStorage,
+  writable: true
+});
+
+Object.defineProperty(global, 'Storage', {
+  value: jest.fn(() => mockLocalStorage),
   writable: true
 });
 
