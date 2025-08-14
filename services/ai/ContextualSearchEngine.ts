@@ -17,14 +17,16 @@ export class ContextualSearchEngine {
     try {
       if (index.length === 0) return [];
 
-      const { embeddings } = await embed({
+      const embedResp = await embed({
         apiKey: this.settings.aiApiKey,
         inputs: [query.trim()],
       });
 
-      if (!embeddings || embeddings.length === 0) return [];
-
+      const embeddings = embedResp.embeddings;
+      if (!Array.isArray(embeddings) || embeddings.length === 0) return [];
+      
       const queryVector = embeddings[0];
+      if (!Array.isArray(queryVector) || queryVector.length === 0) return [];
       let candidates = index.filter(item => 
         item.vector && item.vector.length > 0
       );

@@ -7,9 +7,9 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"test": "jest",
-		"test:watch": "jest --watch",
-		"test:coverage": "jest --coverage"
+		"test": "jest --preset=ts-jest",
+		"test:watch": "jest --preset=ts-jest --watch",
+		"test:coverage": "jest --preset=ts-jest --coverage"
 	},
 	"keywords": [],
 	"author": "mariepop13 <contact@mariepop13.com>",

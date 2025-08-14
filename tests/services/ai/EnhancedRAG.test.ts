@@ -182,7 +182,7 @@ describe('EnhancedPromptGenerationService', () => {
       { sentiment: ['neutral'] }
     );
 
-    // Should return a response even without embedding service (just without context)
+
     expect(result).toBe('Mock AI response');
   });
 });

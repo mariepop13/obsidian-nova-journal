@@ -1,7 +1,6 @@
 import { PromptGenerationService } from '../../../services/ai/PromptGenerationService';
 import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPromptGenerationService';
 
-// Mock the enhanced service
 jest.mock('../../../services/ai/EnhancedPromptGenerationService');
 
 describe('PromptGenerationService', () => {
@@ -20,7 +19,7 @@ describe('PromptGenerationService', () => {
       aiFallbackModel: 'gpt-3.5-turbo'
     };
 
-    // Reset the mock
+
     jest.clearAllMocks();
 
     service = new PromptGenerationService(mockSettings);
@@ -112,7 +111,7 @@ describe('PromptGenerationService', () => {
 
       mockEnhancedService.generateContextualPrompt = jest.fn().mockRejectedValue(new Error('Enhanced service failed'));
 
-      // Mock the chat function for legacy fallback
+
       jest.mock('../../../ai/AiClient', () => ({
         chat: jest.fn().mockResolvedValue('Fallback prompt question?')
       }));
@@ -120,7 +119,7 @@ describe('PromptGenerationService', () => {
       const result = await service.generateOpeningPrompt('gratitude', 'Test note', mood);
 
       expect(mockEnhancedService.generateContextualPrompt).toHaveBeenCalled();
-      // Should fall back to legacy method
+
       expect(result).toBeDefined();
     });
 
@@ -142,7 +141,7 @@ describe('PromptGenerationService', () => {
 
   describe('error handling', () => {
     test('should handle enhanced service instantiation errors', () => {
-      // Mock constructor to throw
+
       (EnhancedPromptGenerationService as jest.MockedClass<typeof EnhancedPromptGenerationService>)
         .mockImplementationOnce(() => {
           throw new Error('Constructor failed');
@@ -152,10 +151,10 @@ describe('PromptGenerationService', () => {
     });
 
     test('should return null on total failure', async () => {
-      // Mock enhanced service to fail
+
       mockEnhancedService.generateContextualPrompt = jest.fn().mockRejectedValue(new Error('Total failure'));
       
-      // Mock fetch to also fail (legacy fallback)
+
       global.fetch = jest.fn().mockRejectedValue(new Error('API failure'));
       
       const originalConsoleError = console.error;
@@ -167,7 +166,7 @@ describe('PromptGenerationService', () => {
       
       console.error = originalConsoleError;
       
-      // Restore original fetch
+
       global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
         Promise.resolve({
           ok: true,

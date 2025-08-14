@@ -26,13 +26,21 @@ export class VectorUtils {
   ): Array<{ item: EnhancedIndexedChunk; score: number }> {
     if (threshold <= 0) return scored;
 
+    const sorted = [...scored].sort((a, b) => b.score - a.score);
     const result: Array<{ item: EnhancedIndexedChunk; score: number }> = [];
     
-    for (const candidate of scored) {
+    for (const candidate of sorted) {
+      if (!Array.isArray(candidate.item.vector) || candidate.item.vector.length === 0) continue;
       let shouldInclude = true;
       
       for (const existing of result) {
-        const similarity = VectorUtils.cosineSimilarity(candidate.item.vector, existing.item.vector);
+        const ev = existing.item.vector;
+        if (!Array.isArray(ev) || ev.length === 0) continue;
+        const similarity = VectorUtils.cosineSimilarity(candidate.item.vector, ev);
+        if (!isFinite(similarity)) { 
+          shouldInclude = false; 
+          break; 
+        }
         if (similarity > threshold) {
           shouldInclude = false;
           break;

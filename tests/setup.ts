@@ -1,6 +1,4 @@
-// Test setup file for Nova Journal plugin
 
-// Mock Obsidian globals
 const mockApp = {
   vault: {
     getName: () => 'test-vault',
@@ -41,7 +39,7 @@ const mockPlugin = {
   saveData: async () => {}
 };
 
-// Global mocks
+
 Object.defineProperty(global, 'window', {
   value: {
     app: mockApp
@@ -49,7 +47,7 @@ Object.defineProperty(global, 'window', {
   writable: true
 });
 
-// Mock localStorage with proper error handling
+
 const mockLocalStorage = {
   getItem: jest.fn((key: string) => {
     if (key === 'nova-journal-embeddings') return JSON.stringify({});
@@ -76,9 +74,7 @@ Object.defineProperty(global, 'Storage', {
   writable: true
 });
 
-// Obsidian module is mocked via moduleNameMapper in jest.config.js
 
-// Mock fetch for API calls
 global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   Promise.resolve({
     ok: true,
@@ -103,11 +99,36 @@ global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   } as Response)
 ) as jest.MockedFunction<typeof fetch>;
 
-// Console override for cleaner test output
+
 const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
 console.error = (...args: any[]) => {
-  if (args[0]?.includes?.('test')) return;
+  const message = String(args[0] || '');
+
+  if (message.includes('test') || 
+      message.includes('Enhanced generation failed, falling back to legacy') ||
+      message.includes('Enhanced service initialization failed') ||
+      message.includes('Context gathering failed') ||
+      message.includes('Migration failed') ||
+      message.includes('Failed to backup legacy index') ||
+      message.includes('Failed to cleanup legacy index') ||
+      message.includes('Emotional prompt generation failed') ||
+      message.includes('Thematic prompt generation failed') ||
+      message.includes('Failed to gather contextual information')) {
+    return;
+  }
   originalConsoleError(...args);
+};
+
+console.warn = (...args: any[]) => {
+  const message = String(args[0] || '');
+
+  if (message.includes('test') || 
+      message.includes('Enhanced service initialization failed, will use legacy mode')) {
+    return;
+  }
+  originalConsoleWarn(...args);
 };
 
 export {};

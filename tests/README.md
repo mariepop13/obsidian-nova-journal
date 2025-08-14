@@ -95,12 +95,18 @@ const mockEmbeddingService = {
 };
 
 // Mock d'appels API
-global.fetch = jest.fn().mockResolvedValue({
-  ok: true,
-  json: () => Promise.resolve({
-    choices: [{ message: { content: 'AI response' } }]
+global.fetch = jest.fn().mockImplementation((...args) =>
+  Promise.resolve({
+    ok: true,
+    status: 200,
+    headers: { get: (name: string) => null },
+    json: async () => ({
+      choices: [{ message: { content: 'AI response' } }]
+    })
   })
-});
+);
+// In individual tests or setup/teardown:
+// (afterEach(() => { (global.fetch as jest.Mock).mockReset(); }))
 ```
 
 ## Couverture de code

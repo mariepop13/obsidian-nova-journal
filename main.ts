@@ -174,7 +174,7 @@ export default class NovaJournalPlugin extends Plugin {
                 mood
             );
 
-            // Let insertion service try AI-generated opening in user's language and fallback gracefully
+
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
                 fallbackPrompt,

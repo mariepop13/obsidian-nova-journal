@@ -184,7 +184,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 				});
 			});
 
-		// hidden marker logic removed; duplicates use content-based detection only
+
 	}
 
 	private renderDailyNoteSettings(containerEl: HTMLElement): void {

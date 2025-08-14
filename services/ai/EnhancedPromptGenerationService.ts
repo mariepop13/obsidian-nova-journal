@@ -71,7 +71,7 @@ export class EnhancedPromptGenerationService {
         fallbackModel: this.settings.aiFallbackModel || ''
       });
 
-      const raw = typeof response === 'string' ? response : String(response || '');
+      const raw = response;
       const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch {
@@ -127,7 +127,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
         fallbackModel: this.settings.aiFallbackModel || ''
       });
 
-      const raw = typeof response === 'string' ? response : String(response || '');
+      const raw = response;
       const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
@@ -191,7 +191,7 @@ Generate a thematically focused question that explores patterns and development 
         fallbackModel: this.settings.aiFallbackModel || ''
       });
 
-      const raw = typeof response === 'string' ? response : String(response || '');
+      const raw = response;
       const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
