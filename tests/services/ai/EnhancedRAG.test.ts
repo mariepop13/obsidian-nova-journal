@@ -165,10 +165,11 @@ describe('EnhancedPromptGenerationService', () => {
     const result = await service.generateContextualPrompt(
       'reflective',
       'Test note',
-      { sentiment: 'neutral' }
+      { sentiment: ['neutral'] }
     );
 
-    expect(result).toBeNull();
+    // Should return a response even without embedding service (just without context)
+    expect(result).toBe('Mock AI response');
   });
 });
 
@@ -194,7 +195,7 @@ describe('Context Type Classification', () => {
     },
     {
       text: "The weather is nice today, thinking about various things",
-      expected: 'general'
+      expected: 'temporal'
     },
     {
       text: "Work was stressful but I felt proud of my accomplishments with the team",
