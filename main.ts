@@ -147,7 +147,11 @@ export default class NovaJournalPlugin extends Plugin {
             removeDateHeadingInEditor(editor);
             
             const date = new Date();
-            const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
+            const { prompt: basePrompt } = this.promptService.getContextAwarePrompt(
+                this.settings.promptStyle as PromptStyle,
+                date,
+                editor.getValue()
+            );
 
             const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
                 editor,
@@ -174,7 +178,7 @@ export default class NovaJournalPlugin extends Plugin {
     }
 
     private cyclePromptStyle(): void {
-        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning'];
+        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning', 'dreams'];
         const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
         const safeIdx = idx >= 0 ? idx : 0;
         const next = order[(safeIdx + 1) % order.length];
