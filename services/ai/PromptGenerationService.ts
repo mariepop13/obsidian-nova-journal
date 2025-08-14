@@ -2,6 +2,7 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
+import { EmbeddingService } from './EmbeddingService';
 
 export class PromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {}
@@ -26,8 +27,18 @@ Styles:
 - planning: next steps/tomorrow/priorities/obstacles
 - dreams: dreams/nightmares/symbols/waking feelings`;
 
+    let ragContext = '';
+    try {
+      const embeddingService = new EmbeddingService((window as any).app, this.settings);
+      const top = await embeddingService.topK(noteText || 'general', 3);
+      if (top.length > 0) {
+        const joined = top.map((t) => `- ${t.text}`).join('\n');
+        ragContext = `\n\nRelevant personal context:\n${joined}`;
+      }
+    } catch {}
+
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
-    const userPrompt = `Style: ${style}\n\nNote content (any language):\n${noteText || '(empty)'}${moodFragment}`;
+    const userPrompt = `Style: ${style}\n\nNote content (any language):\n${noteText || '(empty)'}${moodFragment}${ragContext}`;
 
     try {
       const response = await chat({
