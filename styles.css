@@ -113,17 +113,26 @@ Custom button styles and themes
 .nova-settings-preview {
   margin-top: 4px;
   opacity: 0.8;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
 }
 
 .nova-settings-warning {
   color: var(--text-error);
   margin: 8px 0;
+  font-size: var(--font-ui-small);
+  border-left: 2px solid var(--text-error);
+  padding-left: 8px;
 }
 
 .nova-settings-template-preview {
   padding: 8px;
   border: 1px solid var(--background-modifier-border);
   margin-bottom: 8px;
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
 }
 
 /* Dark theme adjustments */
