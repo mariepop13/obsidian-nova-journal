@@ -95,7 +95,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 				dropdown.onChange(async (value) => {
 					await this.saveSettingsWithErrorHandling(
 						() => {
-							this.plugin.settings.insertLocation = value as any;
+							this.plugin.settings.insertLocation = value as 'cursor' | 'top' | 'bottom' | 'below-heading';
 						},
 						"Failed to save insert location",
 						true
@@ -243,9 +243,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 				});
 			});
 
-		const previewEl = containerEl.createEl("div");
-		previewEl.style.marginTop = "4px";
-		previewEl.style.opacity = "0.8";
+		const previewEl = containerEl.createEl("div", { cls: "nova-settings-preview" });
 		const previewText = DateFormatter.getPreviewFilename(
 			this.plugin.settings.dailyNoteFormat
 		);
@@ -287,9 +285,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 		if (!this.plugin.settings.aiEnabled) {
 			const template = this.plugin.settings.promptTemplate || "";
 			if (/<a[^>]*class="nova-deepen"/i.test(template)) {
-				const warning = containerEl.createEl("div");
-				warning.style.color = "var(--text-error)";
-				warning.style.margin = "8px 0";
+				const warning = containerEl.createEl("div", { cls: "nova-settings-warning" });
 				warning.setText(
 					"Note: your Prompt template contains the Explore link, but AI is disabled. It will be removed from inserted content."
 				);
@@ -363,7 +359,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 				dropdown.setValue(this.plugin.settings.promptStyle);
 				dropdown.onChange(async (value) => {
 					try {
-						this.plugin.settings.promptStyle = value as any;
+						this.plugin.settings.promptStyle = value as 'reflective' | 'gratitude' | 'planning';
 						await this.plugin.saveSettings();
 					} catch (error) {
 						new Notice("Failed to save prompt style");
@@ -417,7 +413,9 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 				dropdown.setValue(currentPreset);
 
 				if (currentPreset === "custom") {
-					(dropdown as any).selectEl.disabled = true;
+					if (dropdown.selectEl) {
+						dropdown.selectEl.disabled = true;
+					}
 				}
 
 				dropdown.onChange(async (value) => {
@@ -438,10 +436,7 @@ export class NovaJournalSettingTab extends PluginSettingTab {
 	}
 
 	private renderTemplatePreview(containerEl: HTMLElement): void {
-		const preview = containerEl.createEl("div");
-		preview.style.padding = "8px";
-		preview.style.border = "1px solid var(--background-modifier-border)";
-		preview.style.marginBottom = "8px";
+		const preview = containerEl.createEl("div", { cls: "nova-settings-template-preview" });
 
 		const now = new Date();
 		const samplePrompt = "What are you grateful for today?";

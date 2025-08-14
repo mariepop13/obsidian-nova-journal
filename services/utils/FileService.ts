@@ -75,7 +75,7 @@ export class FileService {
       return existing;
     }
     
-    return await this.app.vault.create(filePath, '') as TFile;
+    return await this.app.vault.create(filePath, '');
   }
 
   private filterDateHeadings(lines: string[], dateHeadingRegex: RegExp): string[] {

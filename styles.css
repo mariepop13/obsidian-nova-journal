@@ -109,6 +109,23 @@ Custom button styles and themes
   outline-offset: 2px;
 }
 
+/* Settings UI styles */
+.nova-settings-preview {
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+.nova-settings-warning {
+  color: var(--text-error);
+  margin: 8px 0;
+}
+
+.nova-settings-template-preview {
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  margin-bottom: 8px;
+}
+
 /* Dark theme adjustments */
 .theme-dark .nova-btn-button {
   background: var(--background-modifier-form-field);
