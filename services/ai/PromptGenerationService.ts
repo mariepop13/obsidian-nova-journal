@@ -14,31 +14,41 @@ export class PromptGenerationService {
   ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
-    const systemPrompt = `Generate ONE short journaling question tailored to the user's current context, in the user's language.
+    const systemPrompt = `Generate ONE highly personalized journaling question using the user's own context and patterns, in their language.
 
 Rules:
-- Output ONLY the question text (no quotes/no labels).
-- One sentence, concise (<= 20 words).
-- Match the user's language from the note content.
+- Output ONLY the question text (no quotes/labels).
+- One sentence, concise (<= 30 words).
+- MUST reference specific elements from the personal context when available.
+- MUST include temporal references like "comme tu mentionnais hier/la semaine dernière" when relevant.
+- Use the user's language from the note content.
+
+Personalization examples:
+- "Comme tu mentionnais hier avec [personne], comment cette conversation a-t-elle changé ta perspective ?"
+- "Ce projet dont tu parlais la semaine dernière, quelle première action pourrait débloquer la situation ?"
+- "Tu évoquais cette difficulté récemment - qu'est-ce qui a évolué depuis ?"
 
 Styles:
-- reflective: reflective self-inquiry
-- gratitude: appreciative focus on positives
-- planning: next steps/tomorrow/priorities/obstacles
-- dreams: dreams/nightmares/symbols/waking feelings`;
+- reflective: deep self-inquiry connecting past and present
+- gratitude: appreciative focus on specific positives
+- planning: actionable next steps for specific situations
+- dreams: exploration of symbols/feelings from specific dreams`;
 
     let ragContext = '';
     try {
       const embeddingService = new EmbeddingService((window as any).app, this.settings);
-      const top = await embeddingService.topK(noteText || 'general', 3);
+      const top = await embeddingService.topK(noteText || 'general', 5);
+      
       if (top.length > 0) {
-        const joined = top.map((t) => `- ${t.text}`).join('\n');
-        ragContext = `\n\nRelevant personal context:\n${joined}`;
+        const joined = top.map((t, i) => `${i+1}. ${t.text.substring(0, 300)}...`).join('\n');
+        ragContext = `\n\nPersonal context from your recent notes (reference these specifically):\n${joined}`;
       }
     } catch {}
 
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
-    const userPrompt = `Style: ${style}\n\nNote content (any language):\n${noteText || '(empty)'}${moodFragment}${ragContext}`;
+    const userPrompt = `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext}
+
+Generate a question that specifically references elements from the personal context above, making clear connections to the current situation.`;
 
     try {
       const response = await chat({
