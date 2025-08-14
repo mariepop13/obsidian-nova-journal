@@ -167,7 +167,8 @@ jobs:
             const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: prNumber });
             const sanitizeSubject = (s) => s
               .replace(/^[:*_~`\s\p{Emoji_Presentation}\p{Extended_Pictographic}]+/u, '')
-              .replace(/^(feat|fix|refactor|chore|docs|test|build|ci)(\([^)]*\))?:\s*/i, '')
+              .replace(/^(feat|fix|refactor|chore|docs|test|build|ci|bookmark|art|wrench)(\([^)]*\))?:\s*/i, '')
+              .replace(/^(🔖|🎨|🔧|✨|🐛|📚|🚀|⚡|💡|🔒|🧪|📝|🎯|🔥|💚|👷|📊|🏗️|⬆️|⬇️|📌|👽|🍱|♿|💬|🗃️|🏷️|🚨|🚧|💥|🍻|💬|🔀|📦|👌|🎉|🎨)+\s*/u, '')
               .trim();
             const subjects = commits
               .map(c => (c.commit.message || '').split('\n')[0])
@@ -199,7 +200,7 @@ jobs:
                 const patchExcerpt = patches.slice(0, 12000);
                 const fileList = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`).join('\n');
                 const commitSubjects = subjects.join('\n');
-                const prompt = `Summarize this PR concisely for reviewers in max 300 words. Format: Summary (1 line), Key Changes (3-5 bullets), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileList.slice(0, 10).join('\n')}\nCommits:\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
+                const prompt = `Summarize this PR concisely for reviewers in max 300 words. Focus on WHAT changed, not commit prefixes. Format: Summary (1 line), Key Changes (3-5 bullets describing actual changes), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileList.slice(0, 10).join('\n')}\nCommits (ignore emoji/prefixes, focus on substance):\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
 
                 const resp = await fetch('https://api.openai.com/v1/chat/completions', {
                   method: 'POST',
