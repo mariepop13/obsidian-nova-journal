@@ -18,8 +18,9 @@ type IndexData = {
 export class EmbeddingService {
 	private readonly indexPath = "nova-journal-index.json";
 	private readonly maxDays = 90;
-	private readonly chunkSize = 500;
-	private readonly overlap = 100;
+	private readonly chunkSize = 200;
+	private readonly overlap = 50;
+	private readonly maxChunksPerBatch = 100;
 	private index: IndexData | null = null;
 
 	constructor(
@@ -63,12 +64,16 @@ export class EmbeddingService {
 				return;
 			}
 
+			console.log(`[EmbeddingService] Processing ${inputs.length} chunks, limiting to ${this.maxChunksPerBatch}`);
+			const limitedInputs = inputs.slice(0, this.maxChunksPerBatch);
+			const limitedChunks = chunks.slice(0, this.maxChunksPerBatch);
+
 			const { embeddings } = await embed({
 				apiKey: this.settings.aiApiKey,
-				inputs,
+				inputs: limitedInputs,
 			});
 			
-			const items: IndexedChunk[] = chunks.map((c, i) => ({
+			const items: IndexedChunk[] = limitedChunks.map((c, i) => ({
 				...c,
 				vector: embeddings[i] || [],
 			})).filter(item => item.vector.length > 0);
@@ -139,12 +144,19 @@ export class EmbeddingService {
 
 	private getMarkdownFilesInFolder(folder: string): TFile[] {
 		const files: TFile[] = [];
+		const targetFolder = folder || 'Journal';
+		const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
+		
 		const all = this.app.vault.getFiles();
 		for (const f of all) {
 			if (!f.path.toLowerCase().endsWith(".md")) continue;
 			if (f.path.includes("/.trash/") || f.path.includes("/.obsidian/")) continue;
+			
+			if (!f.path.startsWith(normalizedFolder)) continue;
+			
 			files.push(f);
 		}
+		console.log(`[EmbeddingService] Found ${files.length} files in folder "${targetFolder}"`);
 		return files;
 	}
 
