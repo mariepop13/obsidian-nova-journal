@@ -193,25 +193,7 @@ export default class NovaJournalPlugin extends Plugin {
             const editor = this.getActiveEditor();
             removeDateHeadingInEditor(editor);
             
-            const date = new Date();
-            const mood = FrontmatterService.readMoodProps(editor);
-            const { style, prompt: fallbackPrompt } = await this.promptService.getContextAwarePrompt(
-                this.settings.promptStyle as PromptStyle,
-                date,
-                editor.getValue(),
-                mood
-            );
-
-
-            const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
-                editor,
-                fallbackPrompt,
-                date
-            );
-            
-            if (wasInserted) {
-                new Notice('Nova Journal: prompt inserted.');
-            }
+            await this.promptInsertionService.insertPromptAtLocation(editor);
         } catch (error) {
             console.error('Nova Journal insert error', error);
             new Notice('Nova Journal: failed to insert prompt. See console for details.');

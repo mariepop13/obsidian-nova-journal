@@ -45,36 +45,6 @@ export class PromptInsertionService {
     new Notice('Nova Journal: prompt inserted.');
   }
 
-  async insertTodaysPromptWithDuplicateCheck(
-    editor: Editor, 
-    basePrompt: string, 
-    date: Date
-  ): Promise<boolean> {
-    if (this.isDuplicatePrompt(editor, basePrompt)) {
-      new Notice('Nova Journal: prompt for today already exists in this note.');
-      return false;
-    }
-
-    let effectivePrompt = basePrompt;
-    const mood = FrontmatterService.readMoodProps(editor);
-    const { style } = await this.promptService.getContextAwarePrompt(
-      this.settings.promptStyle as PromptStyle,
-      date,
-      editor.getValue(),
-      mood
-    );
-    const generator = new PromptGenerationService(this.settings);
-    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood);
-    if (aiPrompt && aiPrompt.length > 0) {
-      effectivePrompt = aiPrompt;
-    }
-
-    const prompt = this.renderPrompt(effectivePrompt, date);
-    insertAtLocation(editor, prompt, this.settings.insertLocation, this.settings.insertHeadingName);
-    ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
-    
-    return true;
-  }
 
   private isDuplicatePrompt(editor: Editor, basePrompt: string): boolean {
     return this.settings.preventDuplicateForDay && editor.getValue().includes(basePrompt);
