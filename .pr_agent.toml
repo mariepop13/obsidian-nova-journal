@@ -5,3 +5,10 @@ model_reasoning = "gpt-5-mini"
 model_weak = "gpt-5-mini"
 output_relevant_configurations = true
 verbosity_level = 2
+
+[github_action_config]
+auto_review = true
+auto_improve = true
+
+[pr_reviewer]
+persistent_comment = true
