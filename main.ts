@@ -193,7 +193,7 @@ export default class NovaJournalPlugin extends Plugin {
             const editor = this.getActiveEditor();
             removeDateHeadingInEditor(editor);
             
-            await this.promptInsertionService.insertPromptAtLocation(editor);
+            await this.promptInsertionService.insertTodaysPrompt(editor);
         } catch (error) {
             console.error('Nova Journal insert error', error);
             new Notice('Nova Journal: failed to insert prompt. See console for details.');

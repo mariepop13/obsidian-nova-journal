@@ -1,4 +1,5 @@
-- Utiliser les agents spécialisés selon le master-agent.md
+- Utiliser les agents spécialisés selon le document master-agent.md.
+- Ne pas imposer une langue ou un contexte avec des mots particuliers; cela pourrait être n'importe quel utilisateur avec son propre vécu.
 
  ---
 description: "Clean Code — User Rules (Language-agnostic)"
@@ -73,3 +74,4 @@ alwaysApply: true
   - Separate layers (UI, domain, data/infrastructure) into different files/modules.
   - Tests may be larger, but keep each suite focused and readable (clear arrange/act/assert).
 - Toujours npm test et npm run buil après un changement
+

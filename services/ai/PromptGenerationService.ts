@@ -55,26 +55,32 @@ export class PromptGenerationService {
     mood?: Partial<MoodData>
   ): Promise<string | null> {
 
-    const systemPrompt = `Generate ONE simple journaling question based ONLY on the current note content, in the user's language.
+    const systemPrompt = `Generate ONE simple journaling question in the SAME LANGUAGE as the context provided.
 
 CRITICAL RULES:
 - Output ONLY the question text (no quotes/labels).
 - One sentence, concise (<= 25 words).
-- Quote or reference EXACT details from the notes context when relevant.
-- Use real temporal references from the context (like [il y a 3 jours]).
-- DO NOT invent connections, emotions, or cause-effect relationships.
-- DO NOT assume feelings or situations not explicitly stated.
+- ONLY reference EXACT details, people, events explicitly mentioned in the RAG context.
+- If no specific details exist in context, ask a general question without invented references.
+- DO NOT invent dates, years, people, or events not present in the context.
+- DO NOT assume connections, emotions, or situations not explicitly stated.
+
+Language rule:
+- If context is in French, respond in French
+- If context is in English, respond in English
+- Match the language of the provided notes
 
 What TO do:
-- Reference specific people, events, or facts directly mentioned in past notes
-- Use actual temporal markers provided in the context
-- Ask about evolution or change without assuming what happened before
-- Stay factual and avoid emotional suppositions
+- Reference ONLY specific people, events, or facts directly mentioned in the provided context
+- Use only temporal markers actually present in the context
+- Ask about evolution or change only if context shows previous states
+- Stay strictly factual to the provided information
 
 What NOT to do:
-- Do not assume stress, emotions, or feelings not explicitly mentioned
-- Do not create cause-effect relationships ("after feeling X, then Y happened")
-- Do not suppose the user's state of mind or motivations
+- NEVER invent dates, years, or time periods (like "2022", "last year", etc.)
+- NEVER assume emotions, stress, or feelings not mentioned
+- NEVER create fictional connections or relationships
+- NEVER reference events not in the provided context
 
 Styles:
 - reflective: simple self-inquiry about the current topic
@@ -89,14 +95,22 @@ Styles:
         if (appRef) {
           const embeddingService = new EmbeddingService(appRef, this.settings);
           const top = await embeddingService.topK(noteText, 3);
+          console.log(`[PromptGenerationService] RAG results:`, top);
           if (Array.isArray(top) && top.length > 0) {
             const enriched = top.map((t, i) => {
               const preview = (t.text || '').substring(0, 400);
               return `${i + 1}. ${preview}...`;
             }).join('\n');
-            ragContext = `\n\nYour recent notes context (use specific details when relevant):\n${enriched}`;
+            ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
+            console.log(`[PromptGenerationService] RAG context:`, ragContext);
+          } else {
+            console.log(`[PromptGenerationService] No RAG results found`);
           }
+        } else {
+          console.log(`[PromptGenerationService] No app reference found`);
         }
+      } else {
+        console.log(`[PromptGenerationService] No note text provided`);
       }
     } catch (err) {
       console.error('[PromptGenerationService] RAG fetch failed', err);
@@ -106,11 +120,13 @@ Styles:
     const userPrompt = `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext}
 
 Generate a question that:
-1. References EXACT facts or events from past notes when relevant to current topic
-2. Uses temporal markers without assuming emotional context
-3. Asks about change or evolution without supposing what the past state was
-4. Examples: "You mentioned [person] [timeframe] - what has changed?" NOT "after feeling [emotion]..."
-5. Be factual, neutral, and avoid emotional interpretations`;
+1. Uses the same language as the provided context
+2. ONLY references details explicitly present in the context above
+3. If no context exists, ask a general question without invented details
+4. NEVER invent dates, years, people, or events not mentioned
+5. Be factual and avoid assumptions about past states or emotions`;
+    
+    console.log(`[PromptGenerationService] Final user prompt:`, userPrompt);
 
     try {
       const response = await chat({

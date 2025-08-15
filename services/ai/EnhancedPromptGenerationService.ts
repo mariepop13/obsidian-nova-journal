@@ -212,7 +212,9 @@ Generate a thematically focused question that explores patterns and development 
     }
   ): Promise<string> {
     const embeddingService = this.getEmbeddingService();
-    if (!embeddingService || !noteText?.trim()) return '';
+    if (!embeddingService) return '';
+    
+    const searchText = noteText?.trim() || 'journal reflection today';
 
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
@@ -229,7 +231,7 @@ Generate a thematically focused question that explores patterns and development 
 
     try {
       const contextChunks = await embeddingService.contextualSearch(
-        noteText,
+        searchText,
         maxChunks,
         searchOptions
       );
