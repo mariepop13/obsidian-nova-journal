@@ -212,7 +212,12 @@ Generate a thematically focused question that explores patterns and development 
     }
   ): Promise<string> {
     const embeddingService = this.getEmbeddingService();
-    if (!embeddingService || !noteText?.trim()) return '';
+    if (!embeddingService) return '';
+    
+    const searchText = noteText?.trim();
+    if (!searchText || searchText.length === 0) {
+      return '';
+    }
 
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
@@ -229,7 +234,7 @@ Generate a thematically focused question that explores patterns and development 
 
     try {
       const contextChunks = await embeddingService.contextualSearch(
-        noteText,
+        searchText,
         maxChunks,
         searchOptions
       );
@@ -264,7 +269,7 @@ Generate a thematically focused question that explores patterns and development 
   }
 
   private buildSystemPrompt(
-    style: PromptStyle,
+    _style: PromptStyle,
     includeEmotional: boolean,
     includeThematic: boolean
   ): string {
