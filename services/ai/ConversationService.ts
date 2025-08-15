@@ -275,7 +275,7 @@ export class ConversationService {
 MANDATORY RESPONSE FORMAT: You must begin your response by explicitly referencing the context provided. Start with something like:
 "Je vois que [specific situation from context] s'est passé [timeframe], ce qui t'a fait ressentir [emotion] parce que [specific reason from context]..."
 
-Then continue with your reflective question or insight.
+Then continue with ONE reflective question or insight. Keep your response concise (2-3 sentences total). DO NOT repeat questions or add multiple versions of the same question.
 
 DO NOT give vague responses. DO NOT say things like "after the betrayal you felt" without specifying what exactly happened according to the context.
 
@@ -296,12 +296,14 @@ ${ragContext}
 Respond by first acknowledging the specific context above, then continue with your insight.`;
       }
       
+      const maxTokens = ragContext ? Math.min(120, this.context.maxTokens) : this.context.maxTokens;
+      
       return await chat({
         apiKey: this.context.apiKey,
         model: this.context.model,
         systemPrompt: enhancedSystemPrompt,
         userText: enhancedUserText,
-        maxTokens: this.context.maxTokens,
+        maxTokens: maxTokens,
         debug: this.context.debug,
         retryCount: this.context.retryCount,
         fallbackModel: this.context.fallbackModel,
@@ -357,12 +359,12 @@ Respond by first acknowledging the specific context above, then continue with yo
 
       const searchOptions: SearchOptions = {
         boostRecent: false,
-        diversityThreshold: 0.15
+        diversityThreshold: 0.05
       };
 
       let contextChunks = await embeddingService.contextualSearch(
         searchText,
-        8,
+        15,
         searchOptions
       );
 
@@ -371,12 +373,27 @@ Respond by first acknowledging the specific context above, then continue with yo
       }
 
       if (contextChunks.length > 0) {
+        const allRecent = contextChunks.every(chunk => {
+          if (!chunk.date) return false;
+          const daysDiff = Math.floor((Date.now() - chunk.date) / (1000 * 60 * 60 * 24));
+          return daysDiff <= 2;
+        });
+        
+        if (allRecent && this.context.debug) {
+          console.log('[ConversationService] RAG Debug - All results are very recent, trying broader search');
+        }
+        
         const expandedSearchTerms = this.extractExpandedSearchTerms(searchText, contextChunks);
-        if (expandedSearchTerms.length > 0) {
+        if (expandedSearchTerms.length > 0 || allRecent) {
+          const searchTerms = expandedSearchTerms.length > 0 ? expandedSearchTerms.join(' ') : searchText;
           const additionalChunks = await embeddingService.contextualSearch(
-            expandedSearchTerms.join(' '),
-            5,
-            { ...searchOptions, diversityThreshold: 0.3 }
+            searchTerms,
+            allRecent ? 15 : 5,
+            { 
+              ...searchOptions, 
+              diversityThreshold: allRecent ? 0.05 : 0.3,
+              boostRecent: false
+            }
           );
           
           const combinedChunks = [...contextChunks];
@@ -386,7 +403,7 @@ Respond by first acknowledging the specific context above, then continue with yo
             }
           });
           
-          contextChunks = combinedChunks.slice(0, 10);
+          contextChunks = combinedChunks.slice(0, 12);
           
           if (this.context.debug) {
             console.log('[ConversationService] RAG Debug - expanded search with terms:', expandedSearchTerms);
@@ -397,8 +414,10 @@ Respond by first acknowledging the specific context above, then continue with yo
 
       if (contextChunks.length === 0) return '';
 
-      const contextText = contextChunks.map((chunk, i) => {
-        const preview = chunk.text.substring(0, 300);
+      contextChunks = this.prioritizeRelevantContext(contextChunks, searchText);
+
+      const contextText = contextChunks.slice(0, 8).map((chunk, i) => {
+        const preview = chunk.text.substring(0, 500);
         let contextInfo = '';
         
         if (chunk.date) {
@@ -418,6 +437,56 @@ Respond by first acknowledging the specific context above, then continue with yo
       console.error('[ConversationService] Failed to get RAG context', error);
       return '';
     }
+  }
+
+  private prioritizeRelevantContext(contextChunks: any[], searchText: string): any[] {
+    const recentChunks: any[] = [];
+    const historicalChunks: any[] = [];
+    const now = Date.now();
+    
+    contextChunks.forEach(chunk => {
+      if (!chunk.date) {
+        historicalChunks.push(chunk);
+        return;
+      }
+      
+      const daysDiff = Math.floor((now - chunk.date) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff <= 2) {
+        recentChunks.push(chunk);
+      } else {
+        historicalChunks.push(chunk);
+      }
+    });
+    
+    const recentHasSubstance = recentChunks.some(chunk => {
+      const text = chunk.text.toLowerCase();
+      const searchLower = searchText.toLowerCase();
+      return text.includes(searchLower) && text.length > 100 && 
+             !text.includes('## journal prompt') && 
+             !text.includes('**nova**:');
+    });
+    
+    const historicalHasSubstance = historicalChunks.some(chunk => {
+      const text = chunk.text.toLowerCase();
+      const searchLower = searchText.toLowerCase();
+      return text.includes(searchLower) && text.length > 100;
+    });
+    
+    if (this.context.debug) {
+      console.log('[ConversationService] RAG Debug - Recent chunks:', recentChunks.length, 'with substance:', recentHasSubstance);
+      console.log('[ConversationService] RAG Debug - Historical chunks:', historicalChunks.length, 'with substance:', historicalHasSubstance);
+    }
+    
+    if (historicalHasSubstance && !recentHasSubstance) {
+      return [...historicalChunks, ...recentChunks];
+    }
+    
+    if (historicalHasSubstance && recentHasSubstance) {
+      return [...historicalChunks.slice(0, 5), ...recentChunks.slice(0, 3)];
+    }
+    
+    return contextChunks;
   }
 
   private extractExpandedSearchTerms(originalSearch: string, contextChunks: any[]): string[] {
