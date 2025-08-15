@@ -14,6 +14,14 @@ export class PromptInsertionService {
   ) {}
 
   async insertPromptAtLocation(editor: Editor, location?: EnhancedInsertionLocation): Promise<void> {
+    await this.insertPrompt(editor, location, 'Nova Journal: this prompt already exists in this note.');
+  }
+
+  async insertTodaysPrompt(editor: Editor): Promise<boolean> {
+    return await this.insertPrompt(editor, undefined, 'Nova Journal: prompt for today already exists in this note.');
+  }
+
+  private async insertPrompt(editor: Editor, location?: EnhancedInsertionLocation, duplicateMessage?: string): Promise<boolean> {
     removeDateHeadingInEditor(editor);
     
     const date = new Date();
@@ -33,8 +41,10 @@ export class PromptInsertionService {
     }
 
     if (this.isDuplicatePrompt(editor, basePrompt)) {
-      new Notice('Nova Journal: this prompt already exists in this note.');
-      return;
+      if (duplicateMessage) {
+        new Notice(duplicateMessage);
+      }
+      return false;
     }
 
     const prompt = this.renderPrompt(basePrompt, date);
@@ -43,6 +53,7 @@ export class PromptInsertionService {
     insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
     ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
     new Notice('Nova Journal: prompt inserted.');
+    return true;
   }
 
 
