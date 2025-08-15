@@ -1,13 +1,12 @@
 import { Editor, Notice, App } from 'obsidian';
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
-import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from '../editor/NoteEditor';
-import { ConversationResponseService } from '../editor/ConversationResponseService';
-import { RegexHelpers } from '../utils/RegexHelpers';
+import { getDeepenSource } from '../editor/NoteEditor';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
-import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
+import { RagContextService } from './RagContextService';
+import { ResponseInsertionService } from './ResponseInsertionService';
 
-interface ButtonSettings {
+export interface ButtonSettings {
   buttonStyle?: ButtonStyle;
   buttonPosition?: ButtonPosition;
   moodButtonLabel?: string;
@@ -33,7 +32,8 @@ export interface ConversationContext {
 export class ConversationService {
   private readonly context: ConversationContext;
   private readonly settings: NovaJournalSettings;
-  private embeddingService: EnhancedEmbeddingService | null = null;
+  private readonly ragContextService: RagContextService;
+  private readonly responseInsertionService: ResponseInsertionService;
 
   constructor(settings: NovaJournalSettings) {
     this.settings = settings;
@@ -57,17 +57,17 @@ export class ConversationService {
         deepenButtonLabel: settings.deepenButtonLabel
       },
     };
+    
+    this.ragContextService = new RagContextService(settings);
+    this.responseInsertionService = new ResponseInsertionService(
+      settings.userName,
+      settings.deepenButtonLabel,
+      settings.typewriterSpeed,
+      this.context.buttonSettings
+    );
   }
 
-  private getEmbeddingService(): EnhancedEmbeddingService | null {
-    if (!this.embeddingService) {
-      const appRef = (window as any)?.app;
-      if (appRef) {
-        this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
-      }
-    }
-    return this.embeddingService;
-  }
+
 
   async deepenLine(editor: Editor, targetLine?: number): Promise<void> {
     try {
@@ -102,7 +102,7 @@ export class ConversationService {
       const enhancedSystemPrompt = `${this.context.systemPrompt}\nYou see the entire note context.`;
       const aiResponse = await this.callAI(content, enhancedSystemPrompt, editor);
       
-      await this.insertWholeNoteResponse(editor, aiResponse, label);
+      await this.responseInsertionService.insertWholeNoteResponse(editor, aiResponse, label);
     } catch (error) {
       this.handleError(error);
     }
@@ -115,14 +115,14 @@ export class ConversationService {
   }
 
   private async handleTargetLineDeepen(editor: Editor, line: number, text: string): Promise<void> {
-    let buttonLine = this.findExistingButton(editor, line);
+    let buttonLine = this.responseInsertionService.findExistingButton(editor, line);
     
     if (buttonLine === null) {
-      buttonLine = this.createNewButton(editor, line);
+      buttonLine = this.responseInsertionService.createNewButton(editor, line);
     }
 
     const aiResponse = await this.callAI(text, undefined, editor, line);
-    await this.insertTargetLineResponse(editor, buttonLine, aiResponse);
+    await this.responseInsertionService.insertTargetLineResponse(editor, buttonLine, aiResponse);
   }
 
   private async handleGeneralLineDeepen(editor: Editor, line: number, text: string): Promise<void> {
@@ -130,26 +130,10 @@ export class ConversationService {
     this.replaceLineWithHeader(editor, line, userHeader);
 
     const aiResponse = await this.callAI(text, undefined, editor);
-    await this.insertGeneralLineResponse(editor, line, aiResponse);
+    await this.responseInsertionService.insertGeneralLineResponse(editor, line, aiResponse);
   }
 
-  private findExistingButton(editor: Editor, line: number): number | null {
-    const pattern = new RegExp(`^<a[^>]*class="nova-deepen"[^>]*data-line="${line}"[^>]*>.*</a>$`);
-    
-    for (let i = line + 1; i <= editor.lastLine(); i += 1) {
-      const lineText = editor.getLine(i).trim();
-      if (pattern.test(lineText)) {
-        return i;
-      }
-      if (/^[^\s].*:/.test(lineText)) break;
-    }
-    return null;
-  }
 
-  private createNewButton(editor: Editor, line: number): number {
-    ensureBottomButtons(editor, this.context.deepenButtonLabel, this.context.buttonSettings);
-    return editor.lastLine();
-  }
 
   private replaceLineWithHeader(editor: Editor, line: number, header: string): void {
     const from = { line, ch: 0 };
@@ -157,114 +141,15 @@ export class ConversationService {
     editor.replaceRange(header, from, to);
   }
 
-  private async insertTargetLineResponse(editor: Editor, buttonLine: number, response: string): Promise<void> {
-    editor.replaceRange('**Nova**: \n', { line: buttonLine, ch: 0 });
-    await typewriterInsert(editor, buttonLine, '**Nova**: ', response, this.context.typewriterSpeed);
-  }
 
-  private async insertGeneralLineResponse(editor: Editor, line: number, response: string): Promise<void> {
-    const anchorLine = this.findAnchorLine(editor, line);
-    const scopeAttr = 'data-scope="note"';
 
-    if (anchorLine !== null) {
-      await this.insertAtExistingAnchor(editor, anchorLine, response, scopeAttr);
-    } else {
-      await this.insertAfterLine(editor, line, response, scopeAttr);
-    }
-  }
 
-  private async insertWholeNoteResponse(editor: Editor, response: string, label: string): Promise<void> {
-    const anchorLine = this.findNoteScopeAnchor(editor);
-    this.prepareUserLine(editor, anchorLine);
 
-    if (anchorLine !== null) {
-      await this.insertAtExistingAnchor(editor, anchorLine, response, 'data-scope="note"', label);
-    } else {
-      await this.insertAtEndOfNote(editor, response, label);
-    }
-  }
 
-  private findAnchorLine(editor: Editor, startLine: number): number | null {
-    for (let i = startLine + 1; i <= editor.lastLine(); i += 1) {
-      const lineText = editor.getLine(i);
-      if (/<(a|button)\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*>/.test(lineText)) return i;
-      if (/^[^\s].*:/.test(lineText)) break;
-    }
-    return null;
-  }
-
-  private findNoteScopeAnchor(editor: Editor): number | null {
-    for (let i = 0; i <= editor.lastLine(); i += 1) {
-      const lineText = editor.getLine(i);
-      if (/(<(a|button))\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*data-scope=("|')note\4/.test(lineText)) {
-        return i;
-      }
-    }
-    return null;
-  }
-
-  private prepareUserLine(editor: Editor, anchorLine: number | null): void {
-    const namePrefix = `**${this.context.userName || 'You'}** (you):`;
-    let userLineIdx = anchorLine !== null ? anchorLine - 1 : editor.lastLine();
-    
-    while (userLineIdx >= 0 && editor.getLine(userLineIdx).trim().length === 0) {
-      userLineIdx -= 1;
-    }
-    
-    if (userLineIdx >= 0) {
-      const rawLine = editor.getLine(userLineIdx);
-      const trimmed = rawLine.trim();
-      
-      if (trimmed && !trimmed.startsWith(namePrefix)) {
-        editor.replaceRange(
-          `${namePrefix} ${trimmed}`,
-          { line: userLineIdx, ch: 0 },
-          { line: userLineIdx, ch: rawLine.length }
-        );
-      }
-    }
-  }
-
-  private async insertAtExistingAnchor(
-    editor: Editor, 
-    anchorLine: number, 
-    response: string, 
-    _scopeAttr: string, 
-    label?: string
-  ): Promise<void> {
-    editor.replaceRange('**Nova**: \n', { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
-    
-    await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.context.typewriterSpeed);
-    removeAnchorsInBlock(editor, anchorLine);
-    ensureBottomButtons(editor, label || this.context.deepenButtonLabel, this.context.buttonSettings);
-    ensureUserPromptLine(editor, this.context.userName);
-  }
-
-  private async insertAfterLine(editor: Editor, line: number, response: string, scopeAttr: string): Promise<void> {
-    editor.replaceRange('**Nova**: \n', { line: line + 1, ch: 0 });
-    await typewriterInsert(editor, line + 1, '**Nova**: ', response, this.context.typewriterSpeed);
-    removeAnchorsInBlock(editor, line);
-    ensureBottomButtons(editor, this.context.deepenButtonLabel, this.context.buttonSettings);
-    ensureUserPromptLine(editor, this.context.userName);
-  }
-
-  private async insertAtEndOfNote(editor: Editor, response: string, label: string): Promise<void> {
-    const lastLine = editor.lastLine();
-    const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
-    const insertPos = { line: lastLine, ch: editor.getLine(lastLine).length };
-    
-    editor.replaceRange(`${needsBreak}**Nova**: \n`, insertPos);
-    const answerLine = editor.lastLine();
-    
-    await typewriterInsert(editor, answerLine, '**Nova**: ', response, this.context.typewriterSpeed);
-    removeAnchorsInBlock(editor, answerLine);
-    ensureBottomButtons(editor, label, this.context.buttonSettings);
-    ensureUserPromptLine(editor, this.context.userName);
-  }
 
   private async callAI(userText: string, customSystemPrompt?: string, editor?: Editor, targetLine?: number): Promise<string> {
     try {
-      const ragContext = await this.getRagContext(userText, editor, targetLine);
+      const ragContext = await this.ragContextService.getRagContext(userText, editor, targetLine);
       
       let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
       let enhancedUserText = userText;
@@ -313,242 +198,7 @@ Respond by first acknowledging the specific context above, then continue with yo
     }
   }
 
-  private async getRagContext(userText: string, editor?: Editor, targetLine?: number): Promise<string> {
-    const embeddingService = this.getEmbeddingService();
-    
-    if (this.context.debug) {
-      console.log('[ConversationService] RAG Debug - embeddingService:', !!embeddingService);
-      console.log('[ConversationService] RAG Debug - userText:', userText?.trim());
-      console.log('[ConversationService] RAG Debug - targetLine:', targetLine);
-    }
-    
-    if (!embeddingService || !userText?.trim()) return '';
 
-    try {
-      let searchText = userText;
-
-      if (typeof targetLine === 'number' && editor) {
-        const lineText = editor.getLine(targetLine);
-        if (lineText?.trim()) {
-          searchText = lineText;
-        }
-      } else if (editor && userText.includes('**Nova**:')) {
-        const lines = userText.split('\n');
-        const userLines = lines.filter(line => {
-          const trimmed = line.trim();
-          return trimmed.length > 0 && 
-                 !trimmed.includes('**Nova**:') && 
-                 !trimmed.includes('##') &&
-                 !trimmed.startsWith('<button') &&
-                 !trimmed.startsWith('<a') &&
-                 !trimmed.includes('class="nova-');
-        });
-        
-        let lastUserLine = userLines[userLines.length - 1];
-        if (lastUserLine?.trim()) {
-          lastUserLine = lastUserLine.replace(/^\*\*.*?\*\*.*?:\s*/, '').trim();
-          if (lastUserLine.length > 0) {
-            searchText = lastUserLine;
-          }
-        }
-      }
-
-      if (this.context.debug) {
-        console.log('[ConversationService] RAG Debug - searchText:', searchText.substring(0, 100));
-      }
-
-      const searchOptions: SearchOptions = {
-        boostRecent: false,
-        diversityThreshold: 0.05
-      };
-
-      let contextChunks = await embeddingService.contextualSearch(
-        searchText,
-        15,
-        searchOptions
-      );
-
-      if (this.context.debug) {
-        console.log('[ConversationService] RAG Debug - contextChunks found:', contextChunks.length);
-      }
-
-      if (contextChunks.length > 0) {
-        const allRecent = contextChunks.every(chunk => {
-          if (!chunk.date) return false;
-          const daysDiff = Math.floor((Date.now() - chunk.date) / (1000 * 60 * 60 * 24));
-          return daysDiff <= 2;
-        });
-        
-        if (allRecent && this.context.debug) {
-          console.log('[ConversationService] RAG Debug - All results are very recent, trying broader search');
-        }
-        
-        const expandedSearchTerms = this.extractExpandedSearchTerms(searchText, contextChunks);
-        if (expandedSearchTerms.length > 0 || allRecent) {
-          const searchTerms = expandedSearchTerms.length > 0 ? expandedSearchTerms.join(' ') : searchText;
-          const additionalChunks = await embeddingService.contextualSearch(
-            searchTerms,
-            allRecent ? 15 : 5,
-            { 
-              ...searchOptions, 
-              diversityThreshold: allRecent ? 0.05 : 0.3,
-              boostRecent: false
-            }
-          );
-          
-          const combinedChunks = [...contextChunks];
-          additionalChunks.forEach(chunk => {
-            if (!combinedChunks.some(existing => existing.hash === chunk.hash)) {
-              combinedChunks.push(chunk);
-            }
-          });
-          
-          contextChunks = combinedChunks.slice(0, 12);
-          
-          if (this.context.debug) {
-            console.log('[ConversationService] RAG Debug - expanded search with terms:', expandedSearchTerms);
-            console.log('[ConversationService] RAG Debug - total contextChunks after expansion:', contextChunks.length);
-          }
-        }
-      }
-
-      if (contextChunks.length === 0) return '';
-
-      contextChunks = this.prioritizeRelevantContext(contextChunks, searchText);
-
-      const contextText = contextChunks.slice(0, 8).map((chunk, i) => {
-        const preview = chunk.text.substring(0, 500);
-        let contextInfo = '';
-        
-        if (chunk.date) {
-          const timeAgo = this.getTimeAgoString(chunk.date);
-          contextInfo = `[${timeAgo}] `;
-        }
-        
-        return `${i + 1}. ${contextInfo}${preview}`;
-      }).join('\n\n');
-
-      if (this.context.debug) {
-        console.log('[ConversationService] RAG Debug - contextText:', contextText.substring(0, 500));
-      }
-
-      return contextText;
-    } catch (error) {
-      console.error('[ConversationService] Failed to get RAG context', error);
-      return '';
-    }
-  }
-
-  private prioritizeRelevantContext(contextChunks: any[], searchText: string): any[] {
-    const recentChunks: any[] = [];
-    const historicalChunks: any[] = [];
-    const now = Date.now();
-    
-    contextChunks.forEach(chunk => {
-      if (!chunk.date) {
-        historicalChunks.push(chunk);
-        return;
-      }
-      
-      const daysDiff = Math.floor((now - chunk.date) / (1000 * 60 * 60 * 24));
-      
-      if (daysDiff <= 2) {
-        recentChunks.push(chunk);
-      } else {
-        historicalChunks.push(chunk);
-      }
-    });
-    
-    const recentHasSubstance = recentChunks.some(chunk => {
-      const text = chunk.text.toLowerCase();
-      const searchLower = searchText.toLowerCase();
-      return text.includes(searchLower) && text.length > 100 && 
-             !text.includes('## journal prompt') && 
-             !text.includes('**nova**:');
-    });
-    
-    const historicalHasSubstance = historicalChunks.some(chunk => {
-      const text = chunk.text.toLowerCase();
-      const searchLower = searchText.toLowerCase();
-      return text.includes(searchLower) && text.length > 100;
-    });
-    
-    if (this.context.debug) {
-      console.log('[ConversationService] RAG Debug - Recent chunks:', recentChunks.length, 'with substance:', recentHasSubstance);
-      console.log('[ConversationService] RAG Debug - Historical chunks:', historicalChunks.length, 'with substance:', historicalHasSubstance);
-    }
-    
-    if (historicalHasSubstance && !recentHasSubstance) {
-      return [...historicalChunks, ...recentChunks];
-    }
-    
-    if (historicalHasSubstance && recentHasSubstance) {
-      return [...historicalChunks.slice(0, 5), ...recentChunks.slice(0, 3)];
-    }
-    
-    return contextChunks;
-  }
-
-  private extractExpandedSearchTerms(originalSearch: string, contextChunks: any[]): string[] {
-    const expandedTerms: Set<string> = new Set();
-    
-    const firstChunk = contextChunks[0];
-    if (firstChunk && firstChunk.text) {
-      const text = firstChunk.text;
-      
-      const words = text.split(/\s+/)
-        .map((word: string) => word.replace(/[^\w]/g, ''))
-        .filter((word: string) => 
-          word.length > 3 && 
-          word.length < 15 &&
-          !originalSearch.toLowerCase().includes(word.toLowerCase())
-        );
-      
-      const wordCounts = new Map<string, number>();
-      words.forEach((word: string) => {
-        const lowerWord = word.toLowerCase();
-        wordCounts.set(lowerWord, (wordCounts.get(lowerWord) || 0) + 1);
-      });
-      
-      const sentences = text.split(/[.!?]+/);
-      sentences.forEach((sentence: string) => {
-        const sentenceWords = sentence.trim().split(/\s+/).slice(0, 5);
-        sentenceWords.forEach((word: string) => {
-          const cleanWord = word.replace(/[^\w]/g, '');
-          if (cleanWord.length > 3 && cleanWord.length < 15) {
-            expandedTerms.add(cleanWord);
-          }
-        });
-      });
-      
-      Array.from(wordCounts.entries())
-        .filter(([word, count]) => count > 1 && word.length > 3)
-        .sort(([, countA], [, countB]) => countB - countA)
-        .slice(0, 3)
-        .forEach(([word]) => expandedTerms.add(word));
-    }
-    
-    return Array.from(expandedTerms).slice(0, 5);
-  }
-
-  private getTimeAgoString(timestamp: number): string {
-    const now = Date.now();
-    const diffMs = now - timestamp;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return '0d';
-    if (diffDays === 1) return '1d';
-    if (diffDays < 7) return `${diffDays}d`;
-    
-    const diffWeeks = Math.floor(diffDays / 7);
-    if (diffWeeks < 4) return `${diffWeeks}w`;
-    
-    const diffMonths = Math.floor(diffDays / 30);
-    if (diffMonths < 12) return `${diffMonths}m`;
-    
-    const diffYears = Math.floor(diffMonths / 12);
-    return `${diffYears}y`;
-  }
 
   private handleError(error: unknown): void {
     console.error(error);
