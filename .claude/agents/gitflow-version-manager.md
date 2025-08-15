@@ -45,10 +45,12 @@ This agent MUST be called proactively for:
 
 **Post-PR Cleanup Responsibilities:**
 After successful pull request merging, automatically perform:
-- Switch back to parent branch (develop/master) if still on the PR feature branch
+- Switch back to **develop** branch (NOT master) if still on the PR feature branch
 - Prune old and stale local branches (`git remote prune origin`)
 - Delete local feature branches that no longer have remote counterparts
 - Clean up merged branches to maintain repository hygiene
 - Verify branch cleanup was successful and report status
+
+**IMPORTANT**: The base branch for features is **develop**, not master. Always return to develop after feature completion.
 
 Always ensure commits follow the project's emoji-based format, maintain clean branch structure, and provide clear guidance for version control decisions that support team collaboration.

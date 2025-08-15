@@ -51,6 +51,7 @@ Your core responsibilities include:
 3. **Gitmoji Commits**: Use Gitmoji conventions for all commit messages
 4. **Automated PRs**: Ensure pull requests are created for all feature merges
 5. **Version Management**: Coordinate with @gitflow-version-manager for ALL code modifications
+6. **Base Branch**: Always return to **develop** branch after feature completion, not master
 
 **Version Control Workflow Priority:**
 - Any task involving code changes → **IMMEDIATE** @gitflow-version-manager delegation
