@@ -22,38 +22,51 @@ export class PromptInsertionService {
   }
 
   private async insertPrompt(editor: Editor, location?: EnhancedInsertionLocation, duplicateMessage?: string): Promise<boolean> {
-    removeDateHeadingInEditor(editor);
-    
-    const date = new Date();
-    const mood = FrontmatterService.readMoodProps(editor);
-    const { style, prompt: fallbackPrompt } = await this.promptService.getContextAwarePrompt(
-      this.settings.promptStyle as PromptStyle,
-      date,
-      editor.getValue(),
-      mood
-    );
+    try {
+      removeDateHeadingInEditor(editor);
+      
+      const date = new Date();
+      const mood = FrontmatterService.readMoodProps(editor);
+      const contextAwareResult = await this.promptService.getContextAwarePrompt(
+        this.settings.promptStyle as PromptStyle,
+        date,
+        editor.getValue(),
+        mood
+      );
 
-    let basePrompt = fallbackPrompt;
-    const generator = new PromptGenerationService(this.settings);
-    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood);
-    if (aiPrompt && aiPrompt.length > 0) {
-      basePrompt = aiPrompt;
-    }
-
-    if (this.isDuplicatePrompt(editor, basePrompt)) {
-      if (duplicateMessage) {
-        new Notice(duplicateMessage);
+      if (!contextAwareResult) {
+        new Notice('Nova Journal: failed to generate prompt.');
+        return false;
       }
+
+      const { style, prompt: fallbackPrompt } = contextAwareResult;
+
+      let basePrompt = fallbackPrompt;
+      const generator = new PromptGenerationService(this.settings);
+      const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood);
+      if (aiPrompt && aiPrompt.length > 0) {
+        basePrompt = aiPrompt;
+      }
+
+      if (this.isDuplicatePrompt(editor, basePrompt)) {
+        if (duplicateMessage) {
+          new Notice(duplicateMessage);
+        }
+        return false;
+      }
+
+      const prompt = this.renderPrompt(basePrompt, date);
+      const insertLocation = location || this.settings.insertLocation;
+      
+      insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
+      ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
+      new Notice('Nova Journal: prompt inserted.');
+      return true;
+    } catch (error) {
+      console.error('Nova Journal: prompt insertion error', error);
+      new Notice('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
-
-    const prompt = this.renderPrompt(basePrompt, date);
-    const insertLocation = location || this.settings.insertLocation;
-    
-    insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
-    ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
-    new Notice('Nova Journal: prompt inserted.');
-    return true;
   }
 
 

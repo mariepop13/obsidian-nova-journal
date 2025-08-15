@@ -214,7 +214,10 @@ Generate a thematically focused question that explores patterns and development 
     const embeddingService = this.getEmbeddingService();
     if (!embeddingService) return '';
     
-    const searchText = noteText?.trim() || 'journal reflection today';
+    const searchText = noteText?.trim();
+    if (!searchText || searchText.length === 0) {
+      return '';
+    }
 
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
@@ -266,7 +269,7 @@ Generate a thematically focused question that explores patterns and development 
   }
 
   private buildSystemPrompt(
-    style: PromptStyle,
+    _style: PromptStyle,
     includeEmotional: boolean,
     includeThematic: boolean
   ): string {
