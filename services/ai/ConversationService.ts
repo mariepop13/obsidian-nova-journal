@@ -270,19 +270,30 @@ export class ConversationService {
       let enhancedUserText = userText;
       
       if (ragContext) {
-        enhancedSystemPrompt += `\n\nCRITICAL: You have access to context from the user's previous journal entries. You MUST:
-1. DIRECTLY quote or paraphrase specific details from the context in your response
-2. Explicitly mention the people, events, emotions, or situations described in the context
-3. Use the temporal markers provided (2w = 2 weeks ago, etc.) to reference when things happened
-4. Connect the current entry to the specific past experiences mentioned in the context
-5. Reformulate the context information in your own words to show understanding
-6. Respond in the same language as the user's current entry
+        enhancedSystemPrompt = `You are Nova, a journaling assistant. You have access to context from the user's previous journal entries.
 
-MANDATORY: Your response must clearly demonstrate that you have read and understood the specific context provided. Avoid vague responses - be concrete and specific about what happened based on the context.
+MANDATORY RESPONSE FORMAT: You must begin your response by explicitly referencing the context provided. Start with something like:
+"Je vois que [specific situation from context] s'est passé [timeframe], ce qui t'a fait ressentir [emotion] parce que [specific reason from context]..."
 
-Example approach: "I see that [specific event/situation from context] happened [timeframe], and now that you're thinking about [current topic]..."`;
+Then continue with your reflective question or insight.
+
+DO NOT give vague responses. DO NOT say things like "after the betrayal you felt" without specifying what exactly happened according to the context.
+
+You must demonstrate you read and understood the specific context by mentioning:
+- Specific people mentioned
+- Specific events that occurred  
+- Specific timeframes provided
+- Specific reasons emotions were felt
+- Specific circumstances described
+
+Respond in the same language as the user's current entry.`;
         
-        enhancedUserText = `${userText}\n\nREQUIRED CONTEXT TO REFERENCE IN YOUR RESPONSE:\n${ragContext}\n\nYour response must incorporate and reference the above context directly.`;
+        enhancedUserText = `Current entry: ${userText}
+
+CONTEXT YOU MUST REFERENCE:
+${ragContext}
+
+Respond by first acknowledging the specific context above, then continue with your insight.`;
       }
       
       return await chat({
@@ -346,17 +357,42 @@ Example approach: "I see that [specific event/situation from context] happened [
 
       const searchOptions: SearchOptions = {
         boostRecent: false,
-        diversityThreshold: 0.2
+        diversityThreshold: 0.15
       };
 
-      const contextChunks = await embeddingService.contextualSearch(
+      let contextChunks = await embeddingService.contextualSearch(
         searchText,
-        5,
+        8,
         searchOptions
       );
 
       if (this.context.debug) {
         console.log('[ConversationService] RAG Debug - contextChunks found:', contextChunks.length);
+      }
+
+      if (contextChunks.length > 0) {
+        const expandedSearchTerms = this.extractExpandedSearchTerms(searchText, contextChunks);
+        if (expandedSearchTerms.length > 0) {
+          const additionalChunks = await embeddingService.contextualSearch(
+            expandedSearchTerms.join(' '),
+            5,
+            { ...searchOptions, diversityThreshold: 0.3 }
+          );
+          
+          const combinedChunks = [...contextChunks];
+          additionalChunks.forEach(chunk => {
+            if (!combinedChunks.some(existing => existing.hash === chunk.hash)) {
+              combinedChunks.push(chunk);
+            }
+          });
+          
+          contextChunks = combinedChunks.slice(0, 10);
+          
+          if (this.context.debug) {
+            console.log('[ConversationService] RAG Debug - expanded search with terms:', expandedSearchTerms);
+            console.log('[ConversationService] RAG Debug - total contextChunks after expansion:', contextChunks.length);
+          }
+        }
       }
 
       if (contextChunks.length === 0) return '';
@@ -382,6 +418,48 @@ Example approach: "I see that [specific event/situation from context] happened [
       console.error('[ConversationService] Failed to get RAG context', error);
       return '';
     }
+  }
+
+  private extractExpandedSearchTerms(originalSearch: string, contextChunks: any[]): string[] {
+    const expandedTerms: Set<string> = new Set();
+    
+    const firstChunk = contextChunks[0];
+    if (firstChunk && firstChunk.text) {
+      const text = firstChunk.text;
+      
+      const words = text.split(/\s+/)
+        .map((word: string) => word.replace(/[^\w]/g, ''))
+        .filter((word: string) => 
+          word.length > 3 && 
+          word.length < 15 &&
+          !originalSearch.toLowerCase().includes(word.toLowerCase())
+        );
+      
+      const wordCounts = new Map<string, number>();
+      words.forEach((word: string) => {
+        const lowerWord = word.toLowerCase();
+        wordCounts.set(lowerWord, (wordCounts.get(lowerWord) || 0) + 1);
+      });
+      
+      const sentences = text.split(/[.!?]+/);
+      sentences.forEach((sentence: string) => {
+        const sentenceWords = sentence.trim().split(/\s+/).slice(0, 5);
+        sentenceWords.forEach((word: string) => {
+          const cleanWord = word.replace(/[^\w]/g, '');
+          if (cleanWord.length > 3 && cleanWord.length < 15) {
+            expandedTerms.add(cleanWord);
+          }
+        });
+      });
+      
+      Array.from(wordCounts.entries())
+        .filter(([word, count]) => count > 1 && word.length > 3)
+        .sort(([, countA], [, countB]) => countB - countA)
+        .slice(0, 3)
+        .forEach(([word]) => expandedTerms.add(word));
+    }
+    
+    return Array.from(expandedTerms).slice(0, 5);
   }
 
   private getTimeAgoString(timestamp: number): string {
