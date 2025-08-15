@@ -1,10 +1,11 @@
-import { Editor, Notice } from 'obsidian';
+import { Editor, Notice, App } from 'obsidian';
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { getDeepenSource, typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from '../editor/NoteEditor';
 import { ConversationResponseService } from '../editor/ConversationResponseService';
 import { RegexHelpers } from '../utils/RegexHelpers';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
+import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 
 interface ButtonSettings {
   buttonStyle?: ButtonStyle;
@@ -31,8 +32,11 @@ export interface ConversationContext {
 
 export class ConversationService {
   private readonly context: ConversationContext;
+  private readonly settings: NovaJournalSettings;
+  private embeddingService: EnhancedEmbeddingService | null = null;
 
   constructor(settings: NovaJournalSettings) {
+    this.settings = settings;
     this.context = {
       apiKey: settings.aiApiKey,
       model: settings.aiModel,
@@ -53,6 +57,16 @@ export class ConversationService {
         deepenButtonLabel: settings.deepenButtonLabel
       },
     };
+  }
+
+  private getEmbeddingService(): EnhancedEmbeddingService | null {
+    if (!this.embeddingService) {
+      const appRef = (window as any)?.app;
+      if (appRef) {
+        this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
+      }
+    }
+    return this.embeddingService;
   }
 
   async deepenLine(editor: Editor, targetLine?: number): Promise<void> {
@@ -86,7 +100,7 @@ export class ConversationService {
       }
 
       const enhancedSystemPrompt = `${this.context.systemPrompt}\nYou see the entire note context.`;
-      const aiResponse = await this.callAI(content, enhancedSystemPrompt);
+      const aiResponse = await this.callAI(content, enhancedSystemPrompt, editor);
       
       await this.insertWholeNoteResponse(editor, aiResponse, label);
     } catch (error) {
@@ -107,7 +121,7 @@ export class ConversationService {
       buttonLine = this.createNewButton(editor, line);
     }
 
-    const aiResponse = await this.callAI(text);
+    const aiResponse = await this.callAI(text, undefined, editor, line);
     await this.insertTargetLineResponse(editor, buttonLine, aiResponse);
   }
 
@@ -115,7 +129,7 @@ export class ConversationService {
     const userHeader = `**${this.context.userName || 'You'}** (you): ${text}`;
     this.replaceLineWithHeader(editor, line, userHeader);
 
-    const aiResponse = await this.callAI(text);
+    const aiResponse = await this.callAI(text, undefined, editor);
     await this.insertGeneralLineResponse(editor, line, aiResponse);
   }
 
@@ -248,13 +262,34 @@ export class ConversationService {
     ensureUserPromptLine(editor, this.context.userName);
   }
 
-  private async callAI(userText: string, customSystemPrompt?: string): Promise<string> {
+  private async callAI(userText: string, customSystemPrompt?: string, editor?: Editor, targetLine?: number): Promise<string> {
     try {
+      const ragContext = await this.getRagContext(userText, editor, targetLine);
+      
+      let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
+      let enhancedUserText = userText;
+      
+      if (ragContext) {
+        enhancedSystemPrompt += `\n\nCRITICAL: You have access to context from the user's previous journal entries. You MUST:
+1. DIRECTLY quote or paraphrase specific details from the context in your response
+2. Explicitly mention the people, events, emotions, or situations described in the context
+3. Use the temporal markers provided (2w = 2 weeks ago, etc.) to reference when things happened
+4. Connect the current entry to the specific past experiences mentioned in the context
+5. Reformulate the context information in your own words to show understanding
+6. Respond in the same language as the user's current entry
+
+MANDATORY: Your response must clearly demonstrate that you have read and understood the specific context provided. Avoid vague responses - be concrete and specific about what happened based on the context.
+
+Example approach: "I see that [specific event/situation from context] happened [timeframe], and now that you're thinking about [current topic]..."`;
+        
+        enhancedUserText = `${userText}\n\nREQUIRED CONTEXT TO REFERENCE IN YOUR RESPONSE:\n${ragContext}\n\nYour response must incorporate and reference the above context directly.`;
+      }
+      
       return await chat({
         apiKey: this.context.apiKey,
         model: this.context.model,
-        systemPrompt: customSystemPrompt || this.context.systemPrompt,
-        userText,
+        systemPrompt: enhancedSystemPrompt,
+        userText: enhancedUserText,
         maxTokens: this.context.maxTokens,
         debug: this.context.debug,
         retryCount: this.context.retryCount,
@@ -263,6 +298,109 @@ export class ConversationService {
     } catch (error) {
       throw new AIServiceError('AI request failed', error);
     }
+  }
+
+  private async getRagContext(userText: string, editor?: Editor, targetLine?: number): Promise<string> {
+    const embeddingService = this.getEmbeddingService();
+    
+    if (this.context.debug) {
+      console.log('[ConversationService] RAG Debug - embeddingService:', !!embeddingService);
+      console.log('[ConversationService] RAG Debug - userText:', userText?.trim());
+      console.log('[ConversationService] RAG Debug - targetLine:', targetLine);
+    }
+    
+    if (!embeddingService || !userText?.trim()) return '';
+
+    try {
+      let searchText = userText;
+
+      if (typeof targetLine === 'number' && editor) {
+        const lineText = editor.getLine(targetLine);
+        if (lineText?.trim()) {
+          searchText = lineText;
+        }
+      } else if (editor && userText.includes('**Nova**:')) {
+        const lines = userText.split('\n');
+        const userLines = lines.filter(line => {
+          const trimmed = line.trim();
+          return trimmed.length > 0 && 
+                 !trimmed.includes('**Nova**:') && 
+                 !trimmed.includes('##') &&
+                 !trimmed.startsWith('<button') &&
+                 !trimmed.startsWith('<a') &&
+                 !trimmed.includes('class="nova-');
+        });
+        
+        let lastUserLine = userLines[userLines.length - 1];
+        if (lastUserLine?.trim()) {
+          lastUserLine = lastUserLine.replace(/^\*\*.*?\*\*.*?:\s*/, '').trim();
+          if (lastUserLine.length > 0) {
+            searchText = lastUserLine;
+          }
+        }
+      }
+
+      if (this.context.debug) {
+        console.log('[ConversationService] RAG Debug - searchText:', searchText.substring(0, 100));
+      }
+
+      const searchOptions: SearchOptions = {
+        boostRecent: false,
+        diversityThreshold: 0.2
+      };
+
+      const contextChunks = await embeddingService.contextualSearch(
+        searchText,
+        5,
+        searchOptions
+      );
+
+      if (this.context.debug) {
+        console.log('[ConversationService] RAG Debug - contextChunks found:', contextChunks.length);
+      }
+
+      if (contextChunks.length === 0) return '';
+
+      const contextText = contextChunks.map((chunk, i) => {
+        const preview = chunk.text.substring(0, 300);
+        let contextInfo = '';
+        
+        if (chunk.date) {
+          const timeAgo = this.getTimeAgoString(chunk.date);
+          contextInfo = `[${timeAgo}] `;
+        }
+        
+        return `${i + 1}. ${contextInfo}${preview}`;
+      }).join('\n\n');
+
+      if (this.context.debug) {
+        console.log('[ConversationService] RAG Debug - contextText:', contextText.substring(0, 500));
+      }
+
+      return contextText;
+    } catch (error) {
+      console.error('[ConversationService] Failed to get RAG context', error);
+      return '';
+    }
+  }
+
+  private getTimeAgoString(timestamp: number): string {
+    const now = Date.now();
+    const diffMs = now - timestamp;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return '0d';
+    if (diffDays === 1) return '1d';
+    if (diffDays < 7) return `${diffDays}d`;
+    
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks}w`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths}m`;
+    
+    const diffYears = Math.floor(diffMonths / 12);
+    return `${diffYears}y`;
   }
 
   private handleError(error: unknown): void {

@@ -147,6 +147,10 @@ export class EnhancedEmbeddingService {
     return this.searchEngine.thematicSearch(query, themes, k, this.index.items);
   }
 
+  async forceFullRebuild(folder: string): Promise<void> {
+    await this.fullRebuild(folder);
+  }
+
   private async fullRebuild(folder: string): Promise<void> {
     console.log('[EnhancedEmbeddingService] Performing full rebuild');
     

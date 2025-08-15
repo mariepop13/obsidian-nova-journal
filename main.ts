@@ -88,6 +88,13 @@ export default class NovaJournalPlugin extends Plugin {
                 await this.deepenLastLine();
             },
         });
+		this.addCommand({
+            id: 'nova-rebuild-embeddings',
+            name: 'Rebuild embeddings index',
+            callback: async () => {
+                await this.rebuildEmbeddings();
+            },
+        });
         this.addSettingTab(new NovaJournalSettingTab(this.app, this));
 
         registerDeepenHandlers(
@@ -123,6 +130,27 @@ export default class NovaJournalPlugin extends Plugin {
             await this.conversationService.deepenWholeNote(editor, label);
         } catch (error) {
             this.handleError(error);
+        }
+    }
+
+    private async rebuildEmbeddings(): Promise<void> {
+        try {
+            if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+                new Notice('Nova Journal: AI must be enabled to rebuild embeddings.');
+                return;
+            }
+
+            new Notice('Nova Journal: Rebuilding embeddings index...');
+            
+            const { EnhancedEmbeddingService } = await import('./services/ai/EnhancedEmbeddingService');
+            const embeddingService = new EnhancedEmbeddingService(this.app, this.settings);
+            
+            await embeddingService.forceFullRebuild(this.settings.dailyNoteFolder);
+            
+            new Notice('Nova Journal: Embeddings index rebuilt successfully.');
+        } catch (error) {
+            console.error('[Nova Journal] Failed to rebuild embeddings:', error);
+            new Notice('Nova Journal: Failed to rebuild embeddings index.');
         }
     }
 
