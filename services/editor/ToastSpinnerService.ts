@@ -17,8 +17,6 @@ export interface ToastSpinnerInstance {
   config: ToastSpinnerConfig;
   updateMessage: (message: string) => void;
   updateState: (state: LoadingState) => void;
-  showSuccess: (message: string, timeout?: number) => void;
-  showError: (message: string, timeout?: number) => void;
   hide: () => void;
 }
 
@@ -75,10 +73,6 @@ export class ToastSpinnerService {
       config,
       updateMessage: (newMessage: string) => this.updateMessage(id, newMessage),
       updateState: (newState: LoadingState) => this.updateState(id, newState),
-      showSuccess: (successMessage: string, successTimeout?: number) => 
-        this.showSuccessById(id, successMessage, successTimeout),
-      showError: (errorMessage: string, errorTimeout?: number) => 
-        this.showErrorById(id, errorMessage, errorTimeout),
       hide: () => this.hide(id)
     };
 
@@ -128,49 +122,6 @@ export class ToastSpinnerService {
     }
   }
 
-  private static showSuccessById(id: string, message: string, timeout = 3000): void {
-    const toast = this.activeToasts.get(id);
-    if (toast) {
-      this.hide(id);
-      const successToast = this.create({
-        message,
-        showSpinner: false,
-        timeout,
-        autoHide: true
-      });
-      
-      const noticeEl = (successToast.notice as any).noticeEl as HTMLElement;
-      noticeEl.classList.add('nova-toast-success');
-      
-      // Add success icon
-      const iconContainer = noticeEl.querySelector('.nova-toast-spinner') as HTMLElement;
-      if (iconContainer) {
-        iconContainer.innerHTML = '<span class="nova-toast-success-icon">✓</span>';
-      }
-    }
-  }
-
-  private static showErrorById(id: string, message: string, timeout = 5000): void {
-    const toast = this.activeToasts.get(id);
-    if (toast) {
-      this.hide(id);
-      const errorToast = this.create({
-        message,
-        showSpinner: false,
-        timeout,
-        autoHide: true
-      });
-      
-      const noticeEl = (errorToast.notice as any).noticeEl as HTMLElement;
-      noticeEl.classList.add('nova-toast-error');
-      
-      // Add error icon
-      const iconContainer = noticeEl.querySelector('.nova-toast-spinner') as HTMLElement;
-      if (iconContainer) {
-        iconContainer.innerHTML = '<span class="nova-toast-error-icon">✗</span>';
-      }
-    }
-  }
 
   private static createNoticeElement(
     message: string,
@@ -247,65 +198,6 @@ export class ToastSpinnerService {
     });
   }
 
-  static showSuccess(message: string, timeout = 3000): ToastSpinnerInstance {
-    const instance = this.create({
-      message,
-      showSpinner: false,
-      timeout,
-      autoHide: true
-    });
-    
-    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
-    noticeEl.classList.add('nova-toast-success');
-    
-    // Add success icon
-    const iconContainer = noticeEl.querySelector('.nova-toast-spinner') as HTMLElement;
-    if (iconContainer) {
-      iconContainer.innerHTML = '<span class="nova-toast-success-icon">✓</span>';
-    }
-    
-    return instance;
-  }
-
-  static showError(message: string, timeout = 5000): ToastSpinnerInstance {
-    const instance = this.create({
-      message,
-      showSpinner: false,
-      timeout,
-      autoHide: true
-    });
-    
-    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
-    noticeEl.classList.add('nova-toast-error');
-    
-    // Add error icon
-    const iconContainer = noticeEl.querySelector('.nova-toast-spinner') as HTMLElement;
-    if (iconContainer) {
-      iconContainer.innerHTML = '<span class="nova-toast-error-icon">✗</span>';
-    }
-    
-    return instance;
-  }
-
-  static showInfo(message: string, timeout = 4000): ToastSpinnerInstance {
-    const instance = this.create({
-      message,
-      showSpinner: false,
-      timeout,
-      autoHide: true
-    });
-    
-    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
-    noticeEl.classList.add('nova-toast-info');
-    
-    // Add info icon
-    const iconContainer = noticeEl.querySelector('.nova-toast-spinner') as HTMLElement;
-    if (iconContainer) {
-      iconContainer.innerHTML = '<span class="nova-toast-info-icon">ℹ</span>';
-    }
-    
-    return instance;
-  }
 
   // Simple static methods for replacing direct Notice calls
   static notice(message: string, timeout?: number): Notice {
@@ -352,7 +244,8 @@ export class ToastSpinnerService {
       const result = await operation(toast);
       
       if (successMessage) {
-        toast.showSuccess(successMessage);
+        toast.hide();
+        this.notice(successMessage, 3000);
       } else {
         toast.hide();
       }
@@ -361,7 +254,8 @@ export class ToastSpinnerService {
     } catch (error) {
       const finalErrorMessage = errorMessage || 
         (error instanceof Error ? error.message : 'Operation failed');
-      toast.showError(finalErrorMessage);
+      toast.hide();
+      this.error(finalErrorMessage, 5000);
       throw error;
     }
   }

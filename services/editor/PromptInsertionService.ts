@@ -36,7 +36,7 @@ export class PromptInsertionService {
       );
 
       if (!contextAwareResult) {
-        ToastSpinnerService.showError('Nova Journal: failed to generate prompt.');
+        ToastSpinnerService.error('Nova Journal: failed to generate prompt.');
         return false;
       }
 
@@ -51,7 +51,7 @@ export class PromptInsertionService {
 
       if (this.isDuplicatePrompt(editor, basePrompt)) {
         if (duplicateMessage) {
-          ToastSpinnerService.showInfo(duplicateMessage);
+          ToastSpinnerService.info(duplicateMessage);
         }
         return false;
       }
@@ -61,11 +61,11 @@ export class PromptInsertionService {
       
       insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
       ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
-      ToastSpinnerService.showSuccess('Nova Journal: prompt inserted.');
+      ToastSpinnerService.notice('Nova Journal: prompt inserted.');
       return true;
     } catch (error) {
       console.error('Nova Journal: prompt insertion error', error);
-      ToastSpinnerService.showError('Nova Journal: failed to insert prompt. See console for details.');
+      ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
   }

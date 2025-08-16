@@ -10,12 +10,12 @@ export class ApiTester {
     const trimmedKey = apiKey?.trim();
 
     if (!trimmedKey) {
-      ToastSpinnerService.showError('Set your OpenAI API key first.');
+      ToastSpinnerService.error('Set your OpenAI API key first.');
       return;
     }
 
     if (!this.OPENAI_API_KEY_REGEX.test(trimmedKey)) {
-      ToastSpinnerService.showError('API key format appears invalid. OpenAI keys start with "sk-".');
+      ToastSpinnerService.error('API key format appears invalid. OpenAI keys start with "sk-".');
       return;
     }
 
@@ -38,23 +38,23 @@ export class ApiTester {
       if (response.ok) {
         const modelCount = Array.isArray(data?.data) ? data.data.length : undefined;
         const message = `OpenAI test: OK${modelCount ? ` (${modelCount} models accessible)` : ''}`;
-        ToastSpinnerService.showSuccess(message);
+        ToastSpinnerService.notice(message);
       } else {
         const errorMessage = sanitizeForLogging(
           data?.error?.message || `HTTP ${response.status}`
         );
-        ToastSpinnerService.showError(`OpenAI test failed: ${errorMessage}`);
+        ToastSpinnerService.error(`OpenAI test failed: ${errorMessage}`);
       }
     } catch (error) {
       clearTimeout(timeoutId);
 
       if (error instanceof Error && error.name === 'AbortError') {
-        ToastSpinnerService.showError('OpenAI test timed out. Check your connection.');
+        ToastSpinnerService.error('OpenAI test timed out. Check your connection.');
       } else {
         const errorMessage = sanitizeForLogging(
           error instanceof Error ? error.message : 'Unknown error'
         );
-        ToastSpinnerService.showError(`OpenAI test error: ${errorMessage}`);
+        ToastSpinnerService.error(`OpenAI test error: ${errorMessage}`);
       }
     }
   }

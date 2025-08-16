@@ -5,7 +5,6 @@ import { getDeepenSource } from '../editor/NoteEditor';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
 import { RagContextService } from './RagContextService';
 import { ResponseInsertionService } from './ResponseInsertionService';
-import { LoadingSpinnerService, type SpinnerInstance } from '../editor/LoadingSpinnerService';
 import { ToastSpinnerService } from '../editor/ToastSpinnerService';
 
 export interface ButtonSettings {
@@ -150,31 +149,12 @@ export class ConversationService {
 
 
   private async callAI(userText: string, customSystemPrompt?: string, editor?: Editor, targetLine?: number): Promise<string> {
-    let spinner: SpinnerInstance | null = null;
-    
     try {
-      // Show loading spinner
-      spinner = LoadingSpinnerService.create({
-        text: 'Thinking...',
-        state: 'thinking',
-        size: 'medium',
-        position: 'inline'
-      });
-      
-      if (editor) {
-        const editorContainer = (editor as any).containerEl || document.activeElement;
-        if (editorContainer) {
-          editorContainer.appendChild(spinner.element);
-        }
-      }
+      ToastSpinnerService.info('Thinking...');
 
       const ragContext = await this.ragContextService.getRagContext(userText, editor, targetLine);
       
-      // Update spinner state for generation
-      if (spinner) {
-        LoadingSpinnerService.updateState(spinner.id, 'generating');
-        LoadingSpinnerService.updateText(spinner.id, 'Generating response...');
-      }
+      ToastSpinnerService.info('Generating response...');
       
       let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
       let enhancedUserText = userText;
@@ -219,17 +199,8 @@ Respond by first acknowledging the specific context above, then continue with yo
         fallbackModel: this.context.fallbackModel,
       });
       
-      // Hide spinner on success
-      if (spinner) {
-        spinner.destroy();
-      }
-      
       return response;
     } catch (error) {
-      // Hide spinner on error
-      if (spinner) {
-        spinner.destroy();
-      }
       throw new AIServiceError('AI request failed', error);
     }
   }
