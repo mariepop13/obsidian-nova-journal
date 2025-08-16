@@ -24,20 +24,20 @@ describe('ToastSpinnerService Simple Methods', () => {
   });
 
   describe('notice()', () => {
-    it('should create a Notice with message only', () => {
+    it('should create a Notice with custom markup', () => {
       const message = 'Test notice';
       ToastSpinnerService.notice(message);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, undefined);
+      expect(MockNotice).toHaveBeenCalledWith('', 4000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
-    it('should create a Notice with message and timeout', () => {
+    it('should create a Notice with custom timeout', () => {
       const message = 'Test notice';
       const timeout = 5000;
       ToastSpinnerService.notice(message, timeout);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, timeout);
+      expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
   });
@@ -47,7 +47,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Warning message';
       ToastSpinnerService.warn(message);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, undefined);
+      expect(MockNotice).toHaveBeenCalledWith('', 4000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -56,7 +56,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const timeout = 3000;
       ToastSpinnerService.warn(message, timeout);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, timeout);
+      expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
   });
@@ -66,7 +66,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Error message';
       ToastSpinnerService.error(message);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, undefined);
+      expect(MockNotice).toHaveBeenCalledWith('', 5000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -75,7 +75,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const timeout = 8000;
       ToastSpinnerService.error(message, timeout);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, timeout);
+      expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
   });
@@ -85,7 +85,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Info message';
       ToastSpinnerService.info(message);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, undefined);
+      expect(MockNotice).toHaveBeenCalledWith('', 4000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -94,7 +94,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const timeout = 4000;
       ToastSpinnerService.info(message, timeout);
       
-      expect(MockNotice).toHaveBeenCalledWith(message, timeout);
+      expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
   });

@@ -149,12 +149,13 @@ export class ConversationService {
 
 
   private async callAI(userText: string, customSystemPrompt?: string, editor?: Editor, targetLine?: number): Promise<string> {
+    const toast = ToastSpinnerService.showThinking('Thinking...');
+    
     try {
-      ToastSpinnerService.info('Thinking...');
-
       const ragContext = await this.ragContextService.getRagContext(userText, editor, targetLine);
       
-      ToastSpinnerService.info('Generating response...');
+      toast.updateState('generating');
+      toast.updateMessage('Generating response...');
       
       let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
       let enhancedUserText = userText;
@@ -199,8 +200,10 @@ Respond by first acknowledging the specific context above, then continue with yo
         fallbackModel: this.context.fallbackModel,
       });
       
+      toast.hide();
       return response;
     } catch (error) {
+      toast.hide();
       throw new AIServiceError('AI request failed', error);
     }
   }

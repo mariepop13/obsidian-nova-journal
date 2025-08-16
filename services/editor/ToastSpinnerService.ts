@@ -43,11 +43,14 @@ export class ToastSpinnerService {
     const noticeElement = this.createNoticeElement(message, showSpinner, state, spinnerPosition);
     const notice = new Notice('', timeout);
     
-    // Replace notice content with our custom element
     if ((notice as any).noticeEl) {
       const noticeEl = (notice as any).noticeEl as HTMLElement;
-      noticeEl.empty();
+      while (noticeEl.firstChild) {
+        noticeEl.removeChild(noticeEl.firstChild);
+      }
       noticeEl.appendChild(noticeElement);
+    } else {
+      document.body.appendChild(noticeElement);
     }
 
     // Create spinner if requested
@@ -199,24 +202,64 @@ export class ToastSpinnerService {
   }
 
 
-  // Simple static methods for replacing direct Notice calls
   static notice(message: string, timeout?: number): Notice {
-    return new Notice(message, timeout);
+    const instance = this.create({
+      message,
+      showSpinner: false,
+      timeout: timeout || 4000,
+      autoHide: true
+    });
+    return instance.notice;
   }
 
   static warn(message: string, timeout?: number): Notice {
-    return new Notice(message, timeout);
+    const instance = this.create({
+      message,
+      showSpinner: false,
+      timeout: timeout || 4000,
+      autoHide: true
+    });
+    
+    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
+    if (noticeEl && noticeEl.classList) {
+      noticeEl.classList.add('nova-toast-warn');
+    }
+    
+    return instance.notice;
   }
 
   static error(message: string, timeout?: number): Notice {
-    return new Notice(message, timeout);
+    const instance = this.create({
+      message,
+      showSpinner: false,
+      timeout: timeout || 5000,
+      autoHide: true
+    });
+    
+    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
+    if (noticeEl && noticeEl.classList) {
+      noticeEl.classList.add('nova-toast-error');
+    }
+    
+    return instance.notice;
   }
 
   static info(message: string, timeout?: number): Notice {
-    return new Notice(message, timeout);
+    const instance = this.create({
+      message,
+      showSpinner: false,
+      timeout: timeout || 4000,
+      autoHide: true
+    });
+    
+    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
+    if (noticeEl && noticeEl.classList) {
+      noticeEl.classList.add('nova-toast-info');
+    }
+    
+    return instance.notice;
   }
 
-  // Workflow helpers for common AI operations
   static async withProgress<T>(
     operation: (toast: ToastSpinnerInstance) => Promise<T>,
     config: {
