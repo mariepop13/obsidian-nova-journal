@@ -49,8 +49,8 @@ function findButtonInsertionPoint(editor: Editor) {
 	const lastNonEmpty = findLastNonEmptyLine(editor, endLine);
 
 	return {
-		from: { line: lastNonEmpty + 1, ch: 0 },
-		to: { line: endLine, ch: editor.getLine(endLine).length },
+		from: { line: Math.max(0, lastNonEmpty + 1), ch: 0 },
+		to: { line: Math.max(0, endLine), ch: editor.getLine(Math.max(0, endLine)).length },
 	};
 }
 

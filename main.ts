@@ -21,7 +21,7 @@ export default class NovaJournalPlugin extends Plugin {
         this.initializeServices();
         this.registerCommands();
         this.registerSettingsTab();
-        await this.startEmbeddingMigration();
+        void this.startEmbeddingMigration();
 	}
 
     private initializeServices(): void {

@@ -34,15 +34,22 @@ export class AISettingsRenderer {
 			toggle
 				.setValue(this.plugin.settings.aiEnabled)
 				.onChange(async (value) => {
-					await SettingsUtils.saveSettingsWithErrorHandling(
-						this.plugin,
-						() => {
-							this.plugin.settings.aiEnabled = value;
-						},
-						"Failed to save AI setting",
-						true,
-						this.refreshCallback
-					);
+					const previousValue = this.plugin.settings.aiEnabled;
+					try {
+						await SettingsUtils.saveSettingsWithErrorHandling(
+							this.plugin,
+							() => {
+								this.plugin.settings.aiEnabled = value;
+							},
+							"Failed to save AI setting",
+							true,
+							this.refreshCallback
+						);
+					} catch (error) {
+						// Reset toggle to previous state on failure
+						toggle.setValue(previousValue);
+						this.refreshCallback();
+					}
 				})
 		);
 	}
