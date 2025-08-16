@@ -15,6 +15,7 @@ import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
 import { EmbeddingService } from './services/ai/EmbeddingService';
 import { EnhancedEmbeddingService } from './services/ai/EnhancedEmbeddingService';
 import { EmbeddingMigrationService } from './services/ai/EmbeddingMigrationService';
+import { ToastSpinnerService } from './services/editor/ToastSpinnerService';
 
 export default class NovaJournalPlugin extends Plugin {
     settings: NovaJournalSettings;
@@ -136,21 +137,21 @@ export default class NovaJournalPlugin extends Plugin {
     private async rebuildEmbeddings(): Promise<void> {
         try {
             if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
-                new Notice('Nova Journal: AI must be enabled to rebuild embeddings.');
+                ToastSpinnerService.error('Nova Journal: AI must be enabled to rebuild embeddings.');
                 return;
             }
 
-            new Notice('Nova Journal: Rebuilding embeddings index...');
+            ToastSpinnerService.info('Nova Journal: Rebuilding embeddings index...');
             
             const { EnhancedEmbeddingService } = await import('./services/ai/EnhancedEmbeddingService');
             const embeddingService = new EnhancedEmbeddingService(this.app, this.settings);
             
             await embeddingService.forceFullRebuild(this.settings.dailyNoteFolder);
             
-            new Notice('Nova Journal: Embeddings index rebuilt successfully.');
+            ToastSpinnerService.notice('Nova Journal: Embeddings index rebuilt successfully.');
         } catch (error) {
             console.error('[Nova Journal] Failed to rebuild embeddings:', error);
-            new Notice('Nova Journal: Failed to rebuild embeddings index.');
+            ToastSpinnerService.error('Nova Journal: Failed to rebuild embeddings index.');
         }
     }
 
@@ -166,9 +167,9 @@ export default class NovaJournalPlugin extends Plugin {
         console.error(error);
         
         if (error instanceof EditorNotFoundError) {
-            new Notice(error.message);
+            ToastSpinnerService.error(error.message);
         } else {
-            new Notice('Nova Journal: An unexpected error occurred.');
+            ToastSpinnerService.error('Nova Journal: An unexpected error occurred.');
         }
     }
 
@@ -195,11 +196,11 @@ export default class NovaJournalPlugin extends Plugin {
             
             const success = await this.promptInsertionService.insertTodaysPrompt(editor);
             if (!success) {
-                new Notice('Nova Journal: prompt insertion was unsuccessful.');
+                ToastSpinnerService.error('Nova Journal: prompt insertion was unsuccessful.');
             }
         } catch (error) {
             console.error('Nova Journal insert error', error);
-            new Notice('Nova Journal: failed to insert prompt. See console for details.');
+            ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
         }
     }
 
@@ -219,18 +220,18 @@ export default class NovaJournalPlugin extends Plugin {
         const next = order[(safeIdx + 1) % order.length];
         this.settings.promptStyle = next as PromptStyle;
         void this.saveSettings();
-        new Notice(`Nova Journal: style set to ${next}`);
+        ToastSpinnerService.info(`Nova Journal: style set to ${next}`);
     }
 
     private async analyzeMood(): Promise<void> {
         try {
             const view = this.app.workspace.getActiveViewOfType(MarkdownView);
             if (!view) {
-                new Notice('Nova Journal: open a note to analyze mood.');
+                ToastSpinnerService.error('Nova Journal: open a note to analyze mood.');
                 return;
             }
 
-            new Notice('Analyzing mood...');
+            ToastSpinnerService.info('Analyzing mood...');
             const editor = view.editor;
             const noteText = editor.getValue();
             const analysis = await this.moodAnalysisService.analyzeCurrentNoteContent(noteText);
@@ -240,10 +241,10 @@ export default class NovaJournalPlugin extends Plugin {
             try { props = JSON.parse(analysis); } catch {}
             const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
             FrontmatterService.upsertFrontmatter(editor, cleaned);
-            new Notice('Mood properties updated.');
+            ToastSpinnerService.notice('Mood properties updated.');
         } catch (error) {
             console.error('Mood analysis error:', error);
-            new Notice('Failed to analyze mood data.');
+            ToastSpinnerService.error('Failed to analyze mood data.');
         }
     }
 
