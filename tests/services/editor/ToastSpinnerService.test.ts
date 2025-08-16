@@ -2,13 +2,19 @@ import { ToastSpinnerService } from '../../../services/editor/ToastSpinnerServic
 import { Notice } from 'obsidian';
 
 // Mock Notice since it's an Obsidian class
-jest.mock('obsidian', () => ({
-  Notice: jest.fn().mockImplementation((message: string, timeout?: number) => ({
-    message,
-    timeout,
-    hide: jest.fn()
-  }))
-}));
+jest.mock('obsidian', () => {
+  const MockNoticeConstructor = jest.fn().mockImplementation((message: string, timeout?: number) => {
+    const instance = Object.create(MockNoticeConstructor.prototype);
+    instance.message = message;
+    instance.timeout = timeout;
+    instance.hide = jest.fn();
+    return instance;
+  });
+  
+  return {
+    Notice: MockNoticeConstructor
+  };
+});
 
 const MockNotice = Notice as jest.MockedClass<typeof Notice>;
 
