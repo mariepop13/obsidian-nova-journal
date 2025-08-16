@@ -1,2 +1,13 @@
 [config]
 model = "gpt-5-mini"
+
+[github_app]
+pr_commands = [
+    "/improve"
+]
+
+[pr_code_suggestions]
+num_code_suggestions_per_chunk = 3
+suggestions_depth = "regular"
+commitable_code_suggestions = true
+suggestions_score_threshold = 0
