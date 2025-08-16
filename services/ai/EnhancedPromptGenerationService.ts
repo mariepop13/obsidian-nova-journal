@@ -18,13 +18,58 @@ export class EnhancedPromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {}
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
+    console.log('[EnhancedPromptGenerationService] Debug - Getting embedding service, current instance:', !!this.embeddingService);
+    
     if (!this.embeddingService) {
       const appRef = (window as any)?.app;
+      console.log('[EnhancedPromptGenerationService] Debug - App reference available:', !!appRef);
+      
       if (appRef) {
-        this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
+        try {
+          this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
+          console.log('[EnhancedPromptGenerationService] Debug - EnhancedEmbeddingService created successfully');
+        } catch (error) {
+          console.error('[EnhancedPromptGenerationService] Debug - Failed to create EnhancedEmbeddingService:', error);
+          return null;
+        }
+      } else {
+        console.warn('[EnhancedPromptGenerationService] Debug - No app reference found for embedding service');
       }
     }
     return this.embeddingService || null;
+  }
+
+  async generateContextualPromptWithRag(
+    style: PromptStyle,
+    noteText: string,
+    mood?: Partial<MoodData>,
+    ragContext?: string,
+    options: ContextualPromptOptions = {}
+  ): Promise<string | null> {
+    if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
+
+    const systemPrompt = this.buildSystemPrompt(style, true, true);
+    const contextualInfo = ragContext || '';
+    
+    const userPrompt = this.buildUserPrompt(style, noteText, mood, contextualInfo);
+    
+    try {
+      const response = await chat({
+        apiKey: this.settings.aiApiKey,
+        model: this.settings.aiModel,
+        systemPrompt,
+        userText: userPrompt,
+        maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
+        debug: this.settings.aiDebug,
+        retryCount: this.settings.aiRetryCount,
+        fallbackModel: this.settings.aiFallbackModel || ''
+      });
+
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
+      return cleaned.length > 0 ? cleaned : null;
+    } catch {
+      return null;
+    }
   }
 
   async generateContextualPrompt(
@@ -211,13 +256,21 @@ Generate a thematically focused question that explores patterns and development 
       diversityThreshold: number;
     }
   ): Promise<string> {
+    console.log('[EnhancedPromptGenerationService] Debug - Getting embedding service...');
     const embeddingService = this.getEmbeddingService();
-    if (!embeddingService) return '';
+    if (!embeddingService) {
+      console.log('[EnhancedPromptGenerationService] Debug - No embedding service available');
+      return '';
+    }
     
     const searchText = noteText?.trim();
     if (!searchText || searchText.length === 0) {
+      console.log('[EnhancedPromptGenerationService] Debug - No search text available');
       return '';
     }
+
+    console.log('[EnhancedPromptGenerationService] Debug - Search text length:', searchText.length);
+    console.log('[EnhancedPromptGenerationService] Debug - Search options:', options);
 
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
@@ -226,20 +279,28 @@ Generate a thematically focused question that explores patterns and development 
 
     if (options.includeEmotionalContext && mood?.dominant_emotions) {
       searchOptions.emotionalFilter = mood.dominant_emotions;
+      console.log('[EnhancedPromptGenerationService] Debug - Added emotional filter:', mood.dominant_emotions);
     }
 
     if (options.includeThematicContext && mood?.tags) {
       searchOptions.thematicFilter = mood.tags;
+      console.log('[EnhancedPromptGenerationService] Debug - Added thematic filter:', mood.tags);
     }
 
     try {
+      console.log('[EnhancedPromptGenerationService] Debug - Performing contextual search...');
       const contextChunks = await embeddingService.contextualSearch(
         searchText,
         maxChunks,
         searchOptions
       );
 
-      if (contextChunks.length === 0) return '';
+      console.log('[EnhancedPromptGenerationService] Debug - Found context chunks:', contextChunks.length);
+
+      if (contextChunks.length === 0) {
+        console.log('[EnhancedPromptGenerationService] Debug - No context chunks found');
+        return '';
+      }
 
       const enrichedContext = contextChunks.map((chunk, i) => {
         const preview = chunk.text.substring(0, 350);
@@ -261,6 +322,7 @@ Generate a thematically focused question that explores patterns and development 
         return `${i + 1}. ${preview}...${metadata}`;
       }).join('\n');
 
+      console.log('[EnhancedPromptGenerationService] Debug - Enriched context preview:', enrichedContext.substring(0, 300));
       return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Failed to gather contextual information', error);

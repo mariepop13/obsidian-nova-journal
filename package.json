@@ -15,7 +15,8 @@
 		"format": "prettier --write \"**/*.{ts,tsx,json}\"",
 		"format:check": "prettier --check \"**/*.{ts,tsx,json}\"",
 		"quality:check": "npm run lint && npm run format:check && npm test",
-		"quality:fix": "npm run lint:fix && npm run format && npm test"
+		"quality:fix": "npm run lint:fix && npm run format && npm test",
+		"claude:verify": "cd \"$CLAUDE_PROJECT_DIR\" && npm test && npm run build && echo '✅ Claude verification complete'"
 	},
 	"keywords": [],
 	"author": "mariepop13 <contact@mariepop13.com>",

@@ -11,12 +11,9 @@ export class PromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {
     try {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
-      if (settings.aiDebug) {
-        console.log('[PromptGenerationService] Enhanced service initialized successfully');
-      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.warn('[PromptGenerationService] Enhanced service initialization failed, will use legacy mode:', errorMessage);
+      console.warn('[PromptGenerationService] Enhanced service initialization failed, using legacy mode:', errorMessage);
       this.enhancedService = null;
     }
   }
@@ -39,12 +36,21 @@ export class PromptGenerationService {
           return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
         }
         
-        return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
-          prioritizeRecent: true,
-          includeEmotionalContext: true,
-          includeThematicContext: true,
-          maxContextChunks: 3
-        });
+        if (ragContext && ragContext.trim().length > 0) {
+          return await this.enhancedService.generateContextualPromptWithRag(style, noteText, mood, ragContext, {
+            prioritizeRecent: true,
+            includeEmotionalContext: true,
+            includeThematicContext: true,
+            maxContextChunks: 3
+          });
+        } else {
+          return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
+            prioritizeRecent: true,
+            includeEmotionalContext: true,
+            includeThematicContext: true,
+            maxContextChunks: 3
+          });
+        }
       } else {
         return this.generateLegacyPrompt(style, noteText, mood, ragContext);
       }

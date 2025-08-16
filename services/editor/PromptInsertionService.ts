@@ -48,13 +48,23 @@ export class PromptInsertionService {
       let ragContext = '';
       
       if (this.ragContextService) {
-        ragContext = await this.ragContextService.getRagContext(editor.getValue(), editor);
+        const editorContent = editor.getValue();
+        const hasSubstantialContent = editorContent.trim().length > 50;
+        
+        if (hasSubstantialContent) {
+          ragContext = await this.ragContextService.getRagContext(editorContent.trim(), editor);
+        } else {
+          ragContext = await this.ragContextService.getRecentContext(style);
+        }
       }
       
       const generator = new PromptGenerationService(this.settings);
       const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood, ragContext);
+      
       if (aiPrompt && aiPrompt.length > 0) {
         basePrompt = aiPrompt;
+      } else {
+        console.log('[PromptInsertionService] Debug - Using fallback prompt');
       }
 
       if (this.isDuplicatePrompt(editor, basePrompt)) {
@@ -105,5 +115,9 @@ export class PromptInsertionService {
       buttonTheme: this.settings.buttonTheme,
       deepenButtonLabel: this.settings.deepenButtonLabel
     };
+  }
+
+  private generateSearchTermsForStyle(style: PromptStyle): string {
+    return `${style} personal experience thoughts feelings`;
   }
 }
