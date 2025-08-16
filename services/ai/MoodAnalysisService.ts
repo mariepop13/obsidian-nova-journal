@@ -1,6 +1,7 @@
-import { TFile, Notice } from "obsidian";
+import { TFile } from "obsidian";
 import { chat } from "../../ai/AiClient";
 import type { NovaJournalSettings } from "../../settings/PluginSettings";
+import { ToastSpinnerService } from "../editor/ToastSpinnerService";
 export interface FrontmatterData {
 	[key: string]: any;
 	mood?: string;
@@ -26,13 +27,13 @@ export class MoodAnalysisService {
 
 	async analyzeCurrentNoteContent(noteText: string): Promise<string | null> {
 		if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
-			new Notice("AI must be enabled for mood analysis.");
+			ToastSpinnerService.warn("AI must be enabled for mood analysis.");
 			return null;
 		}
 
 		const meaningfulContent = this.extractMeaningfulContent(noteText);
 		if (!meaningfulContent || meaningfulContent.length === 0) {
-			new Notice("No content to analyze for mood.");
+			ToastSpinnerService.info("No content to analyze for mood.");
 			return null;
 		}
 
@@ -70,14 +71,14 @@ ${meaningfulContent}`;
 			return analysis;
 		} catch (error) {
 			console.error("Mood analysis (current note) failed:", error);
-			new Notice("Mood analysis failed.");
+			ToastSpinnerService.error("Mood analysis failed.");
 			return null;
 		}
 	}
 
 	async analyzeMoodData(daysBack = 7): Promise<string | null> {
 		if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
-			new Notice("AI must be enabled for mood analysis.");
+			ToastSpinnerService.warn("AI must be enabled for mood analysis.");
 			return null;
 		}
 
@@ -85,7 +86,7 @@ ${meaningfulContent}`;
 			const moodHistory = await this.collectMoodHistory(daysBack);
 
 			if (moodHistory.length === 0) {
-				new Notice("No mood data found for analysis.");
+				ToastSpinnerService.info("No mood data found for analysis.");
 				return null;
 			}
 
@@ -93,7 +94,7 @@ ${meaningfulContent}`;
 			return analysis;
 		} catch (error) {
 			console.error("Mood analysis failed:", error);
-			new Notice("Mood analysis failed. Check console for details.");
+			ToastSpinnerService.error("Mood analysis failed. Check console for details.");
 			return null;
 		}
 	}

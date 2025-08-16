@@ -1,4 +1,4 @@
-import { Editor, Notice, App } from 'obsidian';
+import { Editor, App } from 'obsidian';
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { getDeepenSource } from '../editor/NoteEditor';
@@ -6,6 +6,7 @@ import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceErr
 import { RagContextService } from './RagContextService';
 import { ResponseInsertionService } from './ResponseInsertionService';
 import { LoadingSpinnerService, type SpinnerInstance } from '../editor/LoadingSpinnerService';
+import { ToastSpinnerService } from '../editor/ToastSpinnerService';
 
 export interface ButtonSettings {
   buttonStyle?: ButtonStyle;
@@ -241,11 +242,11 @@ Respond by first acknowledging the specific context above, then continue with yo
     if (error instanceof AINotConfiguredError ||
         error instanceof EmptyNoteError ||
         error instanceof NoTextToDeepenError) {
-      new Notice(error.message);
+      ToastSpinnerService.error(error.message);
     } else if (error instanceof AIServiceError) {
-      new Notice('Nova Journal: AI request failed.');
+      ToastSpinnerService.error('Nova Journal: AI request failed.');
     } else {
-      new Notice('Nova Journal: An unexpected error occurred.');
+      ToastSpinnerService.error('Nova Journal: An unexpected error occurred.');
     }
   }
 }

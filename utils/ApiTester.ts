@@ -1,6 +1,6 @@
-import { Notice } from 'obsidian';
 import { OPENAI_API_KEY_REGEX, sanitizeForLogging } from './Sanitizer';
 import { API_CONFIG } from '../services/shared/Constants';
+import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 
 export class ApiTester {
   private static readonly TIMEOUT_MS = API_CONFIG.TIMEOUT_MS;
@@ -10,12 +10,12 @@ export class ApiTester {
     const trimmedKey = apiKey?.trim();
 
     if (!trimmedKey) {
-      new Notice('Set your OpenAI API key first.');
+      ToastSpinnerService.showError('Set your OpenAI API key first.');
       return;
     }
 
     if (!this.OPENAI_API_KEY_REGEX.test(trimmedKey)) {
-      new Notice('API key format appears invalid. OpenAI keys start with "sk-".');
+      ToastSpinnerService.showError('API key format appears invalid. OpenAI keys start with "sk-".');
       return;
     }
 
@@ -38,23 +38,23 @@ export class ApiTester {
       if (response.ok) {
         const modelCount = Array.isArray(data?.data) ? data.data.length : undefined;
         const message = `OpenAI test: OK${modelCount ? ` (${modelCount} models accessible)` : ''}`;
-        new Notice(message);
+        ToastSpinnerService.showSuccess(message);
       } else {
         const errorMessage = sanitizeForLogging(
           data?.error?.message || `HTTP ${response.status}`
         );
-        new Notice(`OpenAI test failed: ${errorMessage}`);
+        ToastSpinnerService.showError(`OpenAI test failed: ${errorMessage}`);
       }
     } catch (error) {
       clearTimeout(timeoutId);
 
       if (error instanceof Error && error.name === 'AbortError') {
-        new Notice('OpenAI test timed out. Check your connection.');
+        ToastSpinnerService.showError('OpenAI test timed out. Check your connection.');
       } else {
         const errorMessage = sanitizeForLogging(
           error instanceof Error ? error.message : 'Unknown error'
         );
-        new Notice(`OpenAI test error: ${errorMessage}`);
+        ToastSpinnerService.showError(`OpenAI test error: ${errorMessage}`);
       }
     }
   }
