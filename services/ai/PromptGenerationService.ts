@@ -11,8 +11,12 @@ export class PromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {
     try {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
+      if (settings.aiDebug) {
+        console.log('[PromptGenerationService] Enhanced service initialized successfully');
+      }
     } catch (error) {
-      console.warn('[PromptGenerationService] Enhanced service initialization failed, will use legacy mode:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('[PromptGenerationService] Enhanced service initialization failed, will use legacy mode:', errorMessage);
       this.enhancedService = null;
     }
   }
@@ -20,7 +24,8 @@ export class PromptGenerationService {
   async generateOpeningPrompt(
     style: PromptStyle,
     noteText: string,
-    mood?: Partial<MoodData>
+    mood?: Partial<MoodData>,
+    ragContext?: string
   ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
@@ -41,18 +46,20 @@ export class PromptGenerationService {
           maxContextChunks: 3
         });
       } else {
-        return this.generateLegacyPrompt(style, noteText, mood);
+        return this.generateLegacyPrompt(style, noteText, mood, ragContext);
       }
     } catch (error) {
-      console.error('[PromptGenerationService] Enhanced generation failed, falling back to legacy', error);
-      return this.generateLegacyPrompt(style, noteText, mood);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[PromptGenerationService] Enhanced generation failed, falling back to legacy:', errorMessage);
+      return this.generateLegacyPrompt(style, noteText, mood, ragContext);
     }
   }
 
   private async generateLegacyPrompt(
     style: PromptStyle,
     noteText: string,
-    mood?: Partial<MoodData>
+    mood?: Partial<MoodData>,
+    providedRagContext?: string
   ): Promise<string | null> {
 
     const systemPrompt = `Generate ONE simple journaling question in the SAME LANGUAGE as the context provided.
@@ -89,31 +96,40 @@ Styles:
 - dreams: exploration of current dream content`;
 
     let ragContext = '';
-    try {
-      if (noteText && noteText.trim().length > 0) {
-        const appRef = (window as any)?.app;
-        if (appRef) {
-          const embeddingService = new EmbeddingService(appRef, this.settings);
-          const top = await embeddingService.topK(noteText, 3);
-          console.log(`[PromptGenerationService] RAG results:`, top);
-          if (Array.isArray(top) && top.length > 0) {
-            const enriched = top.map((t, i) => {
-              const preview = (t.text || '').substring(0, 400);
-              return `${i + 1}. ${preview}...`;
-            }).join('\n');
-            ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
-            console.log(`[PromptGenerationService] RAG context:`, ragContext);
+    if (providedRagContext && providedRagContext.trim().length > 0) {
+      ragContext = `\n\nPrevious journal entries context:\n${providedRagContext}`;
+      console.log(`[PromptGenerationService] Using provided RAG context:`, ragContext.substring(0, 200));
+    } else {
+      try {
+        if (noteText && noteText.trim().length > 0) {
+          const appRef = (window as any)?.app;
+          if (appRef) {
+            const embeddingService = new EmbeddingService(appRef, this.settings);
+            const top = await embeddingService.topK(noteText, 3);
+            console.log(`[PromptGenerationService] RAG results:`, top);
+            if (Array.isArray(top) && top.length > 0) {
+              const enriched = top.map((t, i) => {
+                const preview = (t.text || '').substring(0, 400);
+                return `${i + 1}. ${preview}...`;
+              }).join('\n');
+              ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
+              console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(0, 200));
+            } else {
+              console.log(`[PromptGenerationService] No RAG results found`);
+            }
           } else {
-            console.log(`[PromptGenerationService] No RAG results found`);
+            console.log(`[PromptGenerationService] No app reference found`);
           }
         } else {
-          console.log(`[PromptGenerationService] No app reference found`);
+          console.log(`[PromptGenerationService] No note text provided`);
         }
-      } else {
-        console.log(`[PromptGenerationService] No note text provided`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('[PromptGenerationService] RAG fetch failed:', errorMessage);
+        if (this.settings.aiDebug) {
+          console.log('[PromptGenerationService] Debug - RAG retrieval failed, proceeding without context');
+        }
       }
-    } catch (err) {
-      console.error('[PromptGenerationService] RAG fetch failed', err);
     }
 
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
@@ -141,12 +157,18 @@ Generate a question that:
       });
 
       const text = (response || '').trim();
-      if (!text) return null;
-
+      if (!text) {
+        if (this.settings.aiDebug) {
+          console.log('[PromptGenerationService] Debug - Empty response from AI service');
+        }
+        return null;
+      }
 
       const cleaned = text.replace(/^"|"$/g, '').trim();
       return cleaned || null;
-    } catch {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[PromptGenerationService] AI generation failed:', errorMessage);
       return null;
     }
   }

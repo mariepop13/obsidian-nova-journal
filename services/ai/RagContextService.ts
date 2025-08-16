@@ -1,4 +1,4 @@
-import { Editor } from 'obsidian';
+import { Editor, App } from 'obsidian';
 import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 
@@ -6,17 +6,21 @@ export class RagContextService {
   private embeddingService: EnhancedEmbeddingService | null = null;
   private readonly settings: NovaJournalSettings;
   private readonly debug: boolean;
+  private readonly app: App | null;
 
-  constructor(settings: NovaJournalSettings) {
+  constructor(settings: NovaJournalSettings, app?: App) {
     this.settings = settings;
     this.debug = settings.aiDebug;
+    this.app = app || null;
   }
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
     if (!this.embeddingService) {
-      const appRef = (window as any)?.app;
+      const appRef = this.app || (window as any)?.app;
       if (appRef) {
         this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
+      } else {
+        console.warn('[RagContextService] No app reference available for embedding service');
       }
     }
     return this.embeddingService;
@@ -31,7 +35,17 @@ export class RagContextService {
       console.log('[RagContextService] Debug - targetLine:', targetLine);
     }
     
-    if (!embeddingService || !userText?.trim()) return '';
+    if (!embeddingService) {
+      console.warn('[RagContextService] Embedding service not available, returning empty context');
+      return '';
+    }
+    
+    if (!userText?.trim()) {
+      if (this.debug) {
+        console.log('[RagContextService] No user text provided, returning empty context');
+      }
+      return '';
+    }
 
     try {
       const searchText = this.extractSearchText(userText, editor, targetLine);
@@ -81,7 +95,13 @@ export class RagContextService {
 
       return contextText;
     } catch (error) {
-      console.error('[RagContextService] Failed to get RAG context', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[RagContextService] Failed to get RAG context:', errorMessage, error);
+      
+      if (this.debug) {
+        console.log('[RagContextService] Debug - Error occurred during RAG retrieval, context will be empty');
+      }
+      
       return '';
     }
   }
