@@ -48,13 +48,22 @@ export class PromptInsertionService {
       let ragContext = '';
       
       if (this.ragContextService) {
-        const editorContent = editor.getValue();
-        const hasSubstantialContent = editorContent.trim().length > 50;
-        
-        if (hasSubstantialContent) {
-          ragContext = await this.ragContextService.getRagContext(editorContent.trim(), editor);
-        } else {
-          ragContext = await this.ragContextService.getRecentContext(style);
+        try {
+          const editorContent = editor.getValue();
+          const trimmedContent = editorContent.trim().slice(0, 5000);
+          const hasSubstantialContent = trimmedContent.length > 50;
+          
+          const ragPromise = hasSubstantialContent
+            ? this.ragContextService.getRagContext(trimmedContent, editor)
+            : this.ragContextService.getRecentContext(style);
+          
+          ragContext = await Promise.race([
+            ragPromise,
+            new Promise<string>((res) => setTimeout(() => res(''), 2000))
+          ]);
+        } catch (err) {
+          console.warn('[PromptInsertionService] RAG retrieval failed, proceeding without context');
+          ragContext = '';
         }
       }
       

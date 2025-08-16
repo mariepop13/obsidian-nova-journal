@@ -138,20 +138,20 @@ export class EnhancedEmbeddingService {
     k: number, 
     options: SearchOptions = {}
   ): Promise<EnhancedIndexedChunk[]> {
-    console.log('[EnhancedEmbeddingService] Debug - contextualSearch called with query length:', query.length);
+    console.log('[EnhancedEmbeddingService] Debug - contextualSearch called, query length:', query ? query.length : 0);
     console.log('[EnhancedEmbeddingService] Debug - k:', k, 'options:', options);
     
     await this.ensureIndexLoaded();
-    console.log('[EnhancedEmbeddingService] Debug - Index loaded, available:', !!this.index);
-    console.log('[EnhancedEmbeddingService] Debug - Index items count:', this.index?.items?.length || 0);
+    console.log('[EnhancedEmbeddingService] Debug - Index loaded:', !!this.index);
+    console.log('[EnhancedEmbeddingService] Debug - Index items count:', this.index?.items?.length ?? 0);
     
     if (!this.index || this.index.items.length === 0) {
       console.log('[EnhancedEmbeddingService] Debug - No index or empty index, returning empty results');
       return [];
     }
     
-    const results = this.searchEngine.performContextualSearch(query, k, this.index.items, options);
-    console.log('[EnhancedEmbeddingService] Debug - Search completed, results:', results);
+    const results = await this.searchEngine.performContextualSearch(query || '', k, this.index.items, options);
+    console.log('[EnhancedEmbeddingService] Debug - Search completed, resultsCount:', results?.length ?? 0);
     return results;
   }
 

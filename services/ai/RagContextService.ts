@@ -367,12 +367,12 @@ export class RagContextService {
   }
 
   private hasUserContent(text: string): boolean {
-    if (!text) return false;
+    if (typeof text !== 'string' || !text) return false;
     
-    const userSectionMatch = text.match(/\*\*\w+\*\*.*?:\s*(.*?)(?:\*\*|$|<button)/i);
+    const userSectionMatch = text.match(/\*\*[^*]+\*\*\s*[:\-]\s*([\s\S]{0,1000}?)(?=(\*\*[^*]+\*\*|<button|$))/i);
     if (!userSectionMatch) return false;
     
-    const userContent = userSectionMatch[1].trim();
+    const userContent = (userSectionMatch[1] || '').trim();
     const cleanUserContent = userContent.replace(/<[^>]*>/g, '').trim();
     
     return cleanUserContent.length > 20;
