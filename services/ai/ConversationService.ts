@@ -1,11 +1,11 @@
-import { Editor, Notice, App } from 'obsidian';
+import { Editor, App } from 'obsidian';
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { getDeepenSource } from '../editor/NoteEditor';
 import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
 import { RagContextService } from './RagContextService';
 import { ResponseInsertionService } from './ResponseInsertionService';
-import { LoadingSpinnerService, type SpinnerInstance } from '../editor/LoadingSpinnerService';
+import { ToastSpinnerService } from '../editor/ToastSpinnerService';
 
 export interface ButtonSettings {
   buttonStyle?: ButtonStyle;
@@ -149,31 +149,13 @@ export class ConversationService {
 
 
   private async callAI(userText: string, customSystemPrompt?: string, editor?: Editor, targetLine?: number): Promise<string> {
-    let spinner: SpinnerInstance | null = null;
+    const toast = ToastSpinnerService.showThinking('Thinking...');
     
     try {
-      // Show loading spinner
-      spinner = LoadingSpinnerService.create({
-        text: 'Thinking...',
-        state: 'thinking',
-        size: 'medium',
-        position: 'inline'
-      });
-      
-      if (editor) {
-        const editorContainer = (editor as any).containerEl || document.activeElement;
-        if (editorContainer) {
-          editorContainer.appendChild(spinner.element);
-        }
-      }
-
       const ragContext = await this.ragContextService.getRagContext(userText, editor, targetLine);
       
-      // Update spinner state for generation
-      if (spinner) {
-        LoadingSpinnerService.updateState(spinner.id, 'generating');
-        LoadingSpinnerService.updateText(spinner.id, 'Generating response...');
-      }
+      toast.updateState('generating');
+      toast.updateMessage('Generating response...');
       
       let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
       let enhancedUserText = userText;
@@ -218,17 +200,10 @@ Respond by first acknowledging the specific context above, then continue with yo
         fallbackModel: this.context.fallbackModel,
       });
       
-      // Hide spinner on success
-      if (spinner) {
-        spinner.destroy();
-      }
-      
+      toast.hide();
       return response;
     } catch (error) {
-      // Hide spinner on error
-      if (spinner) {
-        spinner.destroy();
-      }
+      toast.hide();
       throw new AIServiceError('AI request failed', error);
     }
   }
@@ -241,11 +216,11 @@ Respond by first acknowledging the specific context above, then continue with yo
     if (error instanceof AINotConfiguredError ||
         error instanceof EmptyNoteError ||
         error instanceof NoTextToDeepenError) {
-      new Notice(error.message);
+      ToastSpinnerService.error(error.message);
     } else if (error instanceof AIServiceError) {
-      new Notice('Nova Journal: AI request failed.');
+      ToastSpinnerService.error('Nova Journal: AI request failed.');
     } else {
-      new Notice('Nova Journal: An unexpected error occurred.');
+      ToastSpinnerService.error('Nova Journal: An unexpected error occurred.');
     }
   }
 }

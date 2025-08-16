@@ -24,3 +24,6 @@ data.json
 # Claude Code configuration (keep local only)
 .claude
 CLAUDE.md
+
+# Serena MCP configuration and cache (keep local only)
+.serena

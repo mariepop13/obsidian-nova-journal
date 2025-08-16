@@ -1,4 +1,4 @@
-import { Editor, Notice } from 'obsidian';
+import { Editor } from 'obsidian';
 import { PromptService } from '../../prompt/PromptService';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { NovaJournalSettings, EnhancedInsertionLocation } from '../../settings/PluginSettings';
@@ -6,6 +6,7 @@ import { insertAtLocation, removeDateHeadingInEditor, ensureBottomButtons } from
 import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
 import { FrontmatterService } from '../rendering/FrontmatterService';
 import { PromptGenerationService } from '../ai/PromptGenerationService';
+import { ToastSpinnerService } from './ToastSpinnerService';
 
 export class PromptInsertionService {
   constructor(
@@ -35,7 +36,7 @@ export class PromptInsertionService {
       );
 
       if (!contextAwareResult) {
-        new Notice('Nova Journal: failed to generate prompt.');
+        ToastSpinnerService.error('Nova Journal: failed to generate prompt.');
         return false;
       }
 
@@ -50,7 +51,7 @@ export class PromptInsertionService {
 
       if (this.isDuplicatePrompt(editor, basePrompt)) {
         if (duplicateMessage) {
-          new Notice(duplicateMessage);
+          ToastSpinnerService.info(duplicateMessage);
         }
         return false;
       }
@@ -60,11 +61,11 @@ export class PromptInsertionService {
       
       insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
       ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
-      new Notice('Nova Journal: prompt inserted.');
+      ToastSpinnerService.notice('Nova Journal: prompt inserted.');
       return true;
     } catch (error) {
       console.error('Nova Journal: prompt insertion error', error);
-      new Notice('Nova Journal: failed to insert prompt. See console for details.');
+      ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
   }

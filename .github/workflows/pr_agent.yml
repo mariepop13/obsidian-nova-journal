@@ -24,6 +24,7 @@ jobs:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          force_action: "review,improve"
+          force_action: "improve"
+          configuration_path: ".pr_agent.toml"
 
 
