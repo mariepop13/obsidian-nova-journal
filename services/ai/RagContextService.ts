@@ -1,22 +1,36 @@
-import { Editor } from 'obsidian';
+import { Editor, App } from 'obsidian';
 import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
+
+const CONTENT_THRESHOLDS = {
+  MIN_CONTENT_LENGTH: 100,
+  MIN_SUBSTANTIAL_LENGTH: 200,
+  EMPTY_PROMPT_MAX_LENGTH: 300,
+  MARKUP_HEAVY_MAX_LENGTH: 500,
+  MAX_BUTTONS_ALLOWED: 2,
+  MAX_CONTEXT_CHUNKS: 8,
+  PREVIEW_LENGTH: 500
+} as const;
 
 export class RagContextService {
   private embeddingService: EnhancedEmbeddingService | null = null;
   private readonly settings: NovaJournalSettings;
   private readonly debug: boolean;
+  private readonly app: App | null;
 
-  constructor(settings: NovaJournalSettings) {
+  constructor(settings: NovaJournalSettings, app?: App) {
     this.settings = settings;
     this.debug = settings.aiDebug;
+    this.app = app || null;
   }
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
     if (!this.embeddingService) {
-      const appRef = (window as any)?.app;
+      const appRef = this.app || (window as any)?.app;
       if (appRef) {
         this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
+      } else {
+        console.warn('[RagContextService] No app reference available for embedding service');
       }
     }
     return this.embeddingService;
@@ -26,45 +40,51 @@ export class RagContextService {
     const embeddingService = this.getEmbeddingService();
     
     if (this.debug) {
-      console.log('[RagContextService] Debug - embeddingService:', !!embeddingService);
-      console.log('[RagContextService] Debug - userText:', userText?.trim());
-      console.log('[RagContextService] Debug - targetLine:', targetLine);
+      console.log('[RagContextService] Searching for context with query length:', userText?.trim().length);
     }
     
-    if (!embeddingService || !userText?.trim()) return '';
+    if (!embeddingService) {
+      console.warn('[RagContextService] Embedding service not available, returning empty context');
+      return '';
+    }
+    
+    if (!userText?.trim()) {
+      if (this.debug) {
+        console.log('[RagContextService] No user text provided, returning empty context');
+      }
+      return '';
+    }
 
     try {
       const searchText = this.extractSearchText(userText, editor, targetLine);
-      
-      if (this.debug) {
-        console.log('[RagContextService] Debug - searchText:', searchText.substring(0, 100));
-      }
 
       const searchOptions: SearchOptions = {
         boostRecent: false,
-        diversityThreshold: 0.05
+        diversityThreshold: 0.3
       };
 
       let contextChunks = await embeddingService.contextualSearch(
         searchText,
-        15,
+        25,
         searchOptions
       );
 
+      contextChunks = this.filterSubstantialContent(contextChunks);
+      
       if (this.debug) {
-        console.log('[RagContextService] Debug - contextChunks found:', contextChunks.length);
+        console.log('[RagContextService] Found substantial chunks:', contextChunks.length);
       }
 
-      if (contextChunks.length > 0) {
-        contextChunks = await this.expandContextSearch(embeddingService, contextChunks, searchText, searchOptions);
+      if (contextChunks.length === 0) {
+        contextChunks = await this.searchInAllHistory(embeddingService, searchText);
       }
 
       if (contextChunks.length === 0) return '';
 
-      contextChunks = this.prioritizeRelevantContext(contextChunks, searchText);
+      contextChunks = this.prioritizeBySubstance(contextChunks);
 
-      const contextText = contextChunks.slice(0, 8).map((chunk, i) => {
-        const preview = chunk.text.substring(0, 500);
+      const contextText = contextChunks.slice(0, CONTENT_THRESHOLDS.MAX_CONTEXT_CHUNKS).map((chunk, i) => {
+        const preview = chunk.text.substring(0, CONTENT_THRESHOLDS.PREVIEW_LENGTH);
         let contextInfo = '';
         
         if (chunk.date) {
@@ -75,13 +95,15 @@ export class RagContextService {
         return `${i + 1}. ${contextInfo}${preview}`;
       }).join('\n\n');
 
-      if (this.debug) {
-        console.log('[RagContextService] Debug - contextText:', contextText.substring(0, 500));
-      }
-
       return contextText;
     } catch (error) {
-      console.error('[RagContextService] Failed to get RAG context', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[RagContextService] Failed to get RAG context:', errorMessage, error);
+      
+      if (this.debug) {
+        console.log('[RagContextService] Debug - Error occurred during RAG retrieval, context will be empty');
+      }
+      
       return '';
     }
   }
@@ -274,5 +296,154 @@ export class RagContextService {
     
     const diffYears = Math.floor(diffMonths / 12);
     return `${diffYears}y`;
+  }
+
+  private filterSubstantialContent(chunks: any[]): any[] {
+    return chunks.filter(chunk => this.hasSubstantialContent(chunk));
+  }
+
+  private hasSubstantialContent(chunk: any): boolean {
+    if (!chunk.text) return false;
+    
+    const text = chunk.text.toLowerCase();
+    const textLength = chunk.text.length;
+    
+    if (this.isEmptyPrompt(text, textLength)) return false;
+    if (this.isTooShort(textLength)) return false;
+    if (this.isMostlyMarkup(text, textLength)) return false;
+    
+    return this.isSubstantialContent(text, textLength);
+  }
+
+  private isEmptyPrompt(text: string, textLength: number): boolean {
+    const hasNovaPrompt = text.includes('**nova**:');
+    const hasUserSection = text.includes('**marie** (you):');
+    const hasButton = text.includes('</button>');
+    const isTooShort = textLength < CONTENT_THRESHOLDS.EMPTY_PROMPT_MAX_LENGTH;
+    
+    return hasNovaPrompt && hasUserSection && !hasButton && isTooShort;
+  }
+
+  private isTooShort(textLength: number): boolean {
+    return textLength < CONTENT_THRESHOLDS.MIN_CONTENT_LENGTH;
+  }
+
+  private isMostlyMarkup(text: string, textLength: number): boolean {
+    const buttonCount = (text.match(/<button/g) || []).length;
+    const tooManyButtons = buttonCount > CONTENT_THRESHOLDS.MAX_BUTTONS_ALLOWED;
+    const isShort = textLength < CONTENT_THRESHOLDS.MARKUP_HEAVY_MAX_LENGTH;
+    
+    return tooManyButtons && isShort;
+  }
+
+  private isSubstantialContent(text: string, textLength: number): boolean {
+    const isLongContent = textLength > CONTENT_THRESHOLDS.MIN_SUBSTANTIAL_LENGTH;
+    const isMediumContentWithoutPrompt = textLength > CONTENT_THRESHOLDS.MIN_CONTENT_LENGTH && 
+                                         !text.includes('**nova**:');
+    
+    return isLongContent || isMediumContentWithoutPrompt;
+  }
+
+  private async searchInAllHistory(embeddingService: EnhancedEmbeddingService, searchText: string): Promise<any[]> {
+    const broadSearchOptions: SearchOptions = {
+      boostRecent: false,
+      diversityThreshold: 0.5
+    };
+
+    const chunks = await embeddingService.contextualSearch(searchText, 50, broadSearchOptions);
+    return this.filterSubstantialContent(chunks);
+  }
+
+  private prioritizeBySubstance(chunks: any[]): any[] {
+    return chunks.sort((a, b) => {
+      const aHasSubstance = this.hasUserContent(a.text);
+      const bHasSubstance = this.hasUserContent(b.text);
+      
+      if (aHasSubstance && !bHasSubstance) return -1;
+      if (!aHasSubstance && bHasSubstance) return 1;
+      
+      return (b.text?.length || 0) - (a.text?.length || 0);
+    });
+  }
+
+  private hasUserContent(text: string): boolean {
+    if (typeof text !== 'string' || !text) return false;
+    
+    const userSectionMatch = text.match(/\*\*[^*]+\*\*\s*[:\-]\s*([\s\S]{0,1000}?)(?=(\*\*[^*]+\*\*|<button|$))/i);
+    if (!userSectionMatch) return false;
+    
+    const userContent = (userSectionMatch[1] || '').trim();
+    const cleanUserContent = userContent.replace(/<[^>]*>/g, '').trim();
+    
+    return cleanUserContent.length > 20;
+  }
+
+
+  async getRecentContext(style: string): Promise<string> {
+    const embeddingService = this.getEmbeddingService();
+    
+    if (this.debug) {
+      console.log('[RagContextService] Getting recent context for style:', style);
+    }
+    
+    if (!embeddingService) {
+      console.warn('[RagContextService] Embedding service not available for recent context');
+      return '';
+    }
+
+    try {
+      const searchOptions: SearchOptions = {
+        boostRecent: true,
+        diversityThreshold: 0.3
+      };
+
+      let contextChunks = await embeddingService.contextualSearch(style, 25, searchOptions);
+      contextChunks = this.filterSubstantialContent(contextChunks);
+      
+      if (this.debug) {
+        console.log('[RagContextService] Found substantial chunks:', contextChunks.length);
+      }
+
+      if (contextChunks.length === 0) {
+        contextChunks = await this.searchInAllHistory(embeddingService, style);
+      }
+
+      if (contextChunks.length === 0) return '';
+
+      contextChunks = this.prioritizeBySubstance(contextChunks);
+
+      if (this.debug) {
+        console.log('[RagContextService] Final context chunks:', contextChunks.length);
+      }
+
+      if (contextChunks.length === 0) return '';
+
+      const contextText = contextChunks.slice(0, CONTENT_THRESHOLDS.MAX_CONTEXT_CHUNKS).map((chunk, i) => {
+        const preview = chunk.text.substring(0, CONTENT_THRESHOLDS.PREVIEW_LENGTH);
+        let contextInfo = '';
+        
+        if (chunk.date) {
+          const timeAgo = this.getTimeAgoString(chunk.date);
+          contextInfo = `[${timeAgo}] `;
+        }
+        
+        return `${i + 1}. ${contextInfo}${preview}`;
+      }).join('\n\n');
+
+      return contextText;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[RagContextService] Failed to get recent context:', errorMessage);
+      return '';
+    }
+  }
+
+  private filterRecentEntries(chunks: any[], daysLimit: number): any[] {
+    const cutoffDate = Date.now() - (daysLimit * 24 * 60 * 60 * 1000);
+    
+    return chunks.filter(chunk => {
+      if (!chunk.date) return false;
+      return chunk.date >= cutoffDate;
+    });
   }
 }

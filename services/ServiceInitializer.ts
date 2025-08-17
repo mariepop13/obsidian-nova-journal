@@ -6,6 +6,7 @@ import { PromptInsertionService } from './editor/PromptInsertionService';
 import { MoodAnalysisService } from './ai/MoodAnalysisService';
 import { EnhancedEmbeddingService } from './ai/EnhancedEmbeddingService';
 import { EmbeddingMigrationService } from './ai/EmbeddingMigrationService';
+import { RagContextService } from './ai/RagContextService';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
 
 export interface ServiceCollection {
@@ -14,6 +15,7 @@ export interface ServiceCollection {
     fileService: FileService;
     promptInsertionService: PromptInsertionService;
     moodAnalysisService: MoodAnalysisService;
+    ragContextService: RagContextService;
 }
 
 export class ServiceInitializer {
@@ -26,7 +28,8 @@ export class ServiceInitializer {
         const promptService = new PromptService(this.settings);
         const conversationService = new ConversationService(this.settings);
         const fileService = new FileService(this.app);
-        const promptInsertionService = new PromptInsertionService(promptService, this.settings);
+        const ragContextService = new RagContextService(this.settings, this.app);
+        const promptInsertionService = new PromptInsertionService(promptService, this.settings, ragContextService);
         const moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
 
         return {
@@ -34,7 +37,8 @@ export class ServiceInitializer {
             conversationService,
             fileService,
             promptInsertionService,
-            moodAnalysisService
+            moodAnalysisService,
+            ragContextService
         };
     }
 
@@ -63,11 +67,13 @@ export class ServiceInitializer {
     recreateServicesAfterSettingsChange(
         services: ServiceCollection
     ): ServiceCollection {
+        const ragContextService = new RagContextService(this.settings, this.app);
         return {
             ...services,
             conversationService: new ConversationService(this.settings),
-            promptInsertionService: new PromptInsertionService(services.promptService, this.settings),
-            moodAnalysisService: new MoodAnalysisService(this.settings, this.app)
+            promptInsertionService: new PromptInsertionService(services.promptService, this.settings, ragContextService),
+            moodAnalysisService: new MoodAnalysisService(this.settings, this.app),
+            ragContextService
         };
     }
 }

@@ -6,12 +6,14 @@ import { insertAtLocation, removeDateHeadingInEditor, ensureBottomButtons } from
 import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
 import { FrontmatterService } from '../rendering/FrontmatterService';
 import { PromptGenerationService } from '../ai/PromptGenerationService';
+import { RagContextService } from '../ai/RagContextService';
 import { ToastSpinnerService } from './ToastSpinnerService';
 
 export class PromptInsertionService {
   constructor(
     private readonly promptService: PromptService,
-    private readonly settings: NovaJournalSettings
+    private readonly settings: NovaJournalSettings,
+    private readonly ragContextService?: RagContextService
   ) {}
 
   async insertPromptAtLocation(editor: Editor, location?: EnhancedInsertionLocation): Promise<void> {
@@ -43,10 +45,35 @@ export class PromptInsertionService {
       const { style, prompt: fallbackPrompt } = contextAwareResult;
 
       let basePrompt = fallbackPrompt;
+      let ragContext = '';
+      
+      if (this.ragContextService) {
+        try {
+          const editorContent = editor.getValue();
+          const trimmedContent = editorContent.trim().slice(0, 5000);
+          const hasSubstantialContent = trimmedContent.length > 50;
+          
+          const ragPromise = hasSubstantialContent
+            ? this.ragContextService.getRagContext(trimmedContent, editor)
+            : this.ragContextService.getRecentContext(style);
+          
+          ragContext = await Promise.race([
+            ragPromise,
+            new Promise<string>((res) => setTimeout(() => res(''), 2000))
+          ]);
+        } catch (err) {
+          console.warn('[PromptInsertionService] RAG retrieval failed, proceeding without context');
+          ragContext = '';
+        }
+      }
+      
       const generator = new PromptGenerationService(this.settings);
-      const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood);
+      const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood, ragContext);
+      
       if (aiPrompt && aiPrompt.length > 0) {
         basePrompt = aiPrompt;
+      } else {
+        console.log('[PromptInsertionService] Debug - Using fallback prompt');
       }
 
       if (this.isDuplicatePrompt(editor, basePrompt)) {
@@ -97,5 +124,9 @@ export class PromptInsertionService {
       buttonTheme: this.settings.buttonTheme,
       deepenButtonLabel: this.settings.deepenButtonLabel
     };
+  }
+
+  private generateSearchTermsForStyle(style: PromptStyle): string {
+    return `${style} personal experience thoughts feelings`;
   }
 }

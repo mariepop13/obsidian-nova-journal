@@ -56,18 +56,30 @@ export class EnhancedEmbeddingService {
   }
 
   async incrementalUpdateIndex(folder: string): Promise<void> {
-    if (!this.settings.aiEnabled || !this.settings.aiApiKey) return;
+    console.log('[EnhancedEmbeddingService] Debug - incrementalUpdateIndex called with folder:', folder);
+    console.log('[EnhancedEmbeddingService] Debug - AI enabled:', this.settings.aiEnabled);
+    console.log('[EnhancedEmbeddingService] Debug - API key available:', !!this.settings.aiApiKey);
+    
+    if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+      console.log('[EnhancedEmbeddingService] Debug - AI disabled or no API key, skipping indexing');
+      return;
+    }
 
     try {
       await this.ensureIndexLoaded();
       
       if (!this.index || this.index.version !== this.version) {
+        console.log('[EnhancedEmbeddingService] Debug - No index or version mismatch, performing full rebuild');
         await this.fullRebuild(folder);
         return;
       }
 
+      console.log('[EnhancedEmbeddingService] Debug - Getting markdown files...');
       const files = this.getMarkdownFilesInFolder(folder);
+      console.log('[EnhancedEmbeddingService] Debug - Found', files.length, 'markdown files');
+      
       const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+      console.log('[EnhancedEmbeddingService] Debug - Date cutoff:', new Date(cutoff));
       
       const filesToUpdate: TFile[] = [];
       const filesToRemove: string[] = [];
@@ -77,12 +89,16 @@ export class EnhancedEmbeddingService {
         const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
         const fileDate = TemporalUtils.extractDateFromFilename(f.name) || Date.now();
         
-        if (fileDate < cutoff) continue;
+        if (fileDate < cutoff) {
+          console.log('[EnhancedEmbeddingService] Debug - Skipping old file:', f.path, 'date:', new Date(fileDate));
+          continue;
+        }
 
         const currentHash = await this.computeFileHash(f);
         const storedHash = this.index.fileHashes[f.path];
         
         if (!storedHash || storedHash !== currentHash) {
+          console.log('[EnhancedEmbeddingService] Debug - File needs update:', f.path);
           filesToUpdate.push(f);
         }
       }
@@ -103,11 +119,13 @@ export class EnhancedEmbeddingService {
       this.removeChunksForFiles(filesToRemove);
 
       for (const file of filesToUpdate) {
+        console.log('[EnhancedEmbeddingService] Debug - Processing file:', file.path);
         await this.updateFileChunks(file);
       }
 
       this.index.updatedAt = Date.now();
       await this.saveIndex();
+      console.log('[EnhancedEmbeddingService] Debug - Index update completed with', this.index.items.length, 'total items');
 
     } catch (error) {
       console.error('[EnhancedEmbeddingService] Incremental update failed', error);
@@ -120,10 +138,21 @@ export class EnhancedEmbeddingService {
     k: number, 
     options: SearchOptions = {}
   ): Promise<EnhancedIndexedChunk[]> {
-    await this.ensureIndexLoaded();
-    if (!this.index || this.index.items.length === 0) return [];
+    console.log('[EnhancedEmbeddingService] Debug - contextualSearch called, query length:', query ? query.length : 0);
+    console.log('[EnhancedEmbeddingService] Debug - k:', k, 'options:', options);
     
-    return this.searchEngine.performContextualSearch(query, k, this.index.items, options);
+    await this.ensureIndexLoaded();
+    console.log('[EnhancedEmbeddingService] Debug - Index loaded:', !!this.index);
+    console.log('[EnhancedEmbeddingService] Debug - Index items count:', this.index?.items?.length ?? 0);
+    
+    if (!this.index || this.index.items.length === 0) {
+      console.log('[EnhancedEmbeddingService] Debug - No index or empty index, returning empty results');
+      return [];
+    }
+    
+    const results = await this.searchEngine.performContextualSearch(query || '', k, this.index.items, options);
+    console.log('[EnhancedEmbeddingService] Debug - Search completed, resultsCount:', results?.length ?? 0);
+    return results;
   }
 
   async emotionalSearch(query: string, mood: Partial<MoodData>, k: number = 5): Promise<EnhancedIndexedChunk[]> {
@@ -292,20 +321,42 @@ export class EnhancedEmbeddingService {
   }
 
   private async ensureIndexLoaded(): Promise<void> {
-    if (this.index) return;
+    if (this.index) {
+      console.log('[EnhancedEmbeddingService] Debug - Index already loaded with', this.index.items.length, 'items');
+      return;
+    }
+    
+    console.log('[EnhancedEmbeddingService] Debug - Loading index from localStorage...');
     
     try {
-      const json = localStorage.getItem(
-        `nova-journal-enhanced-index-${this.app.vault.getName()}`
-      );
+      const vaultName = this.app.vault.getName();
+      const storageKey = `nova-journal-enhanced-index-${vaultName}`;
+      console.log('[EnhancedEmbeddingService] Debug - Storage key:', storageKey);
+      
+      const json = localStorage.getItem(storageKey);
+      console.log('[EnhancedEmbeddingService] Debug - JSON found in localStorage:', !!json);
+      
       if (json) {
         const loaded = JSON.parse(json) as EnhancedIndexData;
+        console.log('[EnhancedEmbeddingService] Debug - Parsed index version:', loaded.version, 'expected:', this.version);
+        console.log('[EnhancedEmbeddingService] Debug - Parsed index items count:', loaded.items?.length || 0);
+        
         if (loaded.version === this.version) {
           this.index = loaded;
+          console.log('[EnhancedEmbeddingService] Debug - Index loaded successfully with', this.index.items.length, 'items');
+        } else {
+          console.log('[EnhancedEmbeddingService] Debug - Version mismatch, index not loaded');
         }
+      } else {
+        console.log('[EnhancedEmbeddingService] Debug - No stored index found');
       }
-    } catch {
+    } catch (error) {
+      console.error('[EnhancedEmbeddingService] Debug - Failed to load index:', error);
       this.index = null;
+    }
+    
+    if (!this.index) {
+      console.log('[EnhancedEmbeddingService] Debug - No index available after loading attempt');
     }
   }
 
