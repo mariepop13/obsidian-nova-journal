@@ -198,9 +198,10 @@ jobs:
               if (openaiKey) {
                 const patches = files.map(f => (f.patch || '')).join('\n\n');
                 const patchExcerpt = patches.slice(0, 12000);
-                const fileList = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`).join('\n');
+                const fileListArray = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`);
+                const fileList = fileListArray.join('\n');
                 const commitSubjects = subjects.join('\n');
-                const prompt = `Summarize this PR concisely for reviewers in max 300 words. Focus on WHAT changed, not commit prefixes. Format: Summary (1 line), Key Changes (3-5 bullets describing actual changes), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileList.slice(0, 10).join('\n')}\nCommits (ignore emoji/prefixes, focus on substance):\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
+                const prompt = `Summarize this PR concisely for reviewers in max 300 words. Focus on WHAT changed, not commit prefixes. Format: Summary (1 line), Key Changes (3-5 bullets describing actual changes), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileListArray.slice(0, 10).join('\n')}\nCommits (ignore emoji/prefixes, focus on substance):\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
 
                 const resp = await fetch('https://api.openai.com/v1/chat/completions', {
                   method: 'POST',
