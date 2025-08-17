@@ -191,7 +191,7 @@ jobs:
             const areaList = areaEntries.map(([d, c]) => `- ${d}: ${c} file(s)`).join('\n') || '- n/a';
             const keyChangesList = subjects.slice(0,7).map(s => `- ${s}`).join('\n') || '- Update';
 
-            // Try AI summary (if OPENAI_KEY provided)
+            // Try AI summary with caching (if OPENAI_KEY provided)
             let aiSummary = '';
             try {
               const openaiKey = process.env.OPENAI_KEY || '';
@@ -199,28 +199,76 @@ jobs:
                 const patches = files.map(f => (f.patch || '')).join('\n\n');
                 const patchExcerpt = patches.slice(0, 12000);
                 const fileListArray = files.map(f => `- ${f.status?.toUpperCase?.() || 'MOD'} ${f.filename}`);
-                const fileList = fileListArray.join('\n');
                 const commitSubjects = subjects.join('\n');
-                const prompt = `Summarize this PR concisely for reviewers in max 300 words. Focus on WHAT changed, not commit prefixes. Format: Summary (1 line), Key Changes (3-5 bullets describing actual changes), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileListArray.slice(0, 10).join('\n')}\nCommits (ignore emoji/prefixes, focus on substance):\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
+                
+                // Create cache key from diff content hash
+                const crypto = require('crypto');
+                const diffHash = crypto.createHash('sha256')
+                  .update(patchExcerpt + fileListArray.join('') + commitSubjects)
+                  .digest('hex')
+                  .slice(0, 16);
+                
+                const cacheKey = `ai-summary-${diffHash}`;
+                
+                // Try to get cached summary from PR comments
+                let cachedSummary = '';
+                try {
+                  const comments = await github.paginate(github.rest.issues.listComments, {
+                    owner, repo, issue_number: prNumber, per_page: 100
+                  });
+                  const cacheComment = comments.find(c => 
+                    c.body?.includes(`<!-- CACHE:${cacheKey} -->`) && 
+                    c.user?.login === 'github-actions[bot]'
+                  );
+                  if (cacheComment) {
+                    const match = cacheComment.body.match(/<!-- CACHE:.*? -->\n([\s\S]*?)(?:\n<!-- \/CACHE -->|$)/);
+                    if (match && match[1]) {
+                      cachedSummary = match[1].trim();
+                      core.info(`Using cached AI summary (${cacheKey})`);
+                    }
+                  }
+                } catch (e) {
+                  core.warning(`Cache lookup failed: ${e.message}`);
+                }
+                
+                if (cachedSummary) {
+                  aiSummary = cachedSummary;
+                } else {
+                  // Generate new AI summary
+                  const prompt = `Summarize this PR concisely for reviewers in max 300 words. Focus on WHAT changed, not commit prefixes. Format: Summary (1 line), Key Changes (3-5 bullets describing actual changes), Risk (Low/Med/High), Testing notes.\n\nBranch: ${pr.data.head.ref}\nFiles:\n${fileListArray.slice(0, 10).join('\n')}\nCommits (ignore emoji/prefixes, focus on substance):\n${commitSubjects.slice(0, 5).join('\n')}\n\nCode:\n${patchExcerpt}`;
 
-                const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: 'gpt-5-mini',
-                    messages: [
-                      { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
-                      { role: 'user', content: prompt },
-                    ],
-                    temperature: 0.1,
-                    max_tokens: 500,
-                  }),
-                });
-                const data = await resp.json();
-                aiSummary = data?.choices?.[0]?.message?.content?.trim?.() || '';
+                  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${openaiKey}`,
+                    },
+                    body: JSON.stringify({
+                      model: 'gpt-5-mini',
+                      messages: [
+                        { role: 'system', content: 'You are an expert code reviewer and technical writer.' },
+                        { role: 'user', content: prompt },
+                      ],
+                      temperature: 0.1,
+                      max_tokens: 500,
+                    }),
+                  });
+                  const data = await resp.json();
+                  aiSummary = data?.choices?.[0]?.message?.content?.trim?.() || '';
+                  
+                  // Cache the result as a hidden comment
+                  if (aiSummary && !forceRegenerate) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner, repo, issue_number: prNumber,
+                        body: `<!-- CACHE:${cacheKey} -->\n${aiSummary}\n<!-- /CACHE -->`
+                      });
+                      core.info(`Cached AI summary (${cacheKey})`);
+                    } catch (e) {
+                      core.warning(`Failed to cache summary: ${e.message}`);
+                    }
+                  }
+                }
               } else {
                 core.info('OPENAI_KEY not set; skipping AI summary.');
               }
@@ -245,13 +293,72 @@ jobs:
               }
               return;
             }
-            // Always include Diagram and File Walkthrough sections
+            // Dynamic diagram based on affected files
+            let diagramNodes = ['  Main["NovaJournalPlugin (main.ts)"]'];
+            let diagramEdges = [];
+            
+            const hasUI = files.some(f => f.filename.includes('ui/') || f.filename.includes('SettingsTab'));
+            const hasPrompt = files.some(f => f.filename.includes('prompt/') || f.filename.includes('services/prompt'));
+            const hasAI = files.some(f => f.filename.includes('ai/') || f.filename.includes('services/ai'));
+            const hasStyles = files.some(f => f.filename.includes('styles.css') || f.filename.includes('.css'));
+            const hasTests = files.some(f => f.filename.includes('test') || f.filename.includes('spec'));
+            const hasConfig = files.some(f => f.filename.includes('manifest.json') || f.filename.includes('package.json'));
+            
+            if (hasUI) {
+              diagramNodes.push('  UI["UI Components (ui/)"]');
+              diagramEdges.push('  Main --> UI');
+            }
+            
+            if (hasPrompt) {
+              diagramNodes.push('  Prompt["Prompt Services (services/prompt/)"]');
+              diagramEdges.push('  Main --> Prompt');
+              if (hasUI) diagramEdges.push('  UI --> Prompt');
+            }
+            
+            if (hasAI) {
+              diagramNodes.push('  AI["AI Services (services/ai/)"]');
+              diagramEdges.push('  Main --> AI');
+              if (hasPrompt) diagramEdges.push('  Prompt --> AI');
+              
+              // Add specific AI components if files are modified
+              const aiFiles = files.filter(f => f.filename.includes('services/ai/'));
+              aiFiles.forEach(f => {
+                const basename = f.filename.split('/').pop().replace('.ts', '');
+                if (basename === 'RagContextService') {
+                  diagramNodes.push('  RAG["RagContextService"]');
+                  diagramEdges.push('  AI --> RAG');
+                } else if (basename === 'EnhancedEmbeddingService') {
+                  diagramNodes.push('  Embed["EnhancedEmbeddingService"]');
+                  diagramEdges.push('  AI --> Embed');
+                } else if (basename.includes('Prompt')) {
+                  diagramNodes.push('  PromptGen["Prompt Generation"]');
+                  diagramEdges.push('  AI --> PromptGen');
+                }
+              });
+            }
+            
+            if (hasStyles) {
+              diagramNodes.push('  Styles["Styles (styles.css)"]');
+              diagramEdges.push('  UI --> Styles');
+            }
+            
+            if (hasTests) {
+              diagramNodes.push('  Tests["Test Suite"]');
+              diagramEdges.push('  Tests -.-> Main');
+              if (hasAI) diagramEdges.push('  Tests -.-> AI');
+              if (hasPrompt) diagramEdges.push('  Tests -.-> Prompt');
+            }
+            
+            if (hasConfig) {
+              diagramNodes.push('  Config["Configuration"]');
+              diagramEdges.push('  Config -.-> Main');
+            }
+            
             const diagram = [
               '```mermaid',
               'flowchart LR',
-              '  Main["NovaJournalPlugin (main.ts)"] --> Settings["NovaJournalSettingTab (ui/SettingsTab.ts)"]',
-              '  Main --> Service["PromptService (prompt/PromptService.ts)"]',
-              '  Service --> Registry["PromptRegistry (prompt/PromptRegistry.ts)"]',
+              ...diagramNodes,
+              ...diagramEdges,
               '```',
             ].join('\n');
 
@@ -272,7 +379,17 @@ jobs:
             // Risk heuristic
             const risk = (changes > 600 || files.length > 25) ? 'High' : (changes > 300 || files.length > 12) ? 'Medium' : 'Low';
 
-            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n- Manual: run Nova Journal commands and validate template/duplicate-prevention\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
+            // Dynamic testing section based on affected areas
+            let testingSection = '- Manual: run Nova Journal commands and verify functionality';
+            if (areaTop.includes('ai') || areaTop.includes('services')) {
+              testingSection = '- Manual: test AI services and RAG functionality\n- Verify prompt generation and context retrieval';
+            } else if (areaTop.includes('ui') || areaTop.includes('styles')) {
+              testingSection = '- Manual: test UI components and styling\n- Verify responsive design and accessibility';
+            } else if (areaTop.includes('test')) {
+              testingSection = '- Run: `npm test` to validate test suite\n- Check test coverage and assertions';
+            }
+
+            const body = `## Summary\n${summaryLine}\n\n## Key Changes\n${keyChangesList}\n\n## Impact\n- Risk: ${risk}\n- Affected areas: ${areaTop || 'n/a'}\n\n## Testing\n${testingSection}\n\n---\n\n### Diagram\n\n${diagram}\n\n<details><summary><h3>Files Touched</h3></summary>\n\n${fileWalk}\n\n</details>\n\n## Meta\n- +${additions} / -${deletions}, ${changes} changes\n\n## Checklist\n${checklist}\n`;
             await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body });
 
             // Auto labels (default GitHub names + review effort)
