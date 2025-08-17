@@ -58,7 +58,7 @@ export class EnhancedEmbeddingService {
   async incrementalUpdateIndex(folder: string): Promise<void> {
     console.log('[EnhancedEmbeddingService] Debug - incrementalUpdateIndex called with folder:', folder);
     console.log('[EnhancedEmbeddingService] Debug - AI enabled:', this.settings.aiEnabled);
-    console.log('[EnhancedEmbeddingService] Debug - API key available:', !!this.settings.aiApiKey);
+    console.log('[EnhancedEmbeddingService] Debug - API key configured:', this.settings.aiEnabled && !!this.settings.aiApiKey);
     
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
       console.log('[EnhancedEmbeddingService] Debug - AI disabled or no API key, skipping indexing');

@@ -163,8 +163,7 @@ export class ConversationService {
       if (ragContext) {
         enhancedSystemPrompt = `You are Nova, a journaling assistant. You have access to context from the user's previous journal entries.
 
-MANDATORY RESPONSE FORMAT: You must begin your response by explicitly referencing the context provided. Start with something like:
-"Je vois que [specific situation from context] s'est passé [timeframe], ce qui t'a fait ressentir [emotion] parce que [specific reason from context]..."
+MANDATORY RESPONSE FORMAT: You must begin your response by explicitly referencing the context provided. Start by acknowledging the specific situation, timeframe, emotion, and reason from the context.
 
 Then continue with ONE reflective question or insight. Keep your response concise (2-3 sentences total). DO NOT repeat questions or add multiple versions of the same question.
 
