@@ -1,9 +1,10 @@
 name: Auto PR title/body + labels
 on:
-  pull_request_target:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
-  issue_comment:
-    types: [created]
+  workflow_dispatch: # Manuel seulement
+  # pull_request_target:
+  #   types: [opened, edited, synchronize, reopened, ready_for_review]
+  # issue_comment:
+  #   types: [created]
 permissions:
   contents: write
   pull-requests: write
