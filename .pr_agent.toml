@@ -1,5 +1,5 @@
 [config]
-model = "gpt-4o"
+model = "gpt-5-mini"
 ai_timeout = 120
 max_description_tokens = 500
 max_commits_tokens = 500
@@ -16,6 +16,7 @@ pr_commands = [
 handle_push_commits_message = false
 auto_describe = true
 auto_review = false
+auto_add_labels = true
 
 [pr_description]
 publish_description_as_comment = false
