@@ -1,6 +1,6 @@
 {
 	"name": "nova-journal",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"description": "Guided journaling: local-first by default, with optional AI via external APIs.",
 	"main": "main.js",
 	"scripts": {
