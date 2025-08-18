@@ -19,6 +19,13 @@ jobs:
       issues: write
     name: Run PR Agent on PRs and comments
     steps:
+      - name: Debug workflow trigger
+        run: |
+          echo "Event type: ${{ github.event_name }}"
+          echo "Action type: ${{ github.event.action }}"
+          echo "PR number: ${{ github.event.number }}"
+          echo "Sender: ${{ github.event.sender.login }}"
+      
       - name: PR Agent action step
         id: pragent
         uses: qodo-ai/pr-agent@main

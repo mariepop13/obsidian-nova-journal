@@ -15,7 +15,7 @@ pr_commands = [
 ]
 handle_push_commits_message = false
 auto_describe = true
-auto_review = false
+auto_review = true
 auto_add_labels = true
 
 [pr_description]
