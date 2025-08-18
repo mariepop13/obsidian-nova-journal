@@ -20,3 +20,14 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# Claude Code configuration (keep local only)
+.claude
+CLAUDE.md
+.claude-settings.json
+
+# Serena MCP configuration and cache (keep local only)
+.serena
+
+# Test coverage reports
+coverage

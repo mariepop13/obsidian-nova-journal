@@ -1,213 +1,209 @@
-import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
-import { PromptService } from './prompt/PromptService';
+import { Editor, MarkdownView, Plugin } from 'obsidian';
+
 import type { PromptStyle } from './prompt/PromptRegistry';
 import { DEFAULT_SETTINGS, NovaJournalSettings, normalizeSettings } from './settings/PluginSettings';
 import { removeDateHeadingInEditor } from './services/editor/NoteEditor';
-import { ConversationService } from './services/ai/ConversationService';
-import { FileService } from './services/utils/FileService';
-import { PromptInsertionService } from './services/editor/PromptInsertionService';
 import { FrontmatterService } from './services/rendering/FrontmatterService';
-import { SettingsCommandService } from './services/utils/SettingsCommandService';
 import { EditorNotFoundError } from './services/shared/ErrorTypes';
+import { ToastSpinnerService } from './services/editor/ToastSpinnerService';
+import { type ServiceCollection, ServiceInitializer } from './services/ServiceInitializer';
+import { type CommandCallbacks, CommandRegistry } from './commands/CommandRegistry';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
-import { registerDeepenHandlers } from './ui/DeepenHandlers';
-import { MoodAnalysisService } from './services/ai/MoodAnalysisService';
 
 export default class NovaJournalPlugin extends Plugin {
-    settings: NovaJournalSettings;
-    private promptService: PromptService;
-    private conversationService: ConversationService;
-    private fileService: FileService;
-    private promptInsertionService: PromptInsertionService;
-    private moodAnalysisService: MoodAnalysisService;
+  settings: NovaJournalSettings;
+  private services: ServiceCollection;
+  private serviceInitializer: ServiceInitializer;
+  private commandRegistry: CommandRegistry;
 
-	async onload() {
-		await this.loadSettings();
-        this.promptService = new PromptService();
-        this.conversationService = new ConversationService(this.settings);
-        this.fileService = new FileService(this.app);
-        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
-        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
-        this.addRibbonIcon('sparkles', 'Nova Journal: Insert today\'s prompt', async () => {
-            await this.insertTodaysPrompt();
-        });
-        this.addRibbonIcon('gear', 'Nova Journal: Settings', async () => {
-            SettingsCommandService.openSettings(this.app, this.manifest.id);
-        });
-        this.addCommand({
-            id: 'nova-insert-todays-prompt',
-            name: 'Nova Journal: Insert today\'s prompt',
-            callback: async () => {
-                await this.insertTodaysPrompt();
-            },
-        });
-        this.addCommand({
-            id: 'nova-open-settings',
-            name: 'Nova Journal: Open settings',
-            callback: async () => {
-                SettingsCommandService.openSettings(this.app, this.manifest.id);
-            },
-        });
-		this.addCommand({
-            id: 'nova-insert-prompt-here',
-            name: 'Nova Journal: Insert prompt here',
-            callback: async () => {
-                await this.insertPromptInActiveEditor();
-            },
-        });
-		this.addCommand({
-            id: 'nova-cycle-prompt-style',
-            name: 'Nova Journal: Cycle prompt style',
-            callback: async () => {
-                this.cyclePromptStyle();
-            },
-        });
-		this.addCommand({
-            id: 'nova-deepen-last-line',
-            name: 'Nova Journal: Deepen last line (AI)',
-            callback: async () => {
-                await this.deepenLastLine();
-            },
-        });
-        this.addSettingTab(new NovaJournalSettingTab(this.app, this));
+  async onload() {
+    await this.loadSettings();
+    this.initializeServices();
+    this.registerCommands();
+    this.registerSettingsTab();
+    void this.startEmbeddingMigration();
+  }
 
-        registerDeepenHandlers(
-            this, 
-            () => this.settings.deepenButtonLabel, 
-            (line) => this.deepenLastLine(line), 
-            (label) => this.deepenWholeNote(label),
-            () => this.analyzeMood()
+  private initializeServices(): void {
+    this.serviceInitializer = new ServiceInitializer(this.app, this.settings);
+    this.services = this.serviceInitializer.initializeServices();
+  }
+
+  private registerCommands(): void {
+    const callbacks: CommandCallbacks = {
+      insertTodaysPrompt: () => this.insertTodaysPrompt(),
+      insertPromptInActiveEditor: () => this.insertPromptInActiveEditor(),
+      cyclePromptStyle: () => this.cyclePromptStyle(),
+      deepenLastLine: targetLine => this.deepenLastLine(targetLine),
+      deepenWholeNote: label => this.deepenWholeNote(label),
+      analyzeMood: () => this.analyzeMood(),
+      rebuildEmbeddings: () => this.rebuildEmbeddings(),
+      getDeepButtonLabel: () => this.settings.deepenButtonLabel,
+    };
+
+    this.commandRegistry = new CommandRegistry(this, callbacks);
+    this.commandRegistry.registerAllCommands();
+  }
+
+  private registerSettingsTab(): void {
+    this.addSettingTab(new NovaJournalSettingTab(this.app, this));
+  }
+
+  private async startEmbeddingMigration(): Promise<void> {
+    await this.serviceInitializer.initializeEmbeddingMigration();
+  }
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const normalized = normalizeSettings(this.settings);
+    if (JSON.stringify(normalized) !== JSON.stringify(this.settings)) {
+      this.settings = normalized;
+      await this.saveSettings();
+    }
+  }
+
+  private async deepenLastLine(targetLine?: number): Promise<void> {
+    try {
+      const editor = this.getActiveEditor();
+      await this.services.conversationService.deepenLine(editor, targetLine);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  private async deepenWholeNote(label: string): Promise<void> {
+    try {
+      const editor = this.getActiveEditor();
+      await this.services.conversationService.deepenWholeNote(editor, label);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  private async rebuildEmbeddings(): Promise<void> {
+    try {
+      if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+        ToastSpinnerService.error('Nova Journal: AI must be enabled to rebuild embeddings.');
+        return;
+      }
+
+      ToastSpinnerService.info('Nova Journal: Rebuilding embeddings index...');
+
+      const mod = await import('./services/ai/EnhancedEmbeddingService');
+      const EnhancedEmbeddingService = mod.EnhancedEmbeddingService;
+      if (!EnhancedEmbeddingService) {
+        console.error('[Nova Journal] EnhancedEmbeddingService not found in module:', mod);
+        ToastSpinnerService.error('Nova Journal: Embedding service unavailable.');
+        return;
+      }
+
+      const embeddingService = new EnhancedEmbeddingService(this.app, this.settings);
+      if (typeof embeddingService.forceFullRebuild !== 'function') {
+        console.error(
+          '[Nova Journal] forceFullRebuild method missing on EnhancedEmbeddingService instance',
+          embeddingService
         );
-	}
+        ToastSpinnerService.error('Nova Journal: Embedding service method missing.');
+        return;
+      }
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        const normalized = normalizeSettings(this.settings);
-        if (JSON.stringify(normalized) !== JSON.stringify(this.settings)) {
-            this.settings = normalized;
-            await this.saveSettings();
-        }
+      await embeddingService.forceFullRebuild(this.settings.dailyNoteFolder);
+
+      ToastSpinnerService.notice('Nova Journal: Embeddings index rebuilt successfully.');
+    } catch (error) {
+      console.error('[Nova Journal] Failed to rebuild embeddings:', error);
+      ToastSpinnerService.error('Nova Journal: Failed to rebuild embeddings index.');
     }
+  }
 
-    private async deepenLastLine(targetLine?: number): Promise<void> {
-        try {
-            const editor = this.getActiveEditor();
-            await this.conversationService.deepenLine(editor, targetLine);
-        } catch (error) {
-            this.handleError(error);
-        }
+  private getActiveEditor(): Editor {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view) {
+      throw new EditorNotFoundError();
     }
+    return view.editor;
+  }
 
-    private async deepenWholeNote(label: string): Promise<void> {
-        try {
-            const editor = this.getActiveEditor();
-            await this.conversationService.deepenWholeNote(editor, label);
-        } catch (error) {
-            this.handleError(error);
-        }
+  private handleError(error: unknown): void {
+    console.error(error);
+
+    if (error instanceof EditorNotFoundError) {
+      ToastSpinnerService.error(error.message);
+    } else {
+      ToastSpinnerService.error('Nova Journal: An unexpected error occurred.');
     }
+  }
 
-    private getActiveEditor(): Editor {
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!view) {
-            throw new EditorNotFoundError();
-        }
-        return view.editor;
+  async saveSettings() {
+    await this.saveData(this.settings);
+    this.services = this.serviceInitializer.recreateServicesAfterSettingsChange(this.services);
+  }
+
+  private async insertTodaysPrompt(): Promise<void> {
+    try {
+      const todayFile = await this.services.fileService.ensureTodayNote(
+        this.settings.dailyNoteFolder,
+        this.settings.dailyNoteFormat,
+        this.settings.organizeByYearMonth
+      );
+
+      await this.services.fileService.openFileIfNotActive(todayFile);
+      await this.services.fileService.removeDateHeadingFromFile(todayFile);
+
+      const editor = this.getActiveEditor();
+      removeDateHeadingInEditor(editor);
+
+      const success = await this.services.promptInsertionService.insertTodaysPrompt(editor);
+      if (!success) {
+        ToastSpinnerService.error('Nova Journal: prompt insertion was unsuccessful.');
+      }
+    } catch (error) {
+      console.error('Nova Journal insert error', error);
+      ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
     }
+  }
 
-    private handleError(error: unknown): void {
-        console.error(error);
-        
-        if (error instanceof EditorNotFoundError) {
-            new Notice(error.message);
-        } else {
-            new Notice('Nova Journal: An unexpected error occurred.');
-        }
+  private async insertPromptInActiveEditor(): Promise<void> {
+    try {
+      const editor = this.getActiveEditor();
+      await this.services.promptInsertionService.insertPromptAtLocation(editor);
+    } catch (error) {
+      this.handleError(error);
     }
+  }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-        this.conversationService = new ConversationService(this.settings);
-        this.promptInsertionService = new PromptInsertionService(this.promptService, this.settings);
-        this.moodAnalysisService = new MoodAnalysisService(this.settings, this.app);
-	}
+  private cyclePromptStyle(): void {
+    const order: PromptStyle[] = ['reflective', 'gratitude', 'planning', 'dreams'];
+    const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
+    const safeIdx = idx >= 0 ? idx : 0;
+    const next = order[(safeIdx + 1) % order.length];
+    this.settings.promptStyle = next as PromptStyle;
+    void this.saveSettings();
+    ToastSpinnerService.info(`Nova Journal: style set to ${next}`);
+  }
 
-    private async insertTodaysPrompt(): Promise<void> {
-        try {
-            const todayFile = await this.fileService.ensureTodayNote(
-                this.settings.dailyNoteFolder,
-                this.settings.dailyNoteFormat,
-                this.settings.organizeByYearMonth
-            );
-            
-            await this.fileService.openFileIfNotActive(todayFile);
-            await this.fileService.removeDateHeadingFromFile(todayFile);
+  private async analyzeMood(): Promise<void> {
+    try {
+      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (!view) {
+        ToastSpinnerService.error('Nova Journal: open a note to analyze mood.');
+        return;
+      }
 
-            const editor = this.getActiveEditor();
-            removeDateHeadingInEditor(editor);
-            
-            const date = new Date();
-            const basePrompt = this.promptService.getPromptForDate(this.settings.promptStyle as PromptStyle, date);
+      ToastSpinnerService.info('Analyzing mood...');
+      const editor = view.editor;
+      const noteText = editor.getValue();
+      const analysis = await this.services.moodAnalysisService.analyzeCurrentNoteContent(noteText);
+      if (!analysis) return;
 
-            const wasInserted = await this.promptInsertionService.insertTodaysPromptWithDuplicateCheck(
-                editor,
-                basePrompt,
-                date
-            );
-            
-            if (wasInserted) {
-                new Notice('Nova Journal: prompt inserted.');
-            }
-        } catch (error) {
-            console.error('Nova Journal insert error', error);
-            new Notice('Nova Journal: failed to insert prompt. See console for details.');
-        }
+      const { validateAndParseJSON } = await import('./utils/Sanitizer');
+      const props = validateAndParseJSON<Record<string, any>>(analysis, {}) || {};
+      const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
+      FrontmatterService.upsertFrontmatter(editor, cleaned);
+      ToastSpinnerService.notice('Mood properties updated.');
+    } catch (error) {
+      console.error('Mood analysis error:', error);
+      ToastSpinnerService.error('Failed to analyze mood data.');
     }
-
-    private async insertPromptInActiveEditor(): Promise<void> {
-        try {
-            const editor = this.getActiveEditor();
-            await this.promptInsertionService.insertPromptAtLocation(editor);
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
-    private cyclePromptStyle(): void {
-        const order: PromptStyle[] = ['reflective', 'gratitude', 'planning'];
-        const idx = order.indexOf(this.settings.promptStyle as PromptStyle);
-        const safeIdx = idx >= 0 ? idx : 0;
-        const next = order[(safeIdx + 1) % order.length];
-        this.settings.promptStyle = next as PromptStyle;
-        void this.saveSettings();
-        new Notice(`Nova Journal: style set to ${next}`);
-    }
-
-    private async analyzeMood(): Promise<void> {
-        try {
-            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-            if (!view) {
-                new Notice('Nova Journal: open a note to analyze mood.');
-                return;
-            }
-
-            new Notice('Analyzing mood...');
-            const editor = view.editor;
-            const noteText = editor.getValue();
-            const analysis = await this.moodAnalysisService.analyzeCurrentNoteContent(noteText);
-            if (!analysis) return;
-
-            let props: Record<string, any> = {};
-            try { props = JSON.parse(analysis); } catch {}
-            const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
-            FrontmatterService.upsertFrontmatter(editor, cleaned);
-            new Notice('Mood properties updated.');
-        } catch (error) {
-            console.error('Mood analysis error:', error);
-            new Notice('Failed to analyze mood data.');
-        }
-    }
-
-
-
+  }
 }

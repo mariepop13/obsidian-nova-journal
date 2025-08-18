@@ -1,4 +1,4 @@
-export type PromptStyle = 'reflective' | 'gratitude' | 'planning';
+export type PromptStyle = 'reflective' | 'gratitude' | 'planning' | 'dreams';
 
 export const promptPacks: Record<PromptStyle, string[]> = {
   reflective: [
@@ -19,5 +19,10 @@ export const promptPacks: Record<PromptStyle, string[]> = {
     'What one habit will I reinforce tomorrow?',
     'What would make tomorrow feel successful?',
   ],
+  dreams: [
+    'Describe the most vivid part of your dream and how it felt.',
+    'What symbols or recurring themes appeared in your dream?',
+    'If this dream was telling you something, what might it be?',
+    'What emotions linger from the dream as you wake up?',
+  ],
 };
-

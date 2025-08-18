@@ -1,2 +1,48 @@
 [config]
 model = "gpt-5-mini"
+ai_timeout = 120
+max_description_tokens = 500
+max_commits_tokens = 500
+
+[github_app]
+pr_commands = [
+    "/describe",
+    "/review", 
+    "/improve",
+    "/ask",
+    "/update_changelog",
+    "/help"
+]
+handle_push_commits_message = true
+auto_describe = true
+auto_review = true
+auto_add_labels = true
+
+[pr_description]
+publish_description_as_comment = false
+add_original_user_description = true
+keep_original_user_title = true
+
+[pr_reviewer]
+require_focused_review = true
+require_score_review = true
+require_tests_review = true
+require_estimate_effort_to_review = true
+inline_code_comments = true
+persistent_comment_per_thread = true
+
+[pr_code_suggestions]
+num_code_suggestions_per_chunk = 4
+suggestions_depth = "detailed"
+commitable_code_suggestions = true
+suggestions_score_threshold = 7
+auto_extended_mode = true
+rank_suggestions = true
+
+[pr_improve]
+extended_mode = true
+number_of_calls = 3
+summarize = true
+
+[pr_update_changelog]
+push_changelog_changes = false

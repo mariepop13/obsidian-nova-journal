@@ -1,4 +1,4 @@
-import type { ButtonStyle, ButtonPosition, NovaJournalSettings } from '../../settings/PluginSettings';
+import type { ButtonPosition, ButtonStyle, NovaJournalSettings } from '../../settings/PluginSettings';
 
 export interface ButtonConfig {
   label: string;
@@ -24,31 +24,37 @@ export class ButtonCustomizationService {
     const buttons: string[] = [];
 
     if (config.scope === 'note' || !config.lineNumber) {
-      buttons.push(this.createDeepenButton({
-        label: config.deepenLabel,
-        cssClass: 'nova-deepen',
-        dataAttributes: { 'data-scope': 'note' },
-        style: config.style,
-        theme: config.theme
-      }));
+      buttons.push(
+        this.createDeepenButton({
+          label: config.deepenLabel,
+          cssClass: 'nova-deepen',
+          dataAttributes: { 'data-scope': 'note' },
+          style: config.style,
+          theme: config.theme,
+        })
+      );
     } else {
-      buttons.push(this.createDeepenButton({
-        label: config.deepenLabel,
-        cssClass: 'nova-deepen',
-        dataAttributes: { 'data-line': config.lineNumber.toString() },
-        style: config.style,
-        theme: config.theme
-      }));
+      buttons.push(
+        this.createDeepenButton({
+          label: config.deepenLabel,
+          cssClass: 'nova-deepen',
+          dataAttributes: { 'data-line': config.lineNumber.toString() },
+          style: config.style,
+          theme: config.theme,
+        })
+      );
     }
 
     if (config.showMoodButton) {
-      buttons.push(this.createMoodButton({
-        label: config.moodLabel,
-        cssClass: 'nova-mood-analyze',
-        dataAttributes: {},
-        style: config.style,
-        theme: config.theme
-      }));
+      buttons.push(
+        this.createMoodButton({
+          label: config.moodLabel,
+          cssClass: 'nova-mood-analyze',
+          dataAttributes: {},
+          style: config.style,
+          theme: config.theme,
+        })
+      );
     }
 
     return this.wrapButtons(buttons, config.position);
@@ -85,9 +91,9 @@ export class ButtonCustomizationService {
 
   private static getClassNames(config: ButtonConfig): string {
     const classes = [config.cssClass];
-    
+
     classes.push(`nova-btn-${config.style}`);
-    
+
     if (config.theme && config.theme !== 'default') {
       classes.push(`nova-btn-theme-${config.theme}`);
     }
@@ -110,7 +116,7 @@ export class ButtonCustomizationService {
     if (config.style === 'minimal') {
       return ' style="background: none; border: none; text-decoration: underline; cursor: pointer; color: var(--text-accent);"';
     }
-    
+
     if (config.style === 'pill') {
       return ' style="border-radius: 20px; padding: 4px 12px; font-size: 0.85em;"';
     }
@@ -120,7 +126,7 @@ export class ButtonCustomizationService {
 
   private static wrapButtons(buttons: string[], position: ButtonPosition): string {
     const buttonGroup = buttons.join(' ');
-    
+
     switch (position) {
       case 'inline':
         return buttonGroup;
@@ -138,7 +144,7 @@ export class ButtonCustomizationService {
       style: settings.buttonStyle,
       position: settings.buttonPosition,
       theme: settings.buttonTheme,
-      showMoodButton: settings.showMoodButton
+      showMoodButton: settings.showMoodButton,
     };
   }
 
@@ -147,7 +153,7 @@ export class ButtonCustomizationService {
       { value: 'button', label: 'Button', description: 'Standard button style' },
       { value: 'link', label: 'Link', description: 'Text link style' },
       { value: 'minimal', label: 'Minimal', description: 'Underlined text with no background' },
-      { value: 'pill', label: 'Pill', description: 'Rounded button with pill shape' }
+      { value: 'pill', label: 'Pill', description: 'Rounded button with pill shape' },
     ];
   }
 
@@ -155,7 +161,7 @@ export class ButtonCustomizationService {
     return [
       { value: 'bottom', label: 'Bottom', description: 'Always at the bottom of notes' },
       { value: 'inline', label: 'Inline', description: 'Within the text flow' },
-      { value: 'both', label: 'Both', description: 'Inline + bottom (when appropriate)' }
+      { value: 'both', label: 'Both', description: 'Inline + bottom (when appropriate)' },
     ];
   }
 
@@ -164,7 +170,7 @@ export class ButtonCustomizationService {
       { value: 'default', label: 'Default' },
       { value: 'accent', label: 'Accent' },
       { value: 'subtle', label: 'Subtle' },
-      { value: 'primary', label: 'Primary' }
+      { value: 'primary', label: 'Primary' },
     ];
   }
 }

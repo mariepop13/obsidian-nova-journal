@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+main.js
+*.js.map
+
+# Version files
+versions.json
+manifest.json
+
+# Configuration files that should keep their formatting
+.eslintrc.js
+esbuild.config.mjs
+version-bump.mjs
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+
+# Obsidian vault files (user data)
+*.md
+!README.md
+!CLAUDE.md
+!docs/**/*.md
+
+# Package lock files
+package-lock.json
+yarn.lock

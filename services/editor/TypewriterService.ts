@@ -21,7 +21,7 @@ export class TypewriterService {
   static async typewriterInsert(config: TypewriterConfig): Promise<void> {
     const tokens = this.tokenizeText(config.text);
     const delay = this.getDelayForSpeed(config.speed);
-    
+
     await this.animateText(config.editor, config.line, config.prefix, tokens, delay);
     this.finalizeText(config.editor, config.line, config.prefix, tokens);
   }
@@ -31,9 +31,9 @@ export class TypewriterService {
       .split(this.SPLIT_PATTERN)
       .reduce<string[]>((acc, part) => {
         if (!part) return acc;
-        
+
         const lastToken = acc.length > 0 ? acc[acc.length - 1] : '';
-        
+
         if (this.isNewline(part)) {
           acc.push(part);
         } else if (this.isPauseToken(part) && lastToken && !this.isNewline(lastToken)) {
@@ -41,7 +41,7 @@ export class TypewriterService {
         } else {
           acc.push(part.trim());
         }
-        
+
         return acc;
       }, [])
       .filter(token => token.length > 0);
@@ -49,17 +49,20 @@ export class TypewriterService {
 
   private static getDelayForSpeed(speed: TypewriterSpeed): number {
     switch (speed) {
-      case 'slow': return TYPEWRITER_DELAYS.SLOW;
-      case 'fast': return TYPEWRITER_DELAYS.FAST;
-      default: return TYPEWRITER_DELAYS.NORMAL;
+      case 'slow':
+        return TYPEWRITER_DELAYS.SLOW;
+      case 'fast':
+        return TYPEWRITER_DELAYS.FAST;
+      default:
+        return TYPEWRITER_DELAYS.NORMAL;
     }
   }
 
   private static async animateText(
-    editor: Editor, 
-    line: number, 
-    prefix: string, 
-    tokens: string[], 
+    editor: Editor,
+    line: number,
+    prefix: string,
+    tokens: string[],
     baseDelay: number
   ): Promise<void> {
     let current = prefix;
@@ -70,19 +73,18 @@ export class TypewriterService {
 
       const token = tokens[i];
       const separator = this.getSeparator(i, token, tokens[i - 1]);
-      
+
       current += this.isNewline(token) ? token : separator + token;
-      
+
       this.updateEditorLine(editor, line, current);
-      
+
       const contextualDelay = this.getContextualDelay(token, baseDelay);
       await this.delay(contextualDelay);
     }
   }
 
   private static shouldStopAnimation(editor: Editor, line: number, startTime: number): boolean {
-    return line > editor.lastLine() || 
-           Date.now() - startTime > TYPEWRITER_DELAYS.MAX_DURATION_MS;
+    return line > editor.lastLine() || Date.now() - startTime > TYPEWRITER_DELAYS.MAX_DURATION_MS;
   }
 
   private static getSeparator(index: number, currentToken: string, previousToken?: string): string {
@@ -93,11 +95,7 @@ export class TypewriterService {
   }
 
   private static updateEditorLine(editor: Editor, line: number, content: string): void {
-    editor.replaceRange(
-      content,
-      { line, ch: 0 },
-      { line, ch: editor.getLine(line).length }
-    );
+    editor.replaceRange(content, { line, ch: 0 }, { line, ch: editor.getLine(line).length });
   }
 
   private static finalizeText(editor: Editor, line: number, prefix: string, tokens: string[]): void {
@@ -109,13 +107,13 @@ export class TypewriterService {
 
   private static buildFinalContent(prefix: string, tokens: string[]): string {
     let result = prefix;
-    
+
     for (let i = 0; i < tokens.length; i += 1) {
       const token = tokens[i];
       const separator = this.getSeparator(i, token, tokens[i - 1]);
       result += this.isNewline(token) ? token : separator + token;
     }
-    
+
     return result;
   }
 
@@ -131,15 +129,15 @@ export class TypewriterService {
     if (this.isNewline(token)) {
       return baseDelay * TYPEWRITER_DELAYS.PAUSE_MULTIPLIERS.NEWLINE;
     }
-    
+
     if (this.isSentenceEnding(token)) {
       return baseDelay * TYPEWRITER_DELAYS.PAUSE_MULTIPLIERS.SENTENCE;
     }
-    
+
     if (this.isCommaLike(token)) {
       return baseDelay * TYPEWRITER_DELAYS.PAUSE_MULTIPLIERS.COMMA;
     }
-    
+
     return baseDelay;
   }
 

@@ -36,6 +36,23 @@ npm run build
 - No telemetry
 - External API calls only when you enable AI features; keys are stored locally via Obsidian settings
 
+### Roadmap
+
+#### Priority 1 - Critical
+- [ ] **Semantic Chunking** - Respect sentence boundaries for better context
+- [ ] **Context Quality Assessment** - Validate relevance before using context
+- [ ] **Type Safety** - Fix `any[]` types in RagContextService
+
+#### Priority 2 - High Impact  
+- [ ] **Multi-dimensional Scoring** - Semantic + emotional + temporal relevance
+- [ ] **Result Caching** - TTL cache for repeated queries
+- [ ] **Async Processing** - Prevent UI blocking during file processing
+
+#### Priority 3 - Performance
+- [ ] **ANN Search** - Hierarchical clustering for faster search
+- [ ] **Multi-Modal Search** - Combine different search strategies
+- [ ] **Personalized Ranking** - Learn from user interactions
+
 ### Support
 If you find Nova Journal helpful, you can support development here:
 

@@ -7,9 +7,9 @@ export function registerDeepenHandlers(
   deepenNote: (label: string) => Promise<void>,
   analyzeMood?: () => Promise<void>
 ) {
-  plugin.registerMarkdownPostProcessor((el) => {
-    el.querySelectorAll('a.nova-deepen, button.nova-deepen').forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
+  plugin.registerMarkdownPostProcessor(el => {
+    el.querySelectorAll('a.nova-deepen, button.nova-deepen').forEach(btn => {
+      btn.addEventListener('click', evt => {
         evt.preventDefault();
         const lineAttr = btn.getAttribute('data-line');
         const scope = btn.getAttribute('data-scope') || '';
@@ -22,8 +22,8 @@ export function registerDeepenHandlers(
     });
 
     if (analyzeMood) {
-      el.querySelectorAll('button.nova-mood-analyze').forEach((btn) => {
-        btn.addEventListener('click', (evt) => {
+      el.querySelectorAll('button.nova-mood-analyze').forEach(btn => {
+        btn.addEventListener('click', evt => {
           evt.preventDefault();
           analyzeMood().catch(console.error);
         });
@@ -35,7 +35,7 @@ export function registerDeepenHandlers(
     const t = evt.target as HTMLElement;
     const deepenBtn = t.closest('a.nova-deepen, button.nova-deepen');
     const moodBtn = t.closest('button.nova-mood-analyze');
-    
+
     if (deepenBtn) {
       evt.preventDefault();
       const scope = deepenBtn.getAttribute('data-scope') || '';
@@ -51,4 +51,3 @@ export function registerDeepenHandlers(
     }
   });
 }
-
