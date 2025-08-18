@@ -46,16 +46,19 @@ export class EmbeddingMigrationService {
   private async backupLegacyIndex(): Promise<void> {
     try {
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
-      const backupKey = `nova-journal-index-backup-${this.app.vault.getName()}-${Date.now()}`;
+      const backupKey = `nova-journal-index-backup-${this.app.vault.getName()}`;
       
       const legacyData = localStorage.getItem(legacyIndexKey);
       if (legacyData) {
-        localStorage.setItem(backupKey, legacyData);
-        console.log('[EmbeddingMigrationService] Legacy index backed up');
+        try {
+          localStorage.setItem(backupKey, legacyData);
+          console.log('[EmbeddingMigrationService] Legacy index backed up');
+        } catch (storageError) {
+          console.error('[EmbeddingMigrationService] Failed to write backup to localStorage', storageError);
+        }
       }
     } catch (error) {
       console.error('[EmbeddingMigrationService] Failed to backup legacy index', error);
-      throw error; // Propagate the error to fail the migration
     }
   }
 

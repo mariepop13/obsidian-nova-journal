@@ -29,7 +29,8 @@ export class PromptTemplateSettingsRenderer {
 						this.plugin.settings.promptStyle = value as
 							| "reflective"
 							| "gratitude"
-							| "planning";
+							| "planning"
+							| "dreams";
 						await this.plugin.saveSettings();
 					} catch (error) {
 						ToastSpinnerService.error("Failed to save prompt style");

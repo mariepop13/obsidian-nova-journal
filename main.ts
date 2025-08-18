@@ -89,8 +89,20 @@ export default class NovaJournalPlugin extends Plugin {
 
             ToastSpinnerService.info('Nova Journal: Rebuilding embeddings index...');
             
-            const { EnhancedEmbeddingService } = await import('./services/ai/EnhancedEmbeddingService');
+            const mod = await import('./services/ai/EnhancedEmbeddingService');
+            const EnhancedEmbeddingService = (mod && (mod.EnhancedEmbeddingService || mod.default)) as any;
+            if (!EnhancedEmbeddingService) {
+                console.error('[Nova Journal] EnhancedEmbeddingService not found in module:', mod);
+                ToastSpinnerService.error('Nova Journal: Embedding service unavailable.');
+                return;
+            }
+
             const embeddingService = new EnhancedEmbeddingService(this.app, this.settings);
+            if (typeof embeddingService.forceFullRebuild !== 'function') {
+                console.error('[Nova Journal] forceFullRebuild method missing on EnhancedEmbeddingService instance', embeddingService);
+                ToastSpinnerService.error('Nova Journal: Embedding service method missing.');
+                return;
+            }
             
             await embeddingService.forceFullRebuild(this.settings.dailyNoteFolder);
             

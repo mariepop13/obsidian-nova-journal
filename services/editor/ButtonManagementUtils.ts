@@ -47,10 +47,12 @@ function insertBottomButtons(
 function findButtonInsertionPoint(editor: Editor) {
 	const endLine = editor.lastLine();
 	const lastNonEmpty = findLastNonEmptyLine(editor, endLine);
+	const insertLine = Math.max(0, lastNonEmpty + 1);
+	const insertPos = { line: insertLine, ch: 0 };
 
 	return {
-		from: { line: Math.max(0, lastNonEmpty + 1), ch: 0 },
-		to: { line: Math.max(0, endLine), ch: editor.getLine(Math.max(0, endLine)).length },
+		from: insertPos,
+		to: insertPos
 	};
 }
 

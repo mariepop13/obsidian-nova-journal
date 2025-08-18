@@ -317,7 +317,7 @@ export class RagContextService {
 
   private isEmptyPrompt(text: string, textLength: number): boolean {
     const hasNovaPrompt = text.includes('**nova**:');
-    const hasUserSection = text.includes('**marie** (you):');
+    const hasUserSection = /\*\*[^*]+\*\*\s*\(you\)\s*:/i.test(text);
     const hasButton = text.includes('</button>');
     const isTooShort = textLength < CONTENT_THRESHOLDS.EMPTY_PROMPT_MAX_LENGTH;
     
