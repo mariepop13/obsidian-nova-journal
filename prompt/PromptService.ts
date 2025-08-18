@@ -1,4 +1,4 @@
-import { promptPacks, PromptStyle } from './PromptRegistry';
+import { PromptStyle, promptPacks } from './PromptRegistry';
 import type { MoodData } from '../services/rendering/FrontmatterService';
 import { PromptStyleSelectorService } from '../services/ai/PromptStyleSelectorService';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
@@ -50,8 +50,8 @@ export class PromptService {
       return 'dreams';
     }
 
-    const tags = (moodData?.tags || []).map((t) => t.toLowerCase());
-    const emotions = (moodData?.dominant_emotions || []).map((e) => e.toLowerCase());
+    const tags = (moodData?.tags || []).map(t => t.toLowerCase());
+    const emotions = (moodData?.dominant_emotions || []).map(e => e.toLowerCase());
     if (tags.includes('sleep') || tags.includes('dreams') || emotions.includes('curious')) {
       return 'dreams';
     }
@@ -60,13 +60,12 @@ export class PromptService {
   }
 
   private generateDateSeed(style: string, date: Date): number {
-    const key = `${style}:${date.getUTCFullYear()}-${date.getUTCMonth()+1}-${date.getUTCDate()}`;
+    const key = `${style}:${date.getUTCFullYear()}-${date.getUTCMonth() + 1}-${date.getUTCDate()}`;
     let hash = 0;
     for (let i = 0; i < key.length; i += 1) {
-      hash = ((hash << 5) - hash) + key.charCodeAt(i);
+      hash = (hash << 5) - hash + key.charCodeAt(i);
       hash |= 0;
     }
     return Math.abs(hash);
   }
 }
-

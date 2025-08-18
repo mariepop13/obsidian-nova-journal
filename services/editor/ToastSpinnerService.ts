@@ -36,13 +36,13 @@ export class ToastSpinnerService {
       timeout = 0,
       showSpinner = true,
       spinnerPosition = 'left',
-      autoHide = false
+      autoHide = false,
     } = config;
 
     // Create notice container
     const noticeElement = this.createNoticeElement(message, showSpinner, state, spinnerPosition);
     const notice = new Notice('', timeout);
-    
+
     if ((notice as any).noticeEl) {
       const noticeEl = (notice as any).noticeEl as HTMLElement;
       while (noticeEl.firstChild) {
@@ -60,9 +60,9 @@ export class ToastSpinnerService {
         text: '',
         state,
         size: 'small',
-        position: 'inline'
+        position: 'inline',
       });
-      
+
       const spinnerContainer = noticeElement.querySelector('.nova-toast-spinner') as HTMLElement;
       if (spinnerContainer && spinner.element) {
         spinnerContainer.appendChild(spinner.element);
@@ -76,7 +76,7 @@ export class ToastSpinnerService {
       config,
       updateMessage: (newMessage: string) => this.updateMessage(id, newMessage),
       updateState: (newState: LoadingState) => this.updateState(id, newState),
-      hide: () => this.hide(id)
+      hide: () => this.hide(id),
     };
 
     this.activeToasts.set(id, instance);
@@ -125,7 +125,6 @@ export class ToastSpinnerService {
     }
   }
 
-
   private static createNoticeElement(
     message: string,
     showSpinner: boolean,
@@ -161,53 +160,52 @@ export class ToastSpinnerService {
       message,
       state,
       showSpinner: true,
-      spinnerPosition: 'left'
+      spinnerPosition: 'left',
     });
   }
 
-  static showThinking(message: string = 'Thinking...'): ToastSpinnerInstance {
+  static showThinking(message = 'Thinking...'): ToastSpinnerInstance {
     return this.create({
       message,
       state: 'thinking',
       showSpinner: true,
-      spinnerPosition: 'left'
+      spinnerPosition: 'left',
     });
   }
 
-  static showGenerating(message: string = 'Generating...'): ToastSpinnerInstance {
+  static showGenerating(message = 'Generating...'): ToastSpinnerInstance {
     return this.create({
       message,
       state: 'generating',
       showSpinner: true,
-      spinnerPosition: 'left'
+      spinnerPosition: 'left',
     });
   }
 
-  static showProcessing(message: string = 'Processing...'): ToastSpinnerInstance {
+  static showProcessing(message = 'Processing...'): ToastSpinnerInstance {
     return this.create({
       message,
       state: 'processing',
       showSpinner: true,
-      spinnerPosition: 'left'
+      spinnerPosition: 'left',
     });
   }
 
-  static showAnalyzing(message: string = 'Analyzing...'): ToastSpinnerInstance {
+  static showAnalyzing(message = 'Analyzing...'): ToastSpinnerInstance {
     return this.create({
       message,
       state: 'analyzing',
       showSpinner: true,
-      spinnerPosition: 'left'
+      spinnerPosition: 'left',
     });
   }
-
 
   static notice(message: string, timeout?: number): Notice {
     const instance = this.create({
       message,
       showSpinner: false,
       timeout: timeout || 4000,
-      autoHide: true
+      autoHide: true,
     });
     return instance.notice;
   }
@@ -217,14 +215,14 @@ export class ToastSpinnerService {
       message,
       showSpinner: false,
       timeout: timeout || 4000,
-      autoHide: true
+      autoHide: true,
     });
-    
+
     const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
     if (noticeEl && noticeEl.classList) {
       noticeEl.classList.add('nova-toast-warn');
     }
-    
+
     return instance.notice;
   }
 
@@ -233,14 +231,14 @@ export class ToastSpinnerService {
       message,
       showSpinner: false,
       timeout: timeout || 5000,
-      autoHide: true
+      autoHide: true,
     });
-    
+
     const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
     if (noticeEl && noticeEl.classList) {
       noticeEl.classList.add('nova-toast-error');
     }
-    
+
     return instance.notice;
   }
 
@@ -249,14 +247,14 @@ export class ToastSpinnerService {
       message,
       showSpinner: false,
       timeout: timeout || 4000,
-      autoHide: true
+      autoHide: true,
     });
-    
+
     const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
     if (noticeEl && noticeEl.classList) {
       noticeEl.classList.add('nova-toast-info');
     }
-    
+
     return instance.notice;
   }
 
@@ -269,34 +267,28 @@ export class ToastSpinnerService {
       errorMessage?: string;
     }
   ): Promise<T> {
-    const {
-      loadingMessage,
-      loadingState = 'processing',
-      successMessage,
-      errorMessage
-    } = config;
+    const { loadingMessage, loadingState = 'processing', successMessage, errorMessage } = config;
 
     const toast = this.create({
       message: loadingMessage,
       state: loadingState,
       showSpinner: true,
-      spinnerPosition: 'left'
+      spinnerPosition: 'left',
     });
 
     try {
       const result = await operation(toast);
-      
+
       if (successMessage) {
         toast.hide();
         this.notice(successMessage, 3000);
       } else {
         toast.hide();
       }
-      
+
       return result;
     } catch (error) {
-      const finalErrorMessage = errorMessage || 
-        (error instanceof Error ? error.message : 'Operation failed');
+      const finalErrorMessage = errorMessage || (error instanceof Error ? error.message : 'Operation failed');
       toast.hide();
       this.error(finalErrorMessage, 5000);
       throw error;

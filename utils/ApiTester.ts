@@ -19,7 +19,7 @@ export class ApiTester {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${validatedKey}`,
-            'User-Agent': API_CONFIG.USER_AGENT
+            'User-Agent': API_CONFIG.USER_AGENT,
           },
           signal: controller.signal,
         });
@@ -32,9 +32,7 @@ export class ApiTester {
           const message = `OpenAI test: OK${modelCount ? ` (${modelCount} models accessible)` : ''}`;
           ToastSpinnerService.notice(message);
         } else {
-          const errorMessage = sanitizeForLogging(
-            data?.error?.message || `HTTP ${response.status}`
-          );
+          const errorMessage = sanitizeForLogging(data?.error?.message || `HTTP ${response.status}`);
           ToastSpinnerService.error(`OpenAI test failed: ${errorMessage}`);
         }
       } catch (error) {
@@ -43,9 +41,7 @@ export class ApiTester {
         if (error instanceof Error && error.name === 'AbortError') {
           ToastSpinnerService.error('OpenAI test timed out. Check your connection.');
         } else {
-          const errorMessage = sanitizeForLogging(
-            error instanceof Error ? error.message : 'Unknown error'
-          );
+          const errorMessage = sanitizeForLogging(error instanceof Error ? error.message : 'Unknown error');
           ToastSpinnerService.error(`OpenAI test error: ${errorMessage}`);
         }
       }

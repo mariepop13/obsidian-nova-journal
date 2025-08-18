@@ -56,7 +56,8 @@ export class RegexHelpers {
   }
 
   static createNoteScopeAnchorPattern(): RegExp {
-    const pattern = '(<(a|button))\\b[^>]*class=("[^"]*\\bnova-deepen\\b[^"]*"|\'[^\']*\\bnova-deepen\\b[^\']*\')[^>]*data-scope=("|\')note\\4';
+    const pattern =
+      '(<(a|button))\\b[^>]*class=("[^"]*\\bnova-deepen\\b[^"]*"|\'[^\']*\\bnova-deepen\\b[^\']*\')[^>]*data-scope=("|\')note\\4';
     return new RegExp(pattern);
   }
 

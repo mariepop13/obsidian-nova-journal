@@ -3,22 +3,22 @@ export function validateApiKey(apiKey: unknown): string {
   if (!apiKey || typeof apiKey !== 'string') {
     throw new Error('API key must be a non-empty string');
   }
-  
+
   const trimmed = apiKey.trim();
   if (trimmed.length < 20) {
     throw new Error('API key too short');
   }
-  
+
   if (!OPENAI_API_KEY_REGEX.test(trimmed)) {
     throw new Error('Invalid API key format');
   }
-  
+
   return trimmed;
 }
 
 export function sanitizeForLogging(input: unknown): string {
   if (input === null || input === undefined) return '';
-  
+
   const text = String(input);
   return text
     .replace(/Bearer\s+sk-[A-Za-z0-9-_]{20,}/gi, 'Bearer [REDACTED]')
@@ -31,10 +31,10 @@ export function sanitizeForLogging(input: unknown): string {
 
 export function validateAndParseJSON<T = any>(input: string, fallback?: T): T | null {
   if (typeof input !== 'string') return fallback ?? null;
-  
+
   const trimmed = input.trim();
   if (!trimmed || trimmed.length === 0) return fallback ?? null;
-  
+
   try {
     return JSON.parse(trimmed) as T;
   } catch {
@@ -44,12 +44,12 @@ export function validateAndParseJSON<T = any>(input: string, fallback?: T): T | 
 
 export function sanitizeUserInput(input: unknown, maxLength = 10000): string {
   if (input === null || input === undefined) return '';
-  
+
   const text = String(input);
   if (text.length > maxLength) {
     throw new Error(`Input exceeds maximum length of ${maxLength} characters`);
   }
-  
+
   return text
     .replace(/[<>]/g, '')
     .replace(/javascript:/gi, '')
@@ -59,7 +59,7 @@ export function sanitizeUserInput(input: unknown, maxLength = 10000): string {
 
 export function isValidUrl(url: string): boolean {
   if (!url || typeof url !== 'string') return false;
-  
+
   try {
     const parsed = new URL(url);
     return ['http:', 'https:'].includes(parsed.protocol);
@@ -67,5 +67,3 @@ export function isValidUrl(url: string): boolean {
     return false;
   }
 }
-
-

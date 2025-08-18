@@ -1,11 +1,10 @@
 import { EmbeddingMigrationService } from '../../../services/ai/EmbeddingMigrationService';
 
-
 jest.mock('../../../services/ai/EnhancedEmbeddingService', () => ({
   EnhancedEmbeddingService: jest.fn().mockImplementation(() => ({
     incrementalUpdateIndex: jest.fn().mockResolvedValue(undefined),
-    fullRebuild: jest.fn().mockResolvedValue(undefined)
-  }))
+    fullRebuild: jest.fn().mockResolvedValue(undefined),
+  })),
 }));
 
 describe('EmbeddingMigrationService', () => {
@@ -16,18 +15,17 @@ describe('EmbeddingMigrationService', () => {
   beforeEach(() => {
     mockApp = {
       vault: {
-        getName: () => 'test-vault'
-      }
+        getName: () => 'test-vault',
+      },
     };
 
     mockSettings = {
       aiEnabled: true,
       aiApiKey: 'sk-test-key',
-      dailyNoteFolder: 'Journal'
+      dailyNoteFolder: 'Journal',
     };
 
     service = new EmbeddingMigrationService(mockApp, mockSettings);
-
 
     (localStorage.getItem as jest.Mock).mockClear();
     (localStorage.setItem as jest.Mock).mockClear();
@@ -41,7 +39,7 @@ describe('EmbeddingMigrationService', () => {
         .mockReturnValueOnce(null); // enhanced index
 
       const result = await service.checkMigrationNeeded();
-      
+
       expect(result).toBe(true);
       expect(localStorage.getItem).toHaveBeenCalledWith('nova-journal-index-test-vault');
       expect(localStorage.getItem).toHaveBeenCalledWith('nova-journal-enhanced-index-test-vault');
@@ -53,7 +51,7 @@ describe('EmbeddingMigrationService', () => {
         .mockReturnValueOnce('{"version": "2.0.0"}'); // enhanced index
 
       const result = await service.checkMigrationNeeded();
-      
+
       expect(result).toBe(false);
     });
 
@@ -63,7 +61,7 @@ describe('EmbeddingMigrationService', () => {
         .mockReturnValueOnce(null); // no enhanced index
 
       const result = await service.checkMigrationNeeded();
-      
+
       expect(result).toBe(false);
     });
 
@@ -73,7 +71,7 @@ describe('EmbeddingMigrationService', () => {
       });
 
       const result = await service.checkMigrationNeeded();
-      
+
       expect(result).toBe(false);
     });
   });
@@ -81,7 +79,7 @@ describe('EmbeddingMigrationService', () => {
   describe('cleanupLegacyIndex', () => {
     test('should remove legacy index from localStorage', async () => {
       await service.cleanupLegacyIndex();
-      
+
       expect(localStorage.removeItem).toHaveBeenCalledWith('nova-journal-index-test-vault');
     });
 
@@ -89,7 +87,6 @@ describe('EmbeddingMigrationService', () => {
       (localStorage.removeItem as jest.Mock).mockImplementation(() => {
         throw new Error('localStorage error');
       });
-
 
       await expect(service.cleanupLegacyIndex()).resolves.toBeUndefined();
     });
@@ -100,18 +97,17 @@ describe('EmbeddingMigrationService', () => {
       (localStorage.getItem as jest.Mock).mockReturnValue('{"items": []}');
 
       const result = await service.migrateToEnhancedSystem();
-      
+
       expect(result).toBe(true);
     });
 
     test('should return false on migration failure', async () => {
-
       (localStorage.getItem as jest.Mock).mockImplementation(() => {
         throw new Error('localStorage failure');
       });
 
       const result = await service.migrateToEnhancedSystem();
-      
+
       expect(result).toBe(false);
     });
   });

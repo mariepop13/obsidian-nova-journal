@@ -28,12 +28,12 @@ export class LoadingSpinnerService {
   static create(config: LoadingSpinnerConfig = {}): SpinnerInstance {
     const id = this.generateId();
     const element = this.createSpinnerElement(config);
-    
+
     const instance: SpinnerInstance = {
       element,
       id,
       config,
-      destroy: () => this.destroy(id)
+      destroy: () => this.destroy(id),
     };
 
     this.activeSpinners.set(id, instance);
@@ -75,7 +75,7 @@ export class LoadingSpinnerService {
         'nova-spinner-analyzing',
         'nova-spinner-loading'
       );
-      
+
       // Add new state class
       spinner.element.classList.add(`nova-spinner-${state}`);
       spinner.config.state = state;
@@ -83,12 +83,7 @@ export class LoadingSpinnerService {
   }
 
   private static createSpinnerElement(config: LoadingSpinnerConfig): HTMLElement {
-    const {
-      text = '',
-      state = 'loading',
-      size = 'medium',
-      position = 'inline'
-    } = config;
+    const { text = '', state = 'loading', size = 'medium', position = 'inline' } = config;
 
     const container = document.createElement('div');
     container.className = this.buildSpinnerClasses(state, size, position);
@@ -96,7 +91,7 @@ export class LoadingSpinnerService {
     // Create spinner animation element
     const spinner = document.createElement('div');
     spinner.className = 'nova-spinner-animation';
-    
+
     // Create dots for the animation
     for (let i = 0; i < 3; i++) {
       const dot = document.createElement('div');
@@ -117,28 +112,19 @@ export class LoadingSpinnerService {
     return container;
   }
 
-  private static buildSpinnerClasses(
-    state: LoadingState,
-    size: SpinnerSize,
-    position: SpinnerPosition
-  ): string {
-    return [
-      'nova-spinner',
-      `nova-spinner-${state}`,
-      `nova-spinner-${size}`,
-      `nova-spinner-${position}`
-    ].join(' ');
+  private static buildSpinnerClasses(state: LoadingState, size: SpinnerSize, position: SpinnerPosition): string {
+    return ['nova-spinner', `nova-spinner-${state}`, `nova-spinner-${size}`, `nova-spinner-${position}`].join(' ');
   }
 
   static attachToElement(element: HTMLElement, config: LoadingSpinnerConfig = {}): SpinnerInstance {
     const spinner = this.create(config);
-    
+
     if (config.position === 'overlay') {
       // Create overlay container
       const overlay = document.createElement('div');
       overlay.className = 'nova-spinner-overlay-container';
       overlay.style.position = 'relative';
-      
+
       // Wrap the target element
       const parent = element.parentNode;
       if (parent) {
@@ -159,7 +145,7 @@ export class LoadingSpinnerService {
       text,
       state,
       size: 'small',
-      position: 'inline'
+      position: 'inline',
     });
     return spinner.element;
   }
@@ -169,7 +155,7 @@ export class LoadingSpinnerService {
       text,
       state,
       size: 'large',
-      position: 'modal'
+      position: 'modal',
     });
     return spinner.element;
   }
@@ -180,7 +166,7 @@ export class LoadingSpinnerService {
       generating: 'Generating...',
       processing: 'Processing...',
       analyzing: 'Analyzing...',
-      loading: 'Loading...'
+      loading: 'Loading...',
     };
     return stateTexts[state];
   }

@@ -13,7 +13,10 @@ export class PromptGenerationService {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.warn('[PromptGenerationService] Enhanced service initialization failed, using legacy mode:', errorMessage);
+      console.warn(
+        '[PromptGenerationService] Enhanced service initialization failed, using legacy mode:',
+        errorMessage
+      );
       this.enhancedService = null;
     }
   }
@@ -31,29 +34,27 @@ export class PromptGenerationService {
         if (mood?.dominant_emotions && mood.dominant_emotions.length > 0) {
           return await this.enhancedService.generateEmotionallyAwarePrompt(style, noteText, mood);
         }
-        
+
         if (mood?.tags && mood.tags.length > 0) {
           return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
         }
-        
+
         if (ragContext && ragContext.trim().length > 0) {
           return await this.enhancedService.generateContextualPromptWithRag(style, noteText, mood, ragContext, {
             prioritizeRecent: true,
             includeEmotionalContext: true,
             includeThematicContext: true,
-            maxContextChunks: 3
-          });
-        } else {
-          return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
-            prioritizeRecent: true,
-            includeEmotionalContext: true,
-            includeThematicContext: true,
-            maxContextChunks: 3
+            maxContextChunks: 3,
           });
         }
-      } else {
-        return this.generateLegacyPrompt(style, noteText, mood, ragContext);
+        return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
+          prioritizeRecent: true,
+          includeEmotionalContext: true,
+          includeThematicContext: true,
+          maxContextChunks: 3,
+        });
       }
+      return this.generateLegacyPrompt(style, noteText, mood, ragContext);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[PromptGenerationService] Enhanced generation failed, falling back to legacy:', errorMessage);
@@ -67,7 +68,6 @@ export class PromptGenerationService {
     mood?: Partial<MoodData>,
     providedRagContext?: string
   ): Promise<string | null> {
-
     const systemPrompt = `Generate ONE simple journaling question in the SAME LANGUAGE as the context provided.
 
 CRITICAL RULES:
@@ -114,10 +114,12 @@ Styles:
             const top = await embeddingService.topK(noteText, 3);
             console.log(`[PromptGenerationService] RAG results:`, top);
             if (Array.isArray(top) && top.length > 0) {
-              const enriched = top.map((t, i) => {
-                const preview = (t.text || '').substring(0, 400);
-                return `${i + 1}. ${preview}...`;
-              }).join('\n');
+              const enriched = top
+                .map((t, i) => {
+                  const preview = (t.text || '').substring(0, 400);
+                  return `${i + 1}. ${preview}...`;
+                })
+                .join('\n');
               ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
               console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(0, 200));
             } else {
@@ -147,7 +149,7 @@ Generate a question that:
 3. If no context exists, ask a general question without invented details
 4. NEVER invent dates, years, people, or events not mentioned
 5. Be factual and avoid assumptions about past states or emotions`;
-    
+
     console.log(`[PromptGenerationService] Final user prompt:`, userPrompt);
 
     try {
@@ -159,7 +161,7 @@ Generate a question that:
         maxTokens: Math.min(60, this.settings.aiMaxTokens || 60),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || ''
+        fallbackModel: this.settings.aiFallbackModel || '',
       });
 
       const text = (response || '').trim();
@@ -179,5 +181,3 @@ Generate a question that:
     }
   }
 }
-
-

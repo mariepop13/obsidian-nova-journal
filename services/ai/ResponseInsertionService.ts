@@ -1,5 +1,10 @@
 import { Editor } from 'obsidian';
-import { typewriterInsert, removeAnchorsInBlock, ensureBottomButtons, ensureUserPromptLine } from '../editor/NoteEditor';
+import {
+  ensureBottomButtons,
+  ensureUserPromptLine,
+  removeAnchorsInBlock,
+  typewriterInsert,
+} from '../editor/NoteEditor';
 import type { ButtonSettings } from './ConversationService';
 
 export class ResponseInsertionService {
@@ -49,7 +54,7 @@ export class ResponseInsertionService {
 
   findExistingButton(editor: Editor, line: number): number | null {
     const pattern = new RegExp(`^<a[^>]*class="nova-deepen"[^>]*data-line="${line}"[^>]*>.*</a>$`);
-    
+
     for (let i = line + 1; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i).trim();
       if (pattern.test(lineText)) {
@@ -68,7 +73,8 @@ export class ResponseInsertionService {
   private findAnchorLine(editor: Editor, startLine: number): number | null {
     for (let i = startLine + 1; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i);
-      if (/<(a|button)\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*>/.test(lineText)) return i;
+      if (/<(a|button)\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*>/.test(lineText))
+        return i;
       if (/^[^\s].*:/.test(lineText)) break;
     }
     return null;
@@ -77,7 +83,11 @@ export class ResponseInsertionService {
   private findNoteScopeAnchor(editor: Editor): number | null {
     for (let i = 0; i <= editor.lastLine(); i += 1) {
       const lineText = editor.getLine(i);
-      if (/(<(a|button))\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*data-scope=("|')note\4/.test(lineText)) {
+      if (
+        /(<(a|button))\b[^>]*class=("[^"]*\bnova-deepen\b[^"]*"|'[^']*\bnova-deepen\b[^']*')[^>]*data-scope=("|')note\4/.test(
+          lineText
+        )
+      ) {
         return i;
       }
     }
@@ -87,15 +97,15 @@ export class ResponseInsertionService {
   private prepareUserLine(editor: Editor, anchorLine: number | null): void {
     const namePrefix = `**${this.userName || 'You'}** (you):`;
     let userLineIdx = anchorLine !== null ? anchorLine - 1 : editor.lastLine();
-    
+
     while (userLineIdx >= 0 && editor.getLine(userLineIdx).trim().length === 0) {
       userLineIdx -= 1;
     }
-    
+
     if (userLineIdx >= 0) {
       const rawLine = editor.getLine(userLineIdx);
       const trimmed = rawLine.trim();
-      
+
       if (trimmed && !trimmed.startsWith(namePrefix)) {
         editor.replaceRange(
           `${namePrefix} ${trimmed}`,
@@ -107,14 +117,18 @@ export class ResponseInsertionService {
   }
 
   private async insertAtExistingAnchor(
-    editor: Editor, 
-    anchorLine: number, 
-    response: string, 
-    _scopeAttr: string, 
+    editor: Editor,
+    anchorLine: number,
+    response: string,
+    _scopeAttr: string,
     label?: string
   ): Promise<void> {
-    editor.replaceRange('**Nova**: \n', { line: anchorLine, ch: 0 }, { line: anchorLine, ch: editor.getLine(anchorLine).length });
-    
+    editor.replaceRange(
+      '**Nova**: \n',
+      { line: anchorLine, ch: 0 },
+      { line: anchorLine, ch: editor.getLine(anchorLine).length }
+    );
+
     await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.typewriterSpeed);
     removeAnchorsInBlock(editor, anchorLine);
     ensureBottomButtons(editor, label || this.deepenButtonLabel, this.buttonSettings);
@@ -133,10 +147,10 @@ export class ResponseInsertionService {
     const lastLine = editor.lastLine();
     const needsBreak = editor.getValue().trim().length > 0 ? '\n\n' : '';
     const insertPos = { line: lastLine, ch: editor.getLine(lastLine).length };
-    
+
     editor.replaceRange(`${needsBreak}**Nova**: \n`, insertPos);
     const answerLine = editor.lastLine();
-    
+
     await typewriterInsert(editor, answerLine, '**Nova**: ', response, this.typewriterSpeed);
     removeAnchorsInBlock(editor, answerLine);
     ensureBottomButtons(editor, label, this.buttonSettings);

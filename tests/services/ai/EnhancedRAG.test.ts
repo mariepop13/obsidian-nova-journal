@@ -1,4 +1,4 @@
-import { EnhancedEmbeddingService, type ContextType } from '../../../services/ai/EnhancedEmbeddingService';
+import { type ContextType, EnhancedEmbeddingService } from '../../../services/ai/EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPromptGenerationService';
 import { ContextAnalyzer } from '../../../services/ai/ContextAnalyzer';
 import { VectorUtils } from '../../../services/ai/VectorUtils';
@@ -28,8 +28,8 @@ const createMockApp = (): MockApp => ({
     getName: () => 'test-vault',
     getFiles: () => [],
     read: async () => '',
-    getAbstractFileByPath: () => null
-  }
+    getAbstractFileByPath: () => null,
+  },
 });
 
 const createMockSettings = (): MockSettings => ({
@@ -40,7 +40,7 @@ const createMockSettings = (): MockSettings => ({
   aiMaxTokens: 150,
   aiRetryCount: 1,
   aiFallbackModel: 'gpt-3.5-turbo',
-  dailyNoteFolder: 'Journal'
+  dailyNoteFolder: 'Journal',
 });
 
 describe('EnhancedEmbeddingService', () => {
@@ -54,22 +54,22 @@ describe('EnhancedEmbeddingService', () => {
     mockApp = createMockApp();
     mockSettings = createMockSettings();
     service = new EnhancedEmbeddingService(mockApp as any, mockSettings as any);
-    
+
     Object.defineProperty(global, 'localStorage', {
       value: {
         getItem: jest.fn(),
         setItem: jest.fn(),
-        removeItem: jest.fn()
+        removeItem: jest.fn(),
       },
-      writable: true
+      writable: true,
     });
   });
 
   test('should determine context type correctly', () => {
-    const emotionalText = "I feel really happy today and excited about the future";
-    const temporalText = "Yesterday I went to work and tomorrow I have a meeting";
-    const thematicText = "Working on my career goals and family relationships";
-    const generalText = "Just some random thoughts about life";
+    const emotionalText = 'I feel really happy today and excited about the future';
+    const temporalText = 'Yesterday I went to work and tomorrow I have a meeting';
+    const thematicText = 'Working on my career goals and family relationships';
+    const generalText = 'Just some random thoughts about life';
 
     expect(contextAnalyzer.determineContextType(emotionalText)).toBe('emotional');
     expect(contextAnalyzer.determineContextType(temporalText)).toBe('temporal');
@@ -78,25 +78,25 @@ describe('EnhancedEmbeddingService', () => {
   });
 
   test('should extract emotional tags correctly', () => {
-    const text = "I feel happy but also a bit worried about work";
+    const text = 'I feel happy but also a bit worried about work';
     const tags = contextAnalyzer.extractEmotionalTags(text);
-    
+
     expect(tags).toContain('positive');
     expect(tags).toContain('negative');
   });
 
   test('should extract thematic tags correctly', () => {
-    const text = "Had a great day at work and then spent time with family";
+    const text = 'Had a great day at work and then spent time with family';
     const tags = contextAnalyzer.extractThematicTags(text);
-    
+
     expect(tags).toContain('work');
     expect(tags).toContain('personal');
   });
 
   test('should extract temporal markers correctly', () => {
-    const text = "Today at 2:30 PM I met with my boss, yesterday was difficult";
+    const text = 'Today at 2:30 PM I met with my boss, yesterday was difficult';
     const markers = contextAnalyzer.extractTemporalMarkers(text);
-    
+
     expect(markers).toContain('today');
     expect(markers).toContain('2:30');
     expect(markers).toContain('yesterday');
@@ -110,18 +110,18 @@ describe('EnhancedEmbeddingService', () => {
       text,
       vector,
       contextType: 'general' as const,
-      hash: 'test-hash'
+      hash: 'test-hash',
     });
 
     const scored = [
       { item: createMockChunk([1, 0, 0], 'First chunk'), score: 0.9 },
       { item: createMockChunk([1, 0.1, 0], 'Similar chunk'), score: 0.8 },
       { item: createMockChunk([0, 1, 0], 'Different chunk'), score: 0.7 },
-      { item: createMockChunk([0, 0, 1], 'Another different chunk'), score: 0.6 }
+      { item: createMockChunk([0, 0, 1], 'Another different chunk'), score: 0.6 },
     ];
 
     const filtered = VectorUtils.applyDiversityFilter(scored, 0.5);
-    
+
     expect(filtered.length).toBeLessThan(scored.length);
     expect(filtered[0].score).toBe(0.9);
   });
@@ -134,16 +134,16 @@ describe('EnhancedPromptGenerationService', () => {
   beforeEach(() => {
     mockSettings = createMockSettings();
     service = new EnhancedPromptGenerationService(mockSettings as any);
-    
+
     Object.defineProperty(window, 'app', {
       value: createMockApp(),
-      writable: true
+      writable: true,
     });
   });
 
   test('should build system prompt correctly', () => {
     const prompt = (service as any).buildSystemPrompt('reflective', true, true);
-    
+
     expect(prompt).toContain('contextually aware');
     expect(prompt).toContain('emotional patterns');
     expect(prompt).toContain('thematic connections');
@@ -154,7 +154,7 @@ describe('EnhancedPromptGenerationService', () => {
     const mood = {
       sentiment: 'positive',
       dominant_emotions: ['happy', 'excited'],
-      tags: ['work', 'achievement']
+      tags: ['work', 'achievement'],
     };
 
     const prompt = (service as any).buildUserPrompt(
@@ -173,15 +173,10 @@ describe('EnhancedPromptGenerationService', () => {
   test('should handle missing embedding service gracefully', async () => {
     Object.defineProperty(window, 'app', {
       value: undefined,
-      writable: true
+      writable: true,
     });
 
-    const result = await service.generateContextualPrompt(
-      'reflective',
-      'Test note',
-      { sentiment: ['neutral'] }
-    );
-
+    const result = await service.generateContextualPrompt('reflective', 'Test note', { sentiment: ['neutral'] });
 
     expect(result).toBe('Mock AI response');
   });
@@ -197,24 +192,24 @@ describe('Context Type Classification', () => {
   const testCases: Array<{ text: string; expected: ContextType }> = [
     {
       text: "I'm feeling overwhelmed with anxiety about tomorrow's presentation",
-      expected: 'emotional'
+      expected: 'emotional',
     },
     {
-      text: "Yesterday I completed three important tasks and tomorrow I have two meetings",
-      expected: 'temporal'
+      text: 'Yesterday I completed three important tasks and tomorrow I have two meetings',
+      expected: 'temporal',
     },
     {
-      text: "Made progress on my career goals and had dinner with family",
-      expected: 'thematic'
+      text: 'Made progress on my career goals and had dinner with family',
+      expected: 'thematic',
     },
     {
-      text: "The weather is nice today, thinking about various things",
-      expected: 'temporal'
+      text: 'The weather is nice today, thinking about various things',
+      expected: 'temporal',
     },
     {
-      text: "Work was stressful but I felt proud of my accomplishments with the team",
-      expected: 'emotional'
-    }
+      text: 'Work was stressful but I felt proud of my accomplishments with the team',
+      expected: 'emotional',
+    },
   ];
 
   testCases.forEach(({ text, expected }) => {
@@ -232,7 +227,7 @@ describe('Enhanced Search Integration', () => {
       contextTypes: ['emotional', 'general'],
       emotionalFilter: ['positive', 'excited'],
       boostRecent: false,
-      diversityThreshold: 0.4
+      diversityThreshold: 0.4,
     };
 
     expect(mockSearchOptions.contextTypes).toContain('emotional');
@@ -245,9 +240,9 @@ describe('Enhanced Search Integration', () => {
       contextTypes: ['temporal', 'general'],
       temporalRange: {
         start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        end: new Date()
+        end: new Date(),
       },
-      boostRecent: true
+      boostRecent: true,
     };
 
     expect(mockSearchOptions.contextTypes).toContain('temporal');

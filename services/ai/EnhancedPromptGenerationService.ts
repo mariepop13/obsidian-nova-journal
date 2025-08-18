@@ -2,7 +2,7 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
-import { EnhancedEmbeddingService, type ContextType, type SearchOptions } from './EnhancedEmbeddingService';
+import { type ContextType, EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 
 export interface ContextualPromptOptions {
   prioritizeRecent?: boolean;
@@ -18,12 +18,15 @@ export class EnhancedPromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {}
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
-    console.log('[EnhancedPromptGenerationService] Debug - Getting embedding service, current instance:', !!this.embeddingService);
-    
+    console.log(
+      '[EnhancedPromptGenerationService] Debug - Getting embedding service, current instance:',
+      !!this.embeddingService
+    );
+
     if (!this.embeddingService) {
       const appRef = (window as any)?.app;
       console.log('[EnhancedPromptGenerationService] Debug - App reference available:', !!appRef);
-      
+
       if (appRef) {
         try {
           this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
@@ -50,9 +53,9 @@ export class EnhancedPromptGenerationService {
 
     const systemPrompt = this.buildSystemPrompt(style, true, true);
     const contextualInfo = ragContext || '';
-    
+
     const userPrompt = this.buildUserPrompt(style, noteText, mood, contextualInfo);
-    
+
     try {
       const response = await chat({
         apiKey: this.settings.aiApiKey,
@@ -62,7 +65,7 @@ export class EnhancedPromptGenerationService {
         maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || ''
+        fallbackModel: this.settings.aiFallbackModel || '',
       });
 
       const cleaned = response.trim().replace(/^"|"$/g, '').trim();
@@ -85,19 +88,19 @@ export class EnhancedPromptGenerationService {
       includeEmotionalContext = true,
       includeThematicContext = true,
       maxContextChunks = 5,
-      diversityThreshold = 0.3
+      diversityThreshold = 0.3,
     } = options;
 
     const systemPrompt = this.buildSystemPrompt(style, includeEmotionalContext, includeThematicContext);
-    
+
     let contextualInfo = '';
     try {
-      contextualInfo = await this.gatherContextualInformation(
-        noteText, 
-        mood, 
-        maxContextChunks,
-        { prioritizeRecent, includeEmotionalContext, includeThematicContext, diversityThreshold }
-      );
+      contextualInfo = await this.gatherContextualInformation(noteText, mood, maxContextChunks, {
+        prioritizeRecent,
+        includeEmotionalContext,
+        includeThematicContext,
+        diversityThreshold,
+      });
     } catch (err) {
       console.error('[EnhancedPromptGenerationService] Context gathering failed', err);
     }
@@ -113,7 +116,7 @@ export class EnhancedPromptGenerationService {
         maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || ''
+        fallbackModel: this.settings.aiFallbackModel || '',
       });
 
       const raw = response;
@@ -134,7 +137,7 @@ export class EnhancedPromptGenerationService {
 
     try {
       const emotionalContext = await embeddingService.emotionalSearch(noteText, mood, 3);
-      
+
       const systemPrompt = `Generate ONE emotionally sensitive journaling question based on the current note content and emotional context. 
 
 EMOTIONAL AWARENESS RULES:
@@ -151,9 +154,10 @@ Style guidance:
 - planning: practical next steps honoring current feelings
 - dreams: explore emotional themes in dreams/aspirations`;
 
-      const contextText = emotionalContext.length > 0 
-        ? `\n\nEmotional context from past entries:\n${emotionalContext.map((c, i) => `${i + 1}. ${c.text.substring(0, 300)}...`).join('\n')}`
-        : '';
+      const contextText =
+        emotionalContext.length > 0
+          ? `\n\nEmotional context from past entries:\n${emotionalContext.map((c, i) => `${i + 1}. ${c.text.substring(0, 300)}...`).join('\n')}`
+          : '';
 
       const userPrompt = `Style: ${style}
 Current emotional state: ${JSON.stringify(mood)}
@@ -169,7 +173,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
         maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || ''
+        fallbackModel: this.settings.aiFallbackModel || '',
       });
 
       const raw = response;
@@ -195,7 +199,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
       const temporalContext = await embeddingService.temporalSearch(noteText, timeFrame, 2);
 
       const allContext = [...thematicContext, ...temporalContext];
-      
+
       const systemPrompt = `Generate ONE thematic journaling question focusing on specific life areas and recent patterns.
 
 THEMATIC FOCUS RULES:
@@ -214,9 +218,10 @@ Style guidance:
 - planning: actionable steps for these themes
 - dreams: aspirations related to these themes`;
 
-      const contextText = allContext.length > 0
-        ? `\n\nThematic and temporal context:\n${allContext.map((c, i) => `${i + 1}. ${c.text.substring(0, 250)}...`).join('\n')}`
-        : '';
+      const contextText =
+        allContext.length > 0
+          ? `\n\nThematic and temporal context:\n${allContext.map((c, i) => `${i + 1}. ${c.text.substring(0, 250)}...`).join('\n')}`
+          : '';
 
       const userPrompt = `Style: ${style}
 Target themes: ${themes.join(', ')}
@@ -233,7 +238,7 @@ Generate a thematically focused question that explores patterns and development 
         maxTokens: Math.min(90, this.settings.aiMaxTokens || 90),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || ''
+        fallbackModel: this.settings.aiFallbackModel || '',
       });
 
       const raw = response;
@@ -262,7 +267,7 @@ Generate a thematically focused question that explores patterns and development 
       console.log('[EnhancedPromptGenerationService] Debug - No embedding service available');
       return '';
     }
-    
+
     const searchText = noteText?.trim();
     if (!searchText || searchText.length === 0) {
       console.log('[EnhancedPromptGenerationService] Debug - No search text available');
@@ -274,7 +279,7 @@ Generate a thematically focused question that explores patterns and development 
 
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
-      diversityThreshold: options.diversityThreshold
+      diversityThreshold: options.diversityThreshold,
     };
 
     if (options.includeEmotionalContext && mood?.dominant_emotions) {
@@ -289,11 +294,7 @@ Generate a thematically focused question that explores patterns and development 
 
     try {
       console.log('[EnhancedPromptGenerationService] Debug - Performing contextual search...');
-      const contextChunks = await embeddingService.contextualSearch(
-        searchText,
-        maxChunks,
-        searchOptions
-      );
+      const contextChunks = await embeddingService.contextualSearch(searchText, maxChunks, searchOptions);
 
       console.log('[EnhancedPromptGenerationService] Debug - Found context chunks:', contextChunks.length);
 
@@ -302,27 +303,32 @@ Generate a thematically focused question that explores patterns and development 
         return '';
       }
 
-      const enrichedContext = contextChunks.map((chunk, i) => {
-        const preview = chunk.text.substring(0, 350);
-        const contextInfo = [];
-        
-        if (chunk.contextType !== 'general') {
-          contextInfo.push(`[${chunk.contextType}]`);
-        }
-        
-        if (chunk.emotionalTags && chunk.emotionalTags.length > 0) {
-          contextInfo.push(`emotions: ${chunk.emotionalTags.join(', ')}`);
-        }
-        
-        if (chunk.thematicTags && chunk.thematicTags.length > 0) {
-          contextInfo.push(`themes: ${chunk.thematicTags.join(', ')}`);
-        }
+      const enrichedContext = contextChunks
+        .map((chunk, i) => {
+          const preview = chunk.text.substring(0, 350);
+          const contextInfo = [];
 
-        const metadata = contextInfo.length > 0 ? ` (${contextInfo.join('; ')})` : '';
-        return `${i + 1}. ${preview}...${metadata}`;
-      }).join('\n');
+          if (chunk.contextType !== 'general') {
+            contextInfo.push(`[${chunk.contextType}]`);
+          }
 
-      console.log('[EnhancedPromptGenerationService] Debug - Enriched context preview:', enrichedContext.substring(0, 300));
+          if (chunk.emotionalTags && chunk.emotionalTags.length > 0) {
+            contextInfo.push(`emotions: ${chunk.emotionalTags.join(', ')}`);
+          }
+
+          if (chunk.thematicTags && chunk.thematicTags.length > 0) {
+            contextInfo.push(`themes: ${chunk.thematicTags.join(', ')}`);
+          }
+
+          const metadata = contextInfo.length > 0 ? ` (${contextInfo.join('; ')})` : '';
+          return `${i + 1}. ${preview}...${metadata}`;
+        })
+        .join('\n');
+
+      console.log(
+        '[EnhancedPromptGenerationService] Debug - Enriched context preview:',
+        enrichedContext.substring(0, 300)
+      );
       return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Failed to gather contextual information', error);
@@ -330,11 +336,7 @@ Generate a thematically focused question that explores patterns and development 
     }
   }
 
-  private buildSystemPrompt(
-    _style: PromptStyle,
-    includeEmotional: boolean,
-    includeThematic: boolean
-  ): string {
+  private buildSystemPrompt(_style: PromptStyle, includeEmotional: boolean, includeThematic: boolean): string {
     const basePrompt = `Generate ONE contextually aware journaling question based on the current note content and provided context, in the user's language.
 
 CRITICAL RULES:
@@ -346,7 +348,7 @@ CRITICAL RULES:
 - DO NOT invent connections not present in the context
 - DO NOT assume feelings or situations not explicitly stated`;
 
-    const emotionalGuidance = includeEmotional 
+    const emotionalGuidance = includeEmotional
       ? `\n- Consider emotional patterns and evolution from past entries
 - Be sensitive to emotional context when crafting the question`
       : '';
@@ -371,9 +373,7 @@ CRITICAL RULES:
     mood: Partial<MoodData> | undefined,
     contextualInfo: string
   ): string {
-    const moodFragment = mood 
-      ? `\n\nCurrent mood/emotional state:\n${JSON.stringify(mood)}` 
-      : '';
+    const moodFragment = mood ? `\n\nCurrent mood/emotional state:\n${JSON.stringify(mood)}` : '';
 
     return `Style: ${style}
 

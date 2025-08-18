@@ -1,6 +1,6 @@
-import { App } from "obsidian";
-import type { NovaJournalSettings } from "../../settings/PluginSettings";
-import { EnhancedEmbeddingService } from "./EnhancedEmbeddingService";
+import { App } from 'obsidian';
+import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import { EnhancedEmbeddingService } from './EnhancedEmbeddingService';
 
 export class EmbeddingMigrationService {
   constructor(
@@ -34,10 +34,10 @@ export class EmbeddingMigrationService {
     try {
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
       const enhancedIndexKey = `nova-journal-enhanced-index-${this.app.vault.getName()}`;
-      
+
       const hasLegacyIndex = localStorage.getItem(legacyIndexKey) !== null;
       const hasEnhancedIndex = localStorage.getItem(enhancedIndexKey) !== null;
-      
+
       return hasLegacyIndex && !hasEnhancedIndex;
     } catch {
       return false;
@@ -48,7 +48,7 @@ export class EmbeddingMigrationService {
     try {
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
       const backupKey = `nova-journal-index-backup-${this.app.vault.getName()}`;
-      
+
       const legacyData = localStorage.getItem(legacyIndexKey);
       if (legacyData) {
         try {

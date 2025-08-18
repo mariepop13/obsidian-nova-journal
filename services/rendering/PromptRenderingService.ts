@@ -20,9 +20,7 @@ export interface RenderConfig {
 
 export class PromptRenderingService {
   static renderFinalPrompt(config: RenderConfig): string {
-    const heading = config.addSectionHeading && config.sectionHeading
-      ? `${config.sectionHeading}\n\n`
-      : '';
+    const heading = config.addSectionHeading && config.sectionHeading ? `${config.sectionHeading}\n\n` : '';
 
     const template = (config.promptTemplate || '').trim();
     if (template.length > 0) {
@@ -30,26 +28,25 @@ export class PromptRenderingService {
         prompt: config.basePrompt,
         date: config.date,
         userName: config.userName,
-        aiEnabled: config.aiEnabled
+        aiEnabled: config.aiEnabled,
       });
       return `${heading}${rendered}\n`;
     }
-    
+
     return `${heading}${config.basePrompt}\n`;
   }
 
-  static checkForDuplicatePrompt(
-    noteText: string,
-    basePrompt: string
-  ): boolean {
+  static checkForDuplicatePrompt(noteText: string, basePrompt: string): boolean {
     return noteText.includes(basePrompt);
   }
 
-  static generateDuplicateMarker(_date: Date): string { return ''; }
+  static generateDuplicateMarker(_date: Date): string {
+    return '';
+  }
 
   private static renderTemplate(template: string, context: TemplateContext): string {
     let output = template.replace(TEMPLATE_PATTERNS.PROMPT, context.prompt);
-    
+
     output = output.replace(TEMPLATE_PATTERNS.DATE, (_match, format) => {
       const dateFormat = typeof format === 'string' ? format.trim() : 'YYYY-MM-DD';
       return DateFormatter.format(context.date, dateFormat);

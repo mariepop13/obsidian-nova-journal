@@ -8,6 +8,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: 'module',
+    project: './tsconfig.json',
+    tsconfigRootDir: __dirname,
   },
   env: {
     browser: true,
@@ -16,7 +18,11 @@ module.exports = {
   },
   rules: {
     // Clean Code: Naming conventions
-    'camelcase': 'error',
+    'camelcase': ['error', { 
+      'properties': 'never',
+      'ignoreDestructuring': true,
+      'allow': ['max_completion_tokens', 'max_tokens', 'encoding_format']
+    }],
     '@typescript-eslint/naming-convention': [
       'error',
       {
@@ -57,7 +63,6 @@ module.exports = {
     'prefer-early-return': 'off', // Custom rule would be needed
     'no-nested-ternary': 'error',
     'no-console': 'warn',
-    'no-empty-catch': 'error',
     'no-throw-literal': 'error',
 
     // Clean Code: Code quality

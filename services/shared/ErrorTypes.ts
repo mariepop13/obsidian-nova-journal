@@ -1,19 +1,28 @@
 export class NovaJournalError extends Error {
-  constructor(message: string, public readonly code?: string) {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
     super(message);
     this.name = 'NovaJournalError';
   }
 }
 
 export class AIServiceError extends NovaJournalError {
-  constructor(message: string, public readonly originalError?: unknown) {
+  constructor(
+    message: string,
+    public readonly originalError?: unknown
+  ) {
     super(message, 'AI_SERVICE_ERROR');
     this.name = 'AIServiceError';
   }
 }
 
 export class FileServiceError extends NovaJournalError {
-  constructor(message: string, public readonly filePath?: string) {
+  constructor(
+    message: string,
+    public readonly filePath?: string
+  ) {
     super(message, 'FILE_SERVICE_ERROR');
     this.name = 'FileServiceError';
   }

@@ -1,8 +1,8 @@
-import { Editor, App } from 'obsidian';
+import { App, Editor } from 'obsidian';
 import { chat } from '../../ai/AiClient';
-import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
+import type { ButtonPosition, ButtonStyle, NovaJournalSettings } from '../../settings/PluginSettings';
 import { getDeepenSource } from '../editor/NoteEditor';
-import { AINotConfiguredError, EmptyNoteError, NoTextToDeepenError, AIServiceError } from '../shared/ErrorTypes';
+import { AINotConfiguredError, AIServiceError, EmptyNoteError, NoTextToDeepenError } from '../shared/ErrorTypes';
 import { RagContextService } from './RagContextService';
 import { ResponseInsertionService } from './ResponseInsertionService';
 import { ToastSpinnerService } from '../editor/ToastSpinnerService';
@@ -55,10 +55,10 @@ export class ConversationService {
         moodButtonLabel: settings.moodButtonLabel,
         showMoodButton: settings.showMoodButton,
         buttonTheme: settings.buttonTheme,
-        deepenButtonLabel: settings.deepenButtonLabel
+        deepenButtonLabel: settings.deepenButtonLabel,
       },
     };
-    
+
     this.ragContextService = new RagContextService(settings);
     this.responseInsertionService = new ResponseInsertionService(
       settings.userName,
@@ -67,8 +67,6 @@ export class ConversationService {
       this.context.buttonSettings
     );
   }
-
-
 
   async deepenLine(editor: Editor, targetLine?: number): Promise<void> {
     try {
@@ -102,7 +100,7 @@ export class ConversationService {
 
       const enhancedSystemPrompt = `${this.context.systemPrompt}\nYou see the entire note context.`;
       const aiResponse = await this.callAI(content, enhancedSystemPrompt, editor);
-      
+
       await this.responseInsertionService.insertWholeNoteResponse(editor, aiResponse, label);
     } catch (error) {
       this.handleError(error);
@@ -117,7 +115,7 @@ export class ConversationService {
 
   private async handleTargetLineDeepen(editor: Editor, line: number, text: string): Promise<void> {
     let buttonLine = this.responseInsertionService.findExistingButton(editor, line);
-    
+
     if (buttonLine === null) {
       buttonLine = this.responseInsertionService.createNewButton(editor, line);
     }
@@ -134,32 +132,29 @@ export class ConversationService {
     await this.responseInsertionService.insertGeneralLineResponse(editor, line, aiResponse);
   }
 
-
-
   private replaceLineWithHeader(editor: Editor, line: number, header: string): void {
     const from = { line, ch: 0 };
     const to = { line, ch: editor.getLine(line).length };
     editor.replaceRange(header, from, to);
   }
 
-
-
-
-
-
-
-  private async callAI(userText: string, customSystemPrompt?: string, editor?: Editor, targetLine?: number): Promise<string> {
+  private async callAI(
+    userText: string,
+    customSystemPrompt?: string,
+    editor?: Editor,
+    targetLine?: number
+  ): Promise<string> {
     const toast = ToastSpinnerService.showThinking('Thinking...');
-    
+
     try {
       const ragContext = await this.ragContextService.getRagContext(userText, editor, targetLine);
-      
+
       toast.updateState('generating');
       toast.updateMessage('Generating response...');
-      
+
       let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
       let enhancedUserText = userText;
-      
+
       if (ragContext) {
         enhancedSystemPrompt = `You are Nova, a journaling assistant. You have access to context from the user's previous journal entries.
 
@@ -177,7 +172,7 @@ You must demonstrate you read and understood the specific context by mentioning:
 - Specific circumstances described
 
 Respond in the same language as the user's current entry.`;
-        
+
         enhancedUserText = `Current entry: ${userText}
 
 CONTEXT YOU MUST REFERENCE:
@@ -185,9 +180,9 @@ ${ragContext}
 
 Respond by first acknowledging the specific context above, then continue with your insight.`;
       }
-      
+
       const maxTokens = ragContext ? Math.min(120, this.context.maxTokens) : this.context.maxTokens;
-      
+
       const response = await chat({
         apiKey: this.context.apiKey,
         model: this.context.model,
@@ -198,7 +193,7 @@ Respond by first acknowledging the specific context above, then continue with yo
         retryCount: this.context.retryCount,
         fallbackModel: this.context.fallbackModel,
       });
-      
+
       toast.hide();
       return response;
     } catch (error) {
@@ -207,14 +202,14 @@ Respond by first acknowledging the specific context above, then continue with yo
     }
   }
 
-
-
   private handleError(error: unknown): void {
     console.error(error);
-    
-    if (error instanceof AINotConfiguredError ||
-        error instanceof EmptyNoteError ||
-        error instanceof NoTextToDeepenError) {
+
+    if (
+      error instanceof AINotConfiguredError ||
+      error instanceof EmptyNoteError ||
+      error instanceof NoTextToDeepenError
+    ) {
       ToastSpinnerService.error(error.message);
     } else if (error instanceof AIServiceError) {
       ToastSpinnerService.error('Nova Journal: AI request failed.');

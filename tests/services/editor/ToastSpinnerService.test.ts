@@ -10,9 +10,9 @@ jest.mock('obsidian', () => {
     instance.hide = jest.fn();
     return instance;
   });
-  
+
   return {
-    Notice: MockNoticeConstructor
+    Notice: MockNoticeConstructor,
   };
 });
 
@@ -27,7 +27,7 @@ describe('ToastSpinnerService Simple Methods', () => {
     it('should create a Notice with custom markup', () => {
       const message = 'Test notice';
       ToastSpinnerService.notice(message);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', 4000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -36,7 +36,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Test notice';
       const timeout = 5000;
       ToastSpinnerService.notice(message, timeout);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -46,7 +46,7 @@ describe('ToastSpinnerService Simple Methods', () => {
     it('should create a Notice for warning', () => {
       const message = 'Warning message';
       ToastSpinnerService.warn(message);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', 4000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -55,7 +55,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Warning message';
       const timeout = 3000;
       ToastSpinnerService.warn(message, timeout);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -65,7 +65,7 @@ describe('ToastSpinnerService Simple Methods', () => {
     it('should create a Notice for error', () => {
       const message = 'Error message';
       ToastSpinnerService.error(message);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', 5000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -74,7 +74,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Error message';
       const timeout = 8000;
       ToastSpinnerService.error(message, timeout);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -84,7 +84,7 @@ describe('ToastSpinnerService Simple Methods', () => {
     it('should create a Notice for info', () => {
       const message = 'Info message';
       ToastSpinnerService.info(message);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', 4000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -93,7 +93,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Info message';
       const timeout = 4000;
       ToastSpinnerService.info(message, timeout);
-      
+
       expect(MockNotice).toHaveBeenCalledWith('', timeout);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
@@ -102,12 +102,12 @@ describe('ToastSpinnerService Simple Methods', () => {
   describe('return values', () => {
     it('should return Notice instance from all methods', () => {
       const message = 'Test message';
-      
+
       const notice1 = ToastSpinnerService.notice(message);
       const notice2 = ToastSpinnerService.warn(message);
       const notice3 = ToastSpinnerService.error(message);
       const notice4 = ToastSpinnerService.info(message);
-      
+
       expect(notice1).toBeInstanceOf(MockNotice);
       expect(notice2).toBeInstanceOf(MockNotice);
       expect(notice3).toBeInstanceOf(MockNotice);

@@ -7,7 +7,7 @@ export class TemporalUtils {
     const datePart = dateMatch[1];
     const hourPart = dateMatch[2] || '00';
     const minutePart = dateMatch[3] || '00';
-    
+
     const date = new Date(`${datePart}T${hourPart}:${minutePart}:00`);
     return isNaN(date.getTime()) ? null : date.getTime();
   }
@@ -15,24 +15,22 @@ export class TemporalUtils {
   static formatDate(timestamp: number): string {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffDays = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return "aujourd'hui";
-    if (diffDays === 1) return "hier";
+    if (diffDays === 1) return 'hier';
     if (diffDays < 7) return `il y a ${diffDays} jours`;
     if (diffDays < 30) return `il y a ${Math.floor(diffDays / 7)} semaines`;
-    return date.toLocaleDateString("fr-FR", {
-      month: "long",
-      day: "numeric",
+    return date.toLocaleDateString('fr-FR', {
+      month: 'long',
+      day: 'numeric',
     });
   }
 
   static getTimeRangeForFrame(timeFrame: 'recent' | 'week' | 'month'): { start: Date; end: Date } {
     const now = new Date();
     let start: Date;
-    
+
     switch (timeFrame) {
       case 'recent':
         start = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);

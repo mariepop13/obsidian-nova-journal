@@ -26,4 +26,3 @@ export const promptPacks: Record<PromptStyle, string[]> = {
     'What emotions linger from the dream as you wake up?',
   ],
 };
-
