@@ -1,6 +1,5 @@
 import { App } from "obsidian";
 import type { NovaJournalSettings } from "../../settings/PluginSettings";
-import { EmbeddingService } from "./EmbeddingService";
 import { EnhancedEmbeddingService } from "./EnhancedEmbeddingService";
 
 export class EmbeddingMigrationService {
@@ -13,7 +12,9 @@ export class EmbeddingMigrationService {
     try {
       console.log('[EmbeddingMigrationService] Starting migration to enhanced system');
 
-      const legacyService = new EmbeddingService(this.app, this.settings);
+      const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
+      localStorage.getItem(legacyIndexKey);
+
       const enhancedService = new EnhancedEmbeddingService(this.app, this.settings);
 
       await this.backupLegacyIndex();
