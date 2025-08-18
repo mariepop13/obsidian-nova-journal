@@ -13,7 +13,7 @@ pr_commands = [
     "/update_changelog",
     "/help"
 ]
-handle_push_commits_message = false
+handle_push_commits_message = true
 auto_describe = true
 auto_review = true
 auto_add_labels = true
