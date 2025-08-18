@@ -261,22 +261,38 @@ Generate a thematically focused question that explores patterns and development 
       diversityThreshold: number;
     }
   ): Promise<string> {
+    const embeddingService = this.validateEmbeddingService();
+    if (!embeddingService) return '';
+
+    const searchText = this.validateSearchText(noteText);
+    if (!searchText) return '';
+
+    const searchOptions = this.buildSearchOptions(options, mood);
+    return this.performContextualSearch(embeddingService, searchText, maxChunks, searchOptions);
+  }
+
+  private validateEmbeddingService() {
     console.log('[EnhancedPromptGenerationService] Debug - Getting embedding service...');
     const embeddingService = this.getEmbeddingService();
     if (!embeddingService) {
       console.log('[EnhancedPromptGenerationService] Debug - No embedding service available');
-      return '';
     }
+    return embeddingService;
+  }
 
+  private validateSearchText(noteText: string): string | null {
     const searchText = noteText?.trim();
     if (!searchText || searchText.length === 0) {
       console.log('[EnhancedPromptGenerationService] Debug - No search text available');
-      return '';
+      return null;
     }
-
     console.log('[EnhancedPromptGenerationService] Debug - Search text length:', searchText.length);
-    console.log('[EnhancedPromptGenerationService] Debug - Search options:', options);
+    return searchText;
+  }
 
+  private buildSearchOptions(options: any, mood: Partial<MoodData> | undefined): SearchOptions {
+    console.log('[EnhancedPromptGenerationService] Debug - Search options:', options);
+    
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
       diversityThreshold: options.diversityThreshold,
@@ -292,6 +308,10 @@ Generate a thematically focused question that explores patterns and development 
       console.log('[EnhancedPromptGenerationService] Debug - Added thematic filter:', mood.tags);
     }
 
+    return searchOptions;
+  }
+
+  private async performContextualSearch(embeddingService: any, searchText: string, maxChunks: number, searchOptions: SearchOptions): Promise<string> {
     try {
       console.log('[EnhancedPromptGenerationService] Debug - Performing contextual search...');
       const contextChunks = await embeddingService.contextualSearch(searchText, maxChunks, searchOptions);
@@ -303,37 +323,46 @@ Generate a thematically focused question that explores patterns and development 
         return '';
       }
 
-      const enrichedContext = contextChunks
-        .map((chunk, i) => {
-          const preview = chunk.text.substring(0, 350);
-          const contextInfo = [];
-
-          if (chunk.contextType !== 'general') {
-            contextInfo.push(`[${chunk.contextType}]`);
-          }
-
-          if (chunk.emotionalTags && chunk.emotionalTags.length > 0) {
-            contextInfo.push(`emotions: ${chunk.emotionalTags.join(', ')}`);
-          }
-
-          if (chunk.thematicTags && chunk.thematicTags.length > 0) {
-            contextInfo.push(`themes: ${chunk.thematicTags.join(', ')}`);
-          }
-
-          const metadata = contextInfo.length > 0 ? ` (${contextInfo.join('; ')})` : '';
-          return `${i + 1}. ${preview}...${metadata}`;
-        })
-        .join('\n');
-
-      console.log(
-        '[EnhancedPromptGenerationService] Debug - Enriched context preview:',
-        enrichedContext.substring(0, 300)
-      );
-      return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
+      return this.enrichContextChunks(contextChunks);
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Failed to gather contextual information', error);
       return '';
     }
+  }
+
+  private enrichContextChunks(contextChunks: any[]): string {
+    const enrichedContext = contextChunks
+      .map((chunk, i) => {
+        const preview = chunk.text.substring(0, 350);
+        const contextInfo = this.buildChunkMetadata(chunk);
+        const metadata = contextInfo.length > 0 ? ` (${contextInfo.join('; ')})` : '';
+        return `${i + 1}. ${preview}...${metadata}`;
+      })
+      .join('\n');
+
+    console.log(
+      '[EnhancedPromptGenerationService] Debug - Enriched context preview:',
+      enrichedContext.substring(0, 300)
+    );
+    return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
+  }
+
+  private buildChunkMetadata(chunk: any): string[] {
+    const contextInfo = [];
+
+    if (chunk.contextType !== 'general') {
+      contextInfo.push(`[${chunk.contextType}]`);
+    }
+
+    if (chunk.emotionalTags && chunk.emotionalTags.length > 0) {
+      contextInfo.push(`emotions: ${chunk.emotionalTags.join(', ')}`);
+    }
+
+    if (chunk.thematicTags && chunk.thematicTags.length > 0) {
+      contextInfo.push(`themes: ${chunk.thematicTags.join(', ')}`);
+    }
+
+    return contextInfo;
   }
 
   private buildSystemPrompt(_style: PromptStyle, includeEmotional: boolean, includeThematic: boolean): string {

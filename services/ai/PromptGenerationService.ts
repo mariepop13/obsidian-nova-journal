@@ -68,7 +68,16 @@ export class PromptGenerationService {
     mood?: Partial<MoodData>,
     providedRagContext?: string
   ): Promise<string | null> {
-    const systemPrompt = `Generate ONE simple journaling question in the SAME LANGUAGE as the context provided.
+    const systemPrompt = this.createSystemPrompt();
+    const ragContext = await this.getRagContext(noteText, providedRagContext);
+    const userPrompt = this.buildUserPrompt(style, noteText, mood, ragContext);
+    
+    console.log(`[PromptGenerationService] Final user prompt:`, userPrompt);
+    return this.callAIService(systemPrompt, userPrompt);
+  }
+
+  private createSystemPrompt(): string {
+    return `Generate ONE simple journaling question in the SAME LANGUAGE as the context provided.
 
 CRITICAL RULES:
 - Output ONLY the question text (no quotes/labels).
@@ -100,48 +109,67 @@ Styles:
 - gratitude: focus on appreciation related to current topic
 - planning: next steps for current situation
 - dreams: exploration of current dream content`;
+  }
 
-    let ragContext = '';
+  private async getRagContext(noteText: string, providedRagContext?: string): Promise<string> {
     if (providedRagContext && providedRagContext.trim().length > 0) {
-      ragContext = `\n\nPrevious journal entries context:\n${providedRagContext}`;
+      const ragContext = `\n\nPrevious journal entries context:\n${providedRagContext}`;
       console.log(`[PromptGenerationService] Using provided RAG context:`, ragContext.substring(0, 200));
-    } else {
-      try {
-        if (noteText && noteText.trim().length > 0) {
-          const appRef = (window as any)?.app;
-          if (appRef) {
-            const embeddingService = new EmbeddingService(appRef, this.settings);
-            const top = await embeddingService.topK(noteText, 3);
-            console.log(`[PromptGenerationService] RAG results:`, top);
-            if (Array.isArray(top) && top.length > 0) {
-              const enriched = top
-                .map((t, i) => {
-                  const preview = (t.text || '').substring(0, 400);
-                  return `${i + 1}. ${preview}...`;
-                })
-                .join('\n');
-              ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
-              console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(0, 200));
-            } else {
-              console.log(`[PromptGenerationService] No RAG results found`);
-            }
-          } else {
-            console.log(`[PromptGenerationService] No app reference found`);
-          }
-        } else {
-          console.log(`[PromptGenerationService] No note text provided`);
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        console.error('[PromptGenerationService] RAG fetch failed:', errorMessage);
-        if (this.settings.aiDebug) {
-          console.log('[PromptGenerationService] Debug - RAG retrieval failed, proceeding without context');
-        }
-      }
+      return ragContext;
     }
+    
+    return this.fetchRagContext(noteText);
+  }
 
+  private async fetchRagContext(noteText: string): Promise<string> {
+    try {
+      if (!noteText || noteText.trim().length === 0) {
+        console.log(`[PromptGenerationService] No note text provided`);
+        return '';
+      }
+
+      const appRef = (window as any)?.app;
+      if (!appRef) {
+        console.log(`[PromptGenerationService] No app reference found`);
+        return '';
+      }
+
+      const embeddingService = new EmbeddingService(appRef, this.settings);
+      const top = await embeddingService.topK(noteText, 3);
+      console.log(`[PromptGenerationService] RAG results:`, top);
+      
+      if (!Array.isArray(top) || top.length === 0) {
+        console.log(`[PromptGenerationService] No RAG results found`);
+        return '';
+      }
+
+      return this.buildRagContextFromResults(top);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[PromptGenerationService] RAG fetch failed:', errorMessage);
+      if (this.settings.aiDebug) {
+        console.log('[PromptGenerationService] Debug - RAG retrieval failed, proceeding without context');
+      }
+      return '';
+    }
+  }
+
+  private buildRagContextFromResults(top: any[]): string {
+    const enriched = top
+      .map((t, i) => {
+        const preview = (t.text || '').substring(0, 400);
+        return `${i + 1}. ${preview}...`;
+      })
+      .join('\n');
+    
+    const ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
+    console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(0, 200));
+    return ragContext;
+  }
+
+  private buildUserPrompt(style: PromptStyle, noteText: string, mood?: Partial<MoodData>, ragContext?: string): string {
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
-    const userPrompt = `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext}
+    return `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext || ''}
 
 Generate a question that:
 1. Uses the same language as the provided context
@@ -149,9 +177,9 @@ Generate a question that:
 3. If no context exists, ask a general question without invented details
 4. NEVER invent dates, years, people, or events not mentioned
 5. Be factual and avoid assumptions about past states or emotions`;
+  }
 
-    console.log(`[PromptGenerationService] Final user prompt:`, userPrompt);
-
+  private async callAIService(systemPrompt: string, userPrompt: string): Promise<string | null> {
     try {
       const response = await chat({
         apiKey: this.settings.aiApiKey,

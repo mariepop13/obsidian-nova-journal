@@ -31,71 +31,90 @@ export class PromptInsertionService {
   ): Promise<boolean> {
     try {
       removeDateHeadingInEditor(editor);
+      
+      const contextData = await this.preparePromptContext(editor);
+      if (!contextData) return false;
 
-      const date = new Date();
-      const mood = FrontmatterService.readMoodProps(editor);
-      const contextAwareResult = await this.promptService.getContextAwarePrompt(
-        this.settings.promptStyle as PromptStyle,
-        date,
-        editor.getValue(),
-        mood
-      );
-
-      if (!contextAwareResult) {
-        ToastSpinnerService.error('Nova Journal: failed to generate prompt.');
-        return false;
-      }
-
-      const { style, prompt: fallbackPrompt } = contextAwareResult;
-
-      let basePrompt = fallbackPrompt;
-      let ragContext = '';
-
-      if (this.ragContextService) {
-        try {
-          const editorContent = editor.getValue();
-          const trimmedContent = editorContent.trim().slice(0, 5000);
-          const hasSubstantialContent = trimmedContent.length > 50;
-
-          const ragPromise = hasSubstantialContent
-            ? this.ragContextService.getRagContext(trimmedContent, editor)
-            : this.ragContextService.getRecentContext(style);
-
-          ragContext = await Promise.race([ragPromise, new Promise<string>(res => setTimeout(() => res(''), 2000))]);
-        } catch (err) {
-          console.warn('[PromptInsertionService] RAG retrieval failed, proceeding without context');
-          ragContext = '';
-        }
-      }
-
-      const generator = new PromptGenerationService(this.settings);
-      const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood, ragContext);
-
-      if (aiPrompt && aiPrompt.length > 0) {
-        basePrompt = aiPrompt;
-      } else {
-        console.log('[PromptInsertionService] Debug - Using fallback prompt');
-      }
-
+      const basePrompt = await this.generatePromptWithContext(editor, contextData);
       if (this.isDuplicatePrompt(editor, basePrompt)) {
-        if (duplicateMessage) {
-          ToastSpinnerService.info(duplicateMessage);
-        }
-        return false;
+        return this.handleDuplicatePrompt(duplicateMessage);
       }
 
-      const prompt = this.renderPrompt(basePrompt, date);
-      const insertLocation = location || this.settings.insertLocation;
-
-      insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
-      ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
-      ToastSpinnerService.notice('Nova Journal: prompt inserted.');
-      return true;
+      return this.performPromptInsertion(editor, basePrompt, contextData.date, location);
     } catch (error) {
       console.error('Nova Journal: prompt insertion error', error);
       ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
+  }
+
+  private async preparePromptContext(editor: Editor) {
+    const date = new Date();
+    const mood = FrontmatterService.readMoodProps(editor);
+    const contextAwareResult = await this.promptService.getContextAwarePrompt(
+      this.settings.promptStyle as PromptStyle,
+      date,
+      editor.getValue(),
+      mood
+    );
+
+    if (!contextAwareResult) {
+      ToastSpinnerService.error('Nova Journal: failed to generate prompt.');
+      return null;
+    }
+
+    return { ...contextAwareResult, date, mood };
+  }
+
+  private async generatePromptWithContext(editor: Editor, contextData: any): Promise<string> {
+    const { style, prompt: fallbackPrompt, mood } = contextData;
+    
+    const ragContext = await this.retrieveRagContext(editor, style);
+    const generator = new PromptGenerationService(this.settings);
+    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood, ragContext);
+
+    if (aiPrompt && aiPrompt.length > 0) {
+      return aiPrompt;
+    } else {
+      console.log('[PromptInsertionService] Debug - Using fallback prompt');
+      return fallbackPrompt;
+    }
+  }
+
+  private async retrieveRagContext(editor: Editor, style: any): Promise<string> {
+    if (!this.ragContextService) return '';
+
+    try {
+      const editorContent = editor.getValue();
+      const trimmedContent = editorContent.trim().slice(0, 5000);
+      const hasSubstantialContent = trimmedContent.length > 50;
+
+      const ragPromise = hasSubstantialContent
+        ? this.ragContextService.getRagContext(trimmedContent, editor)
+        : this.ragContextService.getRecentContext(style);
+
+      return await Promise.race([ragPromise, new Promise<string>(res => setTimeout(() => res(''), 2000))]);
+    } catch (err) {
+      console.warn('[PromptInsertionService] RAG retrieval failed, proceeding without context');
+      return '';
+    }
+  }
+
+  private handleDuplicatePrompt(duplicateMessage?: string): boolean {
+    if (duplicateMessage) {
+      ToastSpinnerService.info(duplicateMessage);
+    }
+    return false;
+  }
+
+  private performPromptInsertion(editor: Editor, basePrompt: string, date: Date, location?: EnhancedInsertionLocation): boolean {
+    const prompt = this.renderPrompt(basePrompt, date);
+    const insertLocation = location || this.settings.insertLocation;
+
+    insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
+    ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());
+    ToastSpinnerService.notice('Nova Journal: prompt inserted.');
+    return true;
   }
 
   private isDuplicatePrompt(editor: Editor, basePrompt: string): boolean {
