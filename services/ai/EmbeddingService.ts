@@ -210,7 +210,8 @@ export class EmbeddingService {
 				`nova-journal-index-${this.app.vault.getName()}`
 			);
 			if (json) {
-				this.index = JSON.parse(json) as IndexData;
+				const { validateAndParseJSON } = await import('../../utils/Sanitizer');
+				this.index = validateAndParseJSON<IndexData>(json) || null;
 			}
 		} catch {
 			this.index = null;

@@ -28,3 +28,6 @@ CLAUDE.md
 
 # Serena MCP configuration and cache (keep local only)
 .serena
+
+# Test coverage reports
+coverage

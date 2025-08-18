@@ -337,11 +337,12 @@ export class EnhancedEmbeddingService {
       console.log('[EnhancedEmbeddingService] Debug - JSON found in localStorage:', !!json);
       
       if (json) {
-        const loaded = JSON.parse(json) as EnhancedIndexData;
-        console.log('[EnhancedEmbeddingService] Debug - Parsed index version:', loaded.version, 'expected:', this.version);
-        console.log('[EnhancedEmbeddingService] Debug - Parsed index items count:', loaded.items?.length || 0);
+        const { validateAndParseJSON } = await import('../../utils/Sanitizer');
+        const loaded = validateAndParseJSON<EnhancedIndexData>(json);
+        console.log('[EnhancedEmbeddingService] Debug - Parsed index version:', loaded?.version, 'expected:', this.version);
+        console.log('[EnhancedEmbeddingService] Debug - Parsed index items count:', loaded?.items?.length || 0);
         
-        if (loaded.version === this.version) {
+        if (loaded && loaded.version === this.version) {
           this.index = loaded;
           console.log('[EnhancedEmbeddingService] Debug - Index loaded successfully with', this.index.items.length, 'items');
         } else {
