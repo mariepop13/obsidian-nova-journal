@@ -179,9 +179,21 @@ export class SettingsValidator {
 export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJournalSettings {
   const s: NovaJournalSettings = { ...DEFAULT_SETTINGS, ...input };
   
+  const cleanString = (value: string, fallback: string = ''): string => {
+    return (value || '').toString().trim() || fallback;
+  };
+  
+  const sanitizeTemplate = (template: string): string => {
+    return template.replace(/[<>]/g, '').replace(/javascript:/gi, '').replace(/data:/gi, '').trim();
+  };
+  
   return {
     ...s,
-    promptTemplate: (s.promptTemplate || '').replace(/\s+$/, ''),
+    promptTemplate: sanitizeTemplate(s.promptTemplate || DEFAULT_SETTINGS.promptTemplate),
+    aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt).substring(0, 2000),
+    dailyNoteFolder: cleanString(s.dailyNoteFolder, DEFAULT_SETTINGS.dailyNoteFolder).substring(0, 200),
+    sectionHeading: cleanString(s.sectionHeading, DEFAULT_SETTINGS.sectionHeading).substring(0, 100),
+    userName: cleanString(s.userName, DEFAULT_SETTINGS.userName).substring(0, 50),
     dailyNoteFormat: SettingsValidator.validateDateFormat(s.dailyNoteFormat),
     typewriterSpeed: SettingsValidator.validateTypewriterSpeed(s.typewriterSpeed),
     defaultDeepenScope: SettingsValidator.validateDeepenScope(s.defaultDeepenScope),
@@ -189,9 +201,9 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     aiRetryCount: SettingsValidator.validateRetryCount(s.aiRetryCount),
     buttonStyle: SettingsValidator.validateButtonStyle(s.buttonStyle),
     buttonPosition: SettingsValidator.validateButtonPosition(s.buttonPosition),
-    moodButtonLabel: (s.moodButtonLabel || '').trim() || DEFAULT_SETTINGS.moodButtonLabel,
-    deepenButtonLabel: (s.deepenButtonLabel || '').trim() || DEFAULT_SETTINGS.deepenButtonLabel,
-    buttonTheme: (s.buttonTheme || '').trim() || DEFAULT_SETTINGS.buttonTheme,
+    moodButtonLabel: cleanString(s.moodButtonLabel, DEFAULT_SETTINGS.moodButtonLabel).substring(0, 50),
+    deepenButtonLabel: cleanString(s.deepenButtonLabel, DEFAULT_SETTINGS.deepenButtonLabel).substring(0, 50),
+    buttonTheme: cleanString(s.buttonTheme, DEFAULT_SETTINGS.buttonTheme).substring(0, 50),
   };
 }
 
