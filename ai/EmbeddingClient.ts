@@ -49,11 +49,19 @@ export async function embed({ apiKey, model = 'text-embedding-3-small', inputs }
   });
   
   if (!res.ok) {
-    const errorText = await res.text().catch(() => '<non-text error>');
+    const errorText = await res.text().catch(() => '');
     console.error(`[Embedding Debug] API Error ${res.status}:`, sanitizeForLogging(errorText));
     console.error(`[Embedding Debug] Request payload size: ${JSON.stringify(payload).length} bytes`);
-    console.error(`[Embedding Debug] Sample inputs:`, filteredInputs.slice(0, 3).map(t => t.substring(0, 100)));
-    throw new Error(`Embedding API error ${res.status}: ${sanitizeForLogging(errorText)}`);
+    
+    if (res.status === 401) {
+      throw new Error('Embedding API authentication failed');
+    } else if (res.status === 429) {
+      throw new Error('Embedding API rate limit exceeded');
+    } else if (res.status >= 500) {
+      throw new Error('Embedding API server error');
+    } else {
+      throw new Error(`Embedding API error ${res.status}`);
+    }
   }
   
   let json: any;

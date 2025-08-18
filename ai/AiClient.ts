@@ -95,15 +95,47 @@ function parseResponse(data: any): string {
   return text;
 }
 
+class RateLimiter {
+  private static requests: Map<string, number[]> = new Map();
+  private static readonly WINDOW_MS = 60000; // 1 minute
+  private static readonly MAX_REQUESTS = 50; // per minute per API key
+
+  static checkRateLimit(apiKey: string): boolean {
+    const keyHash = apiKey.substring(0, 8);
+    const now = Date.now();
+    const requests = this.requests.get(keyHash) || [];
+    
+    const recentRequests = requests.filter(time => now - time < this.WINDOW_MS);
+    
+    if (recentRequests.length >= this.MAX_REQUESTS) {
+      return false;
+    }
+    
+    recentRequests.push(now);
+    this.requests.set(keyHash, recentRequests);
+    return true;
+  }
+}
+
 export async function chat({ apiKey, model, systemPrompt, userText, maxTokens = AI_LIMITS.DEFAULT_TOKENS, debug = false, retryCount = 0, fallbackModel = '' }: ChatArgs): Promise<string> {
+  if (!apiKey || typeof apiKey !== 'string') {
+    throw new Error('Valid API key required');
+  }
+  
+  if (!RateLimiter.checkRateLimit(apiKey)) {
+    throw new Error('Rate limit exceeded. Please wait before making more requests');
+  }
+  
+  const { sanitizeUserInput } = await import('../utils/Sanitizer');
+  
   const primary = model || 'gpt-5-mini';
   const tries = Math.max(0, Math.min(AI_LIMITS.MAX_RETRIES, retryCount));
   
   const config: APICallConfig = {
     apiKey,
     modelName: primary,
-    systemPrompt,
-    userText,
+    systemPrompt: sanitizeUserInput(systemPrompt, 5000),
+    userText: sanitizeUserInput(userText, 50000),
     maxTokens,
     debug
   };
