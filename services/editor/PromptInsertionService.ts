@@ -75,10 +75,10 @@ export class PromptInsertionService {
 
     if (aiPrompt && aiPrompt.length > 0) {
       return aiPrompt;
-    } else {
+    } 
       console.log('[PromptInsertionService] Debug - Using fallback prompt');
       return fallbackPrompt;
-    }
+    
   }
 
   private async retrieveRagContext(editor: Editor, style: any): Promise<string> {

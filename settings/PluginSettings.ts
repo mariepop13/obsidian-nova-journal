@@ -177,16 +177,23 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
 
   const sanitizeTemplate = (template: string): string => {
     return template
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
       .replace(/[<>]/g, '')
       .replace(/javascript:/gi, '')
       .replace(/data:/gi, '')
+      .replace(/window\./gi, '')
+      .replace(/document\./gi, '')
       .trim();
   };
 
   return {
     ...s,
     promptTemplate: sanitizeTemplate(s.promptTemplate || DEFAULT_SETTINGS.promptTemplate),
-    aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt).substring(0, 2000),
+    aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt)
+      .replace(/javascript:/gi, '')
+      .replace(/data:/gi, '')
+      .substring(0, 2000),
+    aiApiKey: cleanString(s.aiApiKey, DEFAULT_SETTINGS.aiApiKey).substring(0, 500),
     dailyNoteFolder: cleanString(s.dailyNoteFolder, DEFAULT_SETTINGS.dailyNoteFolder).substring(0, 200),
     sectionHeading: cleanString(s.sectionHeading, DEFAULT_SETTINGS.sectionHeading).substring(0, 100),
     userName: cleanString(s.userName, DEFAULT_SETTINGS.userName).substring(0, 50),
@@ -201,4 +208,28 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     deepenButtonLabel: cleanString(s.deepenButtonLabel, DEFAULT_SETTINGS.deepenButtonLabel).substring(0, 50),
     buttonTheme: cleanString(s.buttonTheme, DEFAULT_SETTINGS.buttonTheme).substring(0, 50),
   };
+}
+
+export interface SettingsExportData {
+  version: string;
+  timestamp: string;
+  settings: NovaJournalSettings;
+  metadata?: {
+    exportedBy: string;
+    obsidianVersion: string;
+    pluginVersion: string;
+  };
+}
+
+export interface SettingsImportResult {
+  success: boolean;
+  settings?: NovaJournalSettings;
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface SettingsExportOptions {
+  includeApiKey?: boolean;
+  includeMetadata?: boolean;
+  format?: 'json' | 'minimal';
 }
