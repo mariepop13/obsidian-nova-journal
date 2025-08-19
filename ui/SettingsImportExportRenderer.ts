@@ -8,6 +8,7 @@ export class SettingsImportExportRenderer {
   private readonly plugin: NovaJournalPlugin;
   private readonly refreshCallback: () => void;
   private readonly settingsService: SettingsService;
+  private includeApiKeyInExport = false;
 
   constructor(plugin: NovaJournalPlugin, refreshCallback: () => void) {
     this.plugin = plugin;
@@ -34,7 +35,7 @@ export class SettingsImportExportRenderer {
           .setClass('mod-cta')
           .onClick(async () => {
             try {
-              await this.settingsService.saveSettingsToFile();
+              await this.settingsService.saveSettingsWithFilePicker(this.includeApiKeyInExport);
             } catch (error) {
               ToastSpinnerService.error(`Failed to export settings: ${error.message}`);
             }
@@ -46,7 +47,7 @@ export class SettingsImportExportRenderer {
           .onClick(async () => {
             try {
               const options: SettingsExportOptions = {
-                includeApiKey: false,
+                includeApiKey: this.includeApiKeyInExport,
                 includeMetadata: true,
               };
               const exportData = await this.settingsService.exportSettings(options);
@@ -66,36 +67,7 @@ export class SettingsImportExportRenderer {
       .addToggle((toggle) => {
         toggle.setValue(false);
         toggle.onChange(async (includeApiKey) => {
-          // Store the preference temporarily for the export buttons above
-          const exportButtons = containerEl.querySelectorAll('.setting-item button');
-          exportButtons.forEach((btn: HTMLButtonElement) => {
-            if (btn.textContent?.includes('Export') || btn.textContent?.includes('Copy')) {
-              btn.onclick = async () => {
-                try {
-                  const options: SettingsExportOptions = {
-                    includeApiKey,
-                    includeMetadata: true,
-                  };
-
-                  if (btn.textContent?.includes('Export')) {
-                    const exportData = await this.settingsService.exportSettings(options);
-                    const content = JSON.stringify(exportData, null, 2);
-                    const filename = `nova-journal-settings-${includeApiKey ? 'with-key-' : ''}${new Date().toISOString().split('T')[0]}.json`;
-                    
-                    const file = await this.plugin.app.vault.create(filename, content);
-                    ToastSpinnerService.notice(`Settings exported to ${file.path}`);
-                  } else {
-                    const exportData = await this.settingsService.exportSettings(options);
-                    const content = JSON.stringify(exportData, null, 2);
-                    await navigator.clipboard.writeText(content);
-                    ToastSpinnerService.notice('Settings copied to clipboard');
-                  }
-                } catch (error) {
-                  ToastSpinnerService.error(`Export failed: ${error.message}`);
-                }
-              };
-            }
-          });
+          this.includeApiKeyInExport = includeApiKey;
         });
       });
   }

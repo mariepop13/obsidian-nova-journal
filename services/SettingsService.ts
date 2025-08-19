@@ -27,6 +27,8 @@ export class SettingsService {
     
     if (!includeApiKey) {
       settings.aiApiKey = '';
+    } else {
+      settings.aiApiKey = this.plugin.settings.aiApiKey || '';
     }
 
     const exportData: SettingsExportData = {
@@ -78,27 +80,45 @@ export class SettingsService {
     }
   }
 
-  async saveSettingsToFile(filename?: string): Promise<void> {
-    const exportData = await this.exportSettings({ includeApiKey: false });
-    const content = JSON.stringify(exportData, null, 2);
-    
-    const defaultFilename = `nova-journal-settings-${new Date().toISOString().split('T')[0]}.json`;
-    const actualFilename = filename || defaultFilename;
 
-    try {
-      const file = await this.app.vault.create(actualFilename, content);
-      ToastSpinnerService.notice(`Settings exported to ${file.path}`);
-    } catch (error) {
-      if (error.message.includes('already exists')) {
-        const file = await this.app.vault.modify(
-          this.app.vault.getAbstractFileByPath(actualFilename) as TFile,
-          content,
-        );
-        ToastSpinnerService.notice(`Settings updated in ${actualFilename}`);
-      } else {
-        throw error;
-      }
-    }
+
+  async saveSettingsWithFilePicker(includeApiKey = false): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      // @ts-ignore - webkitdirectory for folder selection
+      input.webkitdirectory = false;
+      // Use save dialog instead of open
+      const a = document.createElement('a');
+      
+      const exportData = this.exportSettings({ includeApiKey }).then(data => {
+        const content = JSON.stringify(data, null, 2);
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const HH = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const defaultFilename = `nova-journal-settings-${yyyy}-${mm}-${dd}_${HH}-${min}.json`;
+        
+        a.href = url;
+        a.download = defaultFilename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          ToastSpinnerService.notice(`Settings exported to ${defaultFilename}`);
+          resolve();
+        }, 100);
+      }).catch(reject);
+    });
   }
 
   async loadSettingsFromFile(): Promise<SettingsImportResult> {

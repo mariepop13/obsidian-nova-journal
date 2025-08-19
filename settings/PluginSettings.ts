@@ -187,6 +187,7 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     ...s,
     promptTemplate: sanitizeTemplate(s.promptTemplate || DEFAULT_SETTINGS.promptTemplate),
     aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt).substring(0, 2000),
+    aiApiKey: cleanString(s.aiApiKey, DEFAULT_SETTINGS.aiApiKey).substring(0, 500),
     dailyNoteFolder: cleanString(s.dailyNoteFolder, DEFAULT_SETTINGS.dailyNoteFolder).substring(0, 200),
     sectionHeading: cleanString(s.sectionHeading, DEFAULT_SETTINGS.sectionHeading).substring(0, 100),
     userName: cleanString(s.userName, DEFAULT_SETTINGS.userName).substring(0, 50),
