@@ -202,3 +202,27 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     buttonTheme: cleanString(s.buttonTheme, DEFAULT_SETTINGS.buttonTheme).substring(0, 50),
   };
 }
+
+export interface SettingsExportData {
+  version: string;
+  timestamp: string;
+  settings: NovaJournalSettings;
+  metadata?: {
+    exportedBy: string;
+    obsidianVersion: string;
+    pluginVersion: string;
+  };
+}
+
+export interface SettingsImportResult {
+  success: boolean;
+  settings?: NovaJournalSettings;
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface SettingsExportOptions {
+  includeApiKey?: boolean;
+  includeMetadata?: boolean;
+  format?: 'json' | 'minimal';
+}
