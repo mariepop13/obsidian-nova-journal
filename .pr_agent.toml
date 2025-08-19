@@ -20,7 +20,7 @@ auto_add_labels = true
 
 [pr_description]
 publish_description_as_comment = false
-add_original_user_description = true
+add_original_user_description = false
 keep_original_user_title = true
 
 [pr_reviewer]
@@ -34,7 +34,7 @@ persistent_comment_per_thread = true
 [pr_code_suggestions]
 num_code_suggestions_per_chunk = 4
 suggestions_depth = "detailed"
-commitable_code_suggestions = true
+commitable_code_suggestions = false
 suggestions_score_threshold = 7
 auto_extended_mode = true
 rank_suggestions = true
