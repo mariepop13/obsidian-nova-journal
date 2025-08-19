@@ -22,6 +22,8 @@ auto_add_labels = true
 publish_description_as_comment = false
 add_original_user_description = false
 keep_original_user_title = true
+publish_labels = true
+enable_custom_labels = false
 
 [pr_reviewer]
 require_focused_review = true
