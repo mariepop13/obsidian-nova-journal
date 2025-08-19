@@ -1,12 +1,12 @@
 import { App, TFile, requestUrl } from 'obsidian';
 import type NovaJournalPlugin from '../main';
 import {
+  DEFAULT_SETTINGS,
   type NovaJournalSettings,
   type SettingsExportData,
-  type SettingsImportResult,
   type SettingsExportOptions,
+  type SettingsImportResult,
   normalizeSettings,
-  DEFAULT_SETTINGS,
 } from '../settings/PluginSettings';
 import { ToastSpinnerService } from './editor/ToastSpinnerService';
 
@@ -139,13 +139,33 @@ export class SettingsService {
 
         try {
           const content = await file.text();
-          const data = JSON.parse(content);
+          
+          if (content.length > 1024 * 1024) {
+            resolve({
+              success: false,
+              errors: ['File too large. Maximum size is 1MB.'],
+            });
+            return;
+          }
+          
+          let data;
+          try {
+            data = JSON.parse(content);
+          } catch (parseError) {
+            resolve({
+              success: false,
+              errors: ['Invalid JSON format. Please check your file.'],
+            });
+            return;
+          }
+          
           const result = await this.importSettings(data);
           resolve(result);
         } catch (error) {
+          console.error('Settings import failed:', error);
           resolve({
             success: false,
-            errors: [`Failed to read file: ${error.message}`],
+            errors: ['Failed to read file. Please try again.'],
           });
         }
       };
@@ -155,12 +175,14 @@ export class SettingsService {
   }
 
   async applyImportedSettings(settings: NovaJournalSettings): Promise<void> {
+    console.log('Settings import: Applying imported settings');
     this.plugin.settings = settings;
     await this.plugin.saveSettings();
     ToastSpinnerService.notice('Settings imported successfully');
   }
 
   async resetToDefaults(): Promise<void> {
+    console.log('Settings reset: Resetting all settings to defaults');
     this.plugin.settings = { ...DEFAULT_SETTINGS };
     await this.plugin.saveSettings();
     ToastSpinnerService.notice('Settings reset to defaults');

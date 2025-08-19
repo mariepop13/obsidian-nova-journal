@@ -37,7 +37,8 @@ export class SettingsImportExportRenderer {
             try {
               await this.settingsService.saveSettingsWithFilePicker(this.includeApiKeyInExport);
             } catch (error) {
-              ToastSpinnerService.error(`Failed to export settings: ${error.message}`);
+              console.error('Export failed:', error);
+              ToastSpinnerService.error('Failed to export settings. Please try again.');
             }
           });
       })
@@ -53,10 +54,20 @@ export class SettingsImportExportRenderer {
               const exportData = await this.settingsService.exportSettings(options);
               const content = JSON.stringify(exportData, null, 2);
               
+              if (this.includeApiKeyInExport && exportData.settings.aiApiKey) {
+                const confirmed = confirm(
+                  'WARNING: You are about to copy sensitive API key data to clipboard.\n\nThis data will be accessible to other applications and may remain in clipboard history.\n\nContinue only if you trust your current environment.\n\nContinue?'
+                );
+                if (!confirmed) {
+                  return;
+                }
+              }
+              
               await navigator.clipboard.writeText(content);
               ToastSpinnerService.notice('Settings copied to clipboard');
             } catch (error) {
-              ToastSpinnerService.error(`Failed to copy settings: ${error.message}`);
+              console.error('Copy to clipboard failed:', error);
+              ToastSpinnerService.error('Failed to copy settings. Please try again.');
             }
           });
       });
@@ -85,9 +96,7 @@ export class SettingsImportExportRenderer {
               const result = await this.settingsService.loadSettingsFromFile();
               
               if (!result.success) {
-                ToastSpinnerService.error(
-                  `Import failed: ${result.errors?.join(', ')}`
-                );
+                ToastSpinnerService.error('Import failed. Please check your file format.');
                 return;
               }
 
@@ -102,9 +111,8 @@ export class SettingsImportExportRenderer {
                 this.refreshCallback();
               }
             } catch (error) {
-              ToastSpinnerService.error(
-                `Failed to import settings: ${error.message}`
-              );
+              console.error('File import failed:', error);
+              ToastSpinnerService.error('Failed to import settings. Please try again.');
             }
           });
       })
@@ -114,13 +122,24 @@ export class SettingsImportExportRenderer {
           .onClick(async () => {
             try {
               const clipboardText = await navigator.clipboard.readText();
-              const data = JSON.parse(clipboardText);
+              
+              if (clipboardText.length > 1024 * 1024) {
+                ToastSpinnerService.error('Clipboard content too large. Maximum size is 1MB.');
+                return;
+              }
+              
+              let data;
+              try {
+                data = JSON.parse(clipboardText);
+              } catch (parseError) {
+                ToastSpinnerService.error('Invalid JSON format in clipboard.');
+                return;
+              }
+              
               const result = await this.settingsService.importSettings(data);
 
               if (!result.success) {
-                ToastSpinnerService.error(
-                  `Import failed: ${result.errors?.join(', ')}`
-                );
+                ToastSpinnerService.error('Import failed. Please check your file format.');
                 return;
               }
 
@@ -135,9 +154,8 @@ export class SettingsImportExportRenderer {
                 this.refreshCallback();
               }
             } catch (error) {
-              ToastSpinnerService.error(
-                `Failed to import from clipboard: ${error.message}`
-              );
+              console.error('Clipboard import failed:', error);
+              ToastSpinnerService.error('Failed to import from clipboard. Please check the format.');
             }
           });
       });
@@ -161,9 +179,8 @@ export class SettingsImportExportRenderer {
                 await this.settingsService.resetToDefaults();
                 this.refreshCallback();
               } catch (error) {
-                ToastSpinnerService.error(
-                  `Failed to reset settings: ${error.message}`
-                );
+                console.error('Settings reset failed:', error);
+                ToastSpinnerService.error('Failed to reset settings. Please try again.');
               }
             }
           });

@@ -177,16 +177,22 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
 
   const sanitizeTemplate = (template: string): string => {
     return template
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
       .replace(/[<>]/g, '')
       .replace(/javascript:/gi, '')
       .replace(/data:/gi, '')
+      .replace(/window\./gi, '')
+      .replace(/document\./gi, '')
       .trim();
   };
 
   return {
     ...s,
     promptTemplate: sanitizeTemplate(s.promptTemplate || DEFAULT_SETTINGS.promptTemplate),
-    aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt).substring(0, 2000),
+    aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt)
+      .replace(/javascript:/gi, '')
+      .replace(/data:/gi, '')
+      .substring(0, 2000),
     aiApiKey: cleanString(s.aiApiKey, DEFAULT_SETTINGS.aiApiKey).substring(0, 500),
     dailyNoteFolder: cleanString(s.dailyNoteFolder, DEFAULT_SETTINGS.dailyNoteFolder).substring(0, 200),
     sectionHeading: cleanString(s.sectionHeading, DEFAULT_SETTINGS.sectionHeading).substring(0, 100),
