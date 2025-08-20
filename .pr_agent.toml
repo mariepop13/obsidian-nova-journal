@@ -1,3 +1,5 @@
+# PR Agent Configuration
+# Last tested: 2025-08-20 - Auto-approval functionality verified
 [config]
 model = "gpt-5-mini"
 ai_timeout = 120
@@ -19,11 +21,13 @@ auto_review = true
 auto_add_labels = true
 
 [pr_description]
+publish_labels = true
 publish_description_as_comment = false
 add_original_user_description = false
-keep_original_user_title = true
-publish_labels = true
-enable_custom_labels = false
+keep_original_user_title = false
+generate_ai_title = true
+publish_labels_as_comments = false
+enable_help_text = false
 
 [pr_reviewer]
 require_focused_review = true
@@ -32,9 +36,13 @@ require_tests_review = true
 require_estimate_effort_to_review = true
 inline_code_comments = true
 persistent_comment_per_thread = true
+auto_approve = false  # Let you decide after security scan
+auto_approve_low_effort = false
+require_can_be_split_review = false  # Simplified for personal use
+require_security_review = true  # Security scan but you can still merge
 
 [pr_code_suggestions]
-num_code_suggestions_per_chunk = 4
+num_code_suggestions_per_chunk = 0
 suggestions_depth = "detailed"
 commitable_code_suggestions = false
 suggestions_score_threshold = 7
@@ -47,4 +55,4 @@ number_of_calls = 3
 summarize = true
 
 [pr_update_changelog]
-push_changelog_changes = false
+push_changelog_changes = true
