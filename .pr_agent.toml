@@ -42,7 +42,7 @@ require_can_be_split_review = false  # Simplified for personal use
 require_security_review = true  # Security scan but you can still merge
 
 [pr_code_suggestions]
-num_code_suggestions_per_chunk = 0
+num_code_suggestions_per_chunk = 3
 suggestions_depth = "detailed"
 commitable_code_suggestions = false
 suggestions_score_threshold = 7
