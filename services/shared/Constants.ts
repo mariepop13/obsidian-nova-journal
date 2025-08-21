@@ -9,6 +9,11 @@ export const AI_LIMITS = {
   DEFAULT_TOKENS: 512,
   MAX_RETRIES: 5,
   BACKOFF_BASE_MS: 250,
+  RATE_LIMIT_WINDOW_MS: 60000,
+  RATE_LIMIT_MAX_REQUESTS: 50,
+  RATE_LIMIT_KEY_HASH_LENGTH: 8,
+  USER_INPUT_MAX_LENGTH: 5000,
+  USER_TEXT_MAX_LENGTH: 50000,
 } as const;
 
 export const TYPEWRITER_DELAYS = {
@@ -38,9 +43,14 @@ export const CSS_CLASSES = {
 
 export const API_CONFIG = {
   OPENAI_CHAT_URL: 'https://api.openai.com/v1/chat/completions',
+  OPENAI_EMBEDDINGS_URL: 'https://api.openai.com/v1/embeddings',
   OPENAI_MODELS_URL: 'https://api.openai.com/v1/models',
   TIMEOUT_MS: 10000,
   USER_AGENT: 'Nova-Journal-Plugin/1.0',
+  MAX_REQUEST_SIZE_BYTES: 2000000, // ~2MB
+  HTTP_UNAUTHORIZED: 401,
+  HTTP_RATE_LIMIT: 429,
+  HTTP_SERVER_ERROR: 500,
 } as const;
 
 export const TEMPLATE_PATTERNS = {

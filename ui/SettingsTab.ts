@@ -1,10 +1,9 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
-import { DEFAULT_SETTINGS } from '../settings/PluginSettings';
-import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
+import { App, PluginSettingTab } from 'obsidian';
+
 import { BasicSettingsRenderer } from './BasicSettingsRenderer';
 import { AISettingsRenderer } from './AISettingsRenderer';
 import { SettingsImportExportRenderer } from './SettingsImportExportRenderer';
-import { SettingsUtils } from './SettingsUtils';
+
 import type NovaJournalPlugin from '../main';
 
 export class NovaJournalSettingTab extends PluginSettingTab {

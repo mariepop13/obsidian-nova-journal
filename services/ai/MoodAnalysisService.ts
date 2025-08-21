@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import { ToastSpinnerService } from '../editor/ToastSpinnerService';

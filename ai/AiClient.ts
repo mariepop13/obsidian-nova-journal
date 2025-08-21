@@ -18,6 +18,29 @@ export interface APICallConfig {
   debug: boolean;
 }
 
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatCompletionPayload {
+  model: string;
+  messages: ChatMessage[];
+  max_tokens?: number;
+  max_completion_tokens?: number;
+}
+
+export interface OpenAIChoice {
+  message: {
+    content?: string | Array<{ text?: string }>;
+    output_text?: string;
+  } | undefined;
+}
+
+export interface OpenAIResponse {
+  choices?: OpenAIChoice[];
+}
+
 import { sanitizeForLogging } from '../utils/Sanitizer';
 import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/shared/Constants';
 
@@ -33,13 +56,13 @@ async function callOnce(config: APICallConfig): Promise<string> {
   return parseResponse(data);
 }
 
-function buildPayload(config: APICallConfig): Record<string, any> {
+function buildPayload(config: APICallConfig): ChatCompletionPayload {
   const safeMax =
     Number.isFinite(config.maxTokens) && config.maxTokens > 0
       ? Math.min(Math.floor(config.maxTokens), AI_LIMITS.MAX_TOKENS_HARD_LIMIT)
       : AI_LIMITS.DEFAULT_TOKENS;
 
-  const payload: any = {
+  const payload: ChatCompletionPayload = {
     model: config.modelName,
     messages: [
       { role: 'system', content: config.systemPrompt },
@@ -56,7 +79,7 @@ function buildPayload(config: APICallConfig): Record<string, any> {
   return payload;
 }
 
-async function makeAPICall(apiKey: string, payload: Record<string, any>): Promise<Response> {
+async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Promise<Response> {
   return fetch(API_CONFIG.OPENAI_CHAT_URL, {
     method: 'POST',
     headers: {
@@ -76,14 +99,18 @@ async function handleAPIError(response: Response, debug: boolean): Promise<never
   throw new Error(`AI request failed (${response.status}): ${response.statusText}`);
 }
 
-function parseResponse(data: any): string {
+function parseResponse(data: OpenAIResponse): string {
   const choice = data?.choices?.[0];
   const msg = choice?.message;
   let text = '';
 
-  if (typeof msg?.content === 'string') {
+  if (!msg) {
+    throw new Error('AI response missing message');
+  }
+
+  if (typeof msg.content === 'string') {
     text = msg.content.trim();
-  } else if (Array.isArray(msg?.content)) {
+  } else if (Array.isArray(msg.content)) {
     text = msg.content
       .map((p: { text?: string }) => p?.text ?? '')
       .join('')
@@ -101,13 +128,13 @@ function parseResponse(data: any): string {
 
 class RateLimiter {
   private static requests: Map<string, number[]> = new Map();
-  private static readonly WINDOW_MS = 60000; // 1 minute
-  private static readonly MAX_REQUESTS = 50; // per minute per API key
+  private static readonly WINDOW_MS = AI_LIMITS.RATE_LIMIT_WINDOW_MS;
+  private static readonly MAX_REQUESTS = AI_LIMITS.RATE_LIMIT_MAX_REQUESTS;
 
   static checkRateLimit(apiKey: string): boolean {
-    const keyHash = apiKey.substring(0, 8);
+    const keyHash = apiKey.substring(0, AI_LIMITS.RATE_LIMIT_KEY_HASH_LENGTH);
     const now = Date.now();
-    const requests = this.requests.get(keyHash) || [];
+    const requests = this.requests.get(keyHash) ?? [];
 
     const recentRequests = requests.filter(time => now - time < this.WINDOW_MS);
 
@@ -147,13 +174,13 @@ export async function chat({
   const config: APICallConfig = {
     apiKey,
     modelName: primary,
-    systemPrompt: sanitizeUserInput(systemPrompt, 5000),
-    userText: sanitizeUserInput(userText, 50000),
+    systemPrompt: sanitizeUserInput(systemPrompt, AI_LIMITS.USER_INPUT_MAX_LENGTH),
+    userText: sanitizeUserInput(userText, AI_LIMITS.USER_TEXT_MAX_LENGTH),
     maxTokens,
     debug,
   };
 
-  let lastError: any = null;
+  let lastError: Error | null = null;
 
   for (let i = 0; i <= tries; i += 1) {
     try {
@@ -176,5 +203,5 @@ export async function chat({
     }
   }
 
-  throw lastError || new Error('AI request failed');
+  throw lastError ?? new Error('AI request failed');
 }

@@ -65,7 +65,7 @@ export class ResponseInsertionService {
     return null;
   }
 
-  createNewButton(editor: Editor, line: number): number {
+  createNewButton(editor: Editor): number {
     ensureBottomButtons(editor, this.deepenButtonLabel, this.buttonSettings);
     return editor.lastLine();
   }
