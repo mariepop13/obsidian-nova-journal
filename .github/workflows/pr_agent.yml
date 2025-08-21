@@ -31,7 +31,7 @@ jobs:
         uses: qodo-ai/pr-agent@main
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.PR_AGENT_GITHUB_TOKEN }}
       
       - name: Comment on failure
         if: failure()
