@@ -1,4 +1,4 @@
-import { VALIDATION_LIMITS, AI_LIMITS } from '../services/shared/Constants';
+import { AI_LIMITS, VALIDATION_LIMITS } from '../services/shared/Constants';
 
 export const OPENAI_API_KEY_REGEX = /^sk-[A-Za-z0-9-_]{20,}$/;
 export function validateApiKey(apiKey: unknown): string {
@@ -31,7 +31,7 @@ export function sanitizeForLogging(input: unknown): string {
     .replace(new RegExp(`\\b[A-Fa-f0-9]{${VALIDATION_LIMITS.HASH_MIN_LENGTH},}\\b`, 'g'), '[HASH_REDACTED]');
 }
 
-export function validateAndParseJSON<T = any>(input: string, fallback?: T): T | null {
+export function validateAndParseJSON<T = unknown>(input: string, fallback?: T): T | null {
   if (typeof input !== 'string') return fallback ?? null;
 
   const trimmed = input.trim();

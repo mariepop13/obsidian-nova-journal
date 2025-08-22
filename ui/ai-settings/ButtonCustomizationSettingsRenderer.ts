@@ -36,7 +36,7 @@ export class ButtonCustomizationSettingsRenderer {
           try {
             this.plugin.settings.buttonStyle = SettingsValidator.validateButtonStyle(value);
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save button style');
           }
         });
@@ -58,7 +58,7 @@ export class ButtonCustomizationSettingsRenderer {
           try {
             this.plugin.settings.buttonPosition = SettingsValidator.validateButtonPosition(value);
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save button position');
           }
         });
@@ -80,7 +80,7 @@ export class ButtonCustomizationSettingsRenderer {
           try {
             this.plugin.settings.buttonTheme = value;
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save button theme');
           }
         });
@@ -96,7 +96,7 @@ export class ButtonCustomizationSettingsRenderer {
           try {
             this.plugin.settings.moodButtonLabel = value || 'Analyze mood';
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save mood button label');
           }
         })
@@ -112,7 +112,7 @@ export class ButtonCustomizationSettingsRenderer {
           try {
             this.plugin.settings.showMoodButton = value;
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save mood button setting');
           }
         })

@@ -45,7 +45,7 @@ export class ApiKeySettingsRenderer {
             try {
               this.plugin.settings.aiApiKey = value;
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save API key');
             }
           });

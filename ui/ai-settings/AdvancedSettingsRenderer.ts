@@ -36,7 +36,7 @@ export class AdvancedSettingsRenderer {
               const tokenCount = Number(value);
               this.plugin.settings.aiMaxTokens = SettingsValidator.validateTokens(tokenCount);
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save max tokens');
             }
           })
@@ -56,7 +56,7 @@ export class AdvancedSettingsRenderer {
               const retryCount = Number(value);
               this.plugin.settings.aiRetryCount = SettingsValidator.validateRetryCount(retryCount);
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save retry count');
             }
           })
@@ -72,7 +72,7 @@ export class AdvancedSettingsRenderer {
           try {
             this.plugin.settings.aiDebug = value;
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save debug setting');
           }
         })
