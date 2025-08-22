@@ -132,7 +132,8 @@ class RateLimiter {
   private static readonly MAX_REQUESTS = AI_LIMITS.RATE_LIMIT_MAX_REQUESTS;
 
   static checkRateLimit(apiKey: string): boolean {
-    const keyHash = apiKey.substring(0, AI_LIMITS.RATE_LIMIT_KEY_HASH_LENGTH);
+    const normalizedKey = apiKey.trim();
+    const keyHash = normalizedKey.substring(0, AI_LIMITS.RATE_LIMIT_KEY_HASH_LENGTH);
     const now = Date.now();
     const requests = this.requests.get(keyHash) ?? [];
 
