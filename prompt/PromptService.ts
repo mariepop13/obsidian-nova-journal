@@ -44,15 +44,15 @@ export class PromptService {
     noteText?: string,
     moodData?: Partial<MoodData>
   ): PromptStyle {
-    const text = (noteText || '').toLowerCase();
+    const text = (noteText ?? '').toLowerCase();
 
-    const indicatesDream = /\b(dream|rêve|reves|rêves|nightmare|cauchemar)\b/i.test(text);
+    const indicatesDream = /(dream|rêve|reves|rêves|nightmare|cauchemar)/i.test(text);
     if (indicatesDream) {
       return 'dreams';
     }
 
-    const tags = (moodData?.tags || []).map(t => t.toLowerCase());
-    const emotions = (moodData?.dominant_emotions || []).map(e => e.toLowerCase());
+    const tags = (moodData?.tags ?? []).map(t => t.toLowerCase());
+    const emotions = (moodData?.dominant_emotions ?? []).map(e => e.toLowerCase());
     if (tags.includes('sleep') || tags.includes('dreams') || emotions.includes('curious')) {
       return 'dreams';
     }
