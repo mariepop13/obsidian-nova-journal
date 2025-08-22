@@ -1,3 +1,5 @@
+import { VALIDATION_LIMITS, AI_LIMITS } from '../services/shared/Constants';
+
 export const OPENAI_API_KEY_REGEX = /^sk-[A-Za-z0-9-_]{20,}$/;
 export function validateApiKey(apiKey: unknown): string {
   if (!apiKey || typeof apiKey !== 'string') {
@@ -5,7 +7,7 @@ export function validateApiKey(apiKey: unknown): string {
   }
 
   const trimmed = apiKey.trim();
-  if (trimmed.length < 20) {
+  if (trimmed.length < VALIDATION_LIMITS.API_KEY_MIN_LENGTH) {
     throw new Error('API key too short');
   }
 
@@ -23,10 +25,10 @@ export function sanitizeForLogging(input: unknown): string {
   return text
     .replace(/Bearer\s+sk-[A-Za-z0-9-_]{20,}/gi, 'Bearer [REDACTED]')
     .replace(/sk-[A-Za-z0-9-_]{20,}/gi, '[API_KEY_REDACTED]')
-    .replace(/\bapi[_-]?key\b(["':\s]*)[A-Za-z0-9-_]{10,}/gi, 'api_key$1[REDACTED]')
-    .replace(/\b(password|secret|token|key)\b(["':\s]*)[A-Za-z0-9-_+/]{8,}/gi, '$1$2[REDACTED]')
-    .replace(/[A-Za-z0-9+/]{20,}={0,2}/g, '[ENCODED_DATA_REDACTED]')
-    .replace(/\b[A-Fa-f0-9]{32,}\b/g, '[HASH_REDACTED]');
+    .replace(new RegExp(`\\bapi[_-]?key\\b(["':\\s]*)[A-Za-z0-9-_]{${VALIDATION_LIMITS.API_KEY_MIN_PATTERN_LENGTH},}`, 'gi'), 'api_key$1[REDACTED]')
+    .replace(new RegExp(`\\b(password|secret|token|key)\\b(["':\\s]*)[A-Za-z0-9-_+/]{${VALIDATION_LIMITS.SECRET_MIN_LENGTH},}`, 'gi'), '$1$2[REDACTED]')
+    .replace(new RegExp(`[A-Za-z0-9+/]{${VALIDATION_LIMITS.ENCODED_DATA_MIN_LENGTH},}={0,2}`, 'g'), '[ENCODED_DATA_REDACTED]')
+    .replace(new RegExp(`\\b[A-Fa-f0-9]{${VALIDATION_LIMITS.HASH_MIN_LENGTH},}\\b`, 'g'), '[HASH_REDACTED]');
 }
 
 export function validateAndParseJSON<T = any>(input: string, fallback?: T): T | null {
@@ -42,7 +44,7 @@ export function validateAndParseJSON<T = any>(input: string, fallback?: T): T | 
   }
 }
 
-export function sanitizeUserInput(input: unknown, maxLength = 10000): string {
+export function sanitizeUserInput(input: unknown, maxLength = AI_LIMITS.USER_INPUT_MAX_LENGTH): string {
   if (input === null || input === undefined) return '';
 
   const text = String(input);

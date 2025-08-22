@@ -197,7 +197,7 @@ async function createChatConfig(params: {
     apiKey: params.apiKey,
     modelName: params.model,
     systemPrompt: sanitizeUserInput(params.systemPrompt, AI_LIMITS.USER_INPUT_MAX_LENGTH),
-    userText: sanitizeUserInput(params.userText, AI_LIMITS.USER_TEXT_MAX_LENGTH),
+    userText: sanitizeUserInput(params.userText, AI_LIMITS.USER_INPUT_MAX_LENGTH),
     maxTokens: params.maxTokens,
     debug: params.debug,
   };

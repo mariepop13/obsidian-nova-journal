@@ -1,3 +1,5 @@
+import { TIME_CONSTANTS } from '../shared/Constants';
+
 export class TemporalUtils {
   static extractDateFromFilename(filename: string): number | null {
     // Support format YYYY-MM-DD_HH-ss or YYYY-MM-DD
@@ -5,22 +7,22 @@ export class TemporalUtils {
     if (!dateMatch) return null;
 
     const datePart = dateMatch[1];
-    const hourPart = dateMatch[2] || '00';
-    const minutePart = dateMatch[3] || '00';
+    const hourPart = dateMatch[2] || TIME_CONSTANTS.DEFAULT_HOUR;
+    const minutePart = dateMatch[3] || TIME_CONSTANTS.DEFAULT_MINUTE;
 
-    const date = new Date(`${datePart}T${hourPart}:${minutePart}:00`);
+    const date = new Date(`${datePart}T${hourPart}:${minutePart}:${TIME_CONSTANTS.DEFAULT_SECOND}`);
     return isNaN(date.getTime()) ? null : date.getTime();
   }
 
   static formatDate(timestamp: number): string {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / TIME_CONSTANTS.MS_PER_DAY);
 
-    if (diffDays === 0) return "aujourd'hui";
-    if (diffDays === 1) return 'hier';
-    if (diffDays < 7) return `il y a ${diffDays} jours`;
-    if (diffDays < 30) return `il y a ${Math.floor(diffDays / 7)} semaines`;
+    if (diffDays === TIME_CONSTANTS.TIME_AGO_DAYS_MIN) return "aujourd'hui";
+    if (diffDays === TIME_CONSTANTS.TIME_AGO_DAYS_ONE) return 'hier';
+    if (diffDays < TIME_CONSTANTS.DAYS_IN_WEEK) return `il y a ${diffDays} jours`;
+    if (diffDays < TIME_CONSTANTS.DAYS_IN_MONTH) return `il y a ${Math.floor(diffDays / TIME_CONSTANTS.DAYS_IN_WEEK)} semaines`;
     return date.toLocaleDateString('fr-FR', {
       month: 'long',
       day: 'numeric',
@@ -33,13 +35,13 @@ export class TemporalUtils {
 
     switch (timeFrame) {
       case 'recent':
-        start = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - TIME_CONSTANTS.RECENT_DAYS_LIMIT * TIME_CONSTANTS.MS_PER_DAY);
         break;
       case 'week':
-        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - TIME_CONSTANTS.WEEK_DAYS_LIMIT * TIME_CONSTANTS.MS_PER_DAY);
         break;
       case 'month':
-        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        start = new Date(now.getTime() - TIME_CONSTANTS.MONTH_DAYS_LIMIT * TIME_CONSTANTS.MS_PER_DAY);
         break;
     }
 

@@ -1,3 +1,5 @@
+import { UI_CONSTANTS } from '../shared/Constants';
+
 export interface LoadingSpinnerConfig {
   text?: string;
   state?: LoadingState;
@@ -93,7 +95,7 @@ export class LoadingSpinnerService {
     spinner.className = 'nova-spinner-animation';
 
     // Create dots for the animation
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < UI_CONSTANTS.LOADING_DOTS_COUNT; i++) {
       const dot = document.createElement('div');
       dot.className = `nova-spinner-dot nova-spinner-dot-${i + 1}`;
       spinner.appendChild(dot);

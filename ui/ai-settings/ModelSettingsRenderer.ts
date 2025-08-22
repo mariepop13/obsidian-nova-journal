@@ -2,6 +2,7 @@ import { Setting, TextAreaComponent } from 'obsidian';
 import { ToastSpinnerService } from '../../services/editor/ToastSpinnerService';
 import { SettingsUtils } from '../SettingsUtils';
 import type NovaJournalPlugin from '../../main';
+import { UI_CONSTANTS } from '../../services/shared/Constants';
 
 export class ModelSettingsRenderer {
   private readonly plugin: NovaJournalPlugin;
@@ -22,7 +23,7 @@ export class ModelSettingsRenderer {
           ToastSpinnerService.error('Failed to save system prompt');
         }
       });
-      textArea.inputEl.rows = 3;
+      textArea.inputEl.rows = UI_CONSTANTS.TEXTAREA_ROWS_SMALL;
     });
   }
 

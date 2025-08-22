@@ -3,6 +3,7 @@ import type NovaJournalPlugin from '../main';
 import { SettingsService } from '../services/SettingsService';
 import type { SettingsExportOptions, SettingsImportResult } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
+import { FILE_LIMITS, UI_CONSTANTS } from '../services/shared/Constants';
 
 export class SettingsImportExportRenderer {
   private readonly plugin: NovaJournalPlugin;
@@ -148,7 +149,7 @@ export class SettingsImportExportRenderer {
         return;
       }
       
-      if (clipboardText.length > 1024 * 1024) {
+      if (clipboardText.length > FILE_LIMITS.MAX_CLIPBOARD_SIZE_BYTES) {
         ToastSpinnerService.error('Clipboard content too large. Maximum size is 1MB.');
         return;
       }
@@ -211,13 +212,13 @@ export class SettingsImportExportRenderer {
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        width: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
+        height: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
         background: rgba(0, 0, 0, 0.5);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1000;
+        z-index: ${UI_CONSTANTS.Z_INDEX_MODAL};
       `;
       
       const content = document.createElement('div');
@@ -234,7 +235,7 @@ export class SettingsImportExportRenderer {
       content.innerHTML = `
         <h3>Clipboard Access Required</h3>
         <p>Unable to access clipboard automatically. Please paste your settings data below:</p>
-        <textarea id="fallback-textarea" style="width: 100%; height: 200px; margin: 10px 0; font-family: monospace; font-size: 12px;"></textarea>
+        <textarea id="fallback-textarea" style="width: ${UI_CONSTANTS.PERCENTAGE_FULL}%; height: ${UI_CONSTANTS.HEIGHT_SMALL}px; margin: 10px 0; font-family: monospace; font-size: ${UI_CONSTANTS.FONT_SIZE_NORMAL}px;"></textarea>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
           <button id="fallback-cancel">Cancel</button>
           <button id="fallback-import" class="mod-cta">Import</button>
@@ -281,13 +282,13 @@ export class SettingsImportExportRenderer {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
+      height: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: ${UI_CONSTANTS.Z_INDEX_MODAL};
     `;
     
     const modalContent = document.createElement('div');
@@ -304,7 +305,7 @@ export class SettingsImportExportRenderer {
     modalContent.innerHTML = `
       <h3>Copy Settings Data</h3>
       <p>Unable to copy automatically. Please manually copy the data below:</p>
-      <textarea readonly style="width: 100%; height: 300px; margin: 10px 0; font-family: monospace; font-size: 11px;">${content}</textarea>
+      <textarea readonly style="width: ${UI_CONSTANTS.PERCENTAGE_FULL}%; height: ${UI_CONSTANTS.HEIGHT_MEDIUM}px; margin: 10px 0; font-family: monospace; font-size: ${UI_CONSTANTS.FONT_SIZE_SMALL}px;">${content}</textarea>
       <div style="display: flex; gap: 10px; justify-content: flex-end;">
         <button id="copy-fallback-close" class="mod-cta">Close</button>
       </div>

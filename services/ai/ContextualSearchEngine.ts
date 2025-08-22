@@ -4,6 +4,10 @@ import type { MoodData } from '../rendering/FrontmatterService';
 import type { EnhancedIndexedChunk, SearchOptions } from './EnhancedEmbeddingService';
 import { VectorUtils } from './VectorUtils';
 import { TemporalUtils } from './TemporalUtils';
+import {
+  SEARCH_CONSTANTS,
+  TIME_CONSTANTS,
+} from '../shared/Constants';
 
 export class ContextualSearchEngine {
   constructor(private readonly settings: NovaJournalSettings) {}
@@ -15,7 +19,7 @@ export class ContextualSearchEngine {
     options: SearchOptions = {}
   ): Promise<EnhancedIndexedChunk[]> {
     try {
-      if (index.length === 0) return [];
+      if (index.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
 
       const embedResp = await embed({
         apiKey: this.settings.aiApiKey,
@@ -23,11 +27,11 @@ export class ContextualSearchEngine {
       });
 
       const embeddings = embedResp.embeddings;
-      if (!Array.isArray(embeddings) || embeddings.length === 0) return [];
+      if (!Array.isArray(embeddings) || embeddings.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
 
       const queryVector = embeddings[0];
-      if (!Array.isArray(queryVector) || queryVector.length === 0) return [];
-      let candidates = index.filter(item => item.vector && item.vector.length > 0);
+      if (!Array.isArray(queryVector) || queryVector.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
+      let candidates = index.filter(item => item.vector && item.vector.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX);
 
       candidates = this.applyContextFilters(candidates, options);
 
@@ -38,9 +42,9 @@ export class ContextualSearchEngine {
         }))
         .sort((a, b) => b.score - a.score);
 
-      const results = VectorUtils.applyDiversityFilter(scored, options.diversityThreshold || 0.3);
+      const results = VectorUtils.applyDiversityFilter(scored, options.diversityThreshold || SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT);
 
-      return results.slice(0, Math.max(0, k)).map(s => ({
+      return results.slice(SEARCH_CONSTANTS.MIN_RESULT_INDEX, Math.max(SEARCH_CONSTANTS.MIN_RESULT_INDEX, k)).map(s => ({
         ...s.item,
         text: `[${TemporalUtils.formatDate(s.item.date)}] ${s.item.text}`,
       }));
@@ -62,7 +66,7 @@ export class ContextualSearchEngine {
       contextTypes: ['emotional', 'general'],
       emotionalFilter: emotionalTags,
       boostRecent: sentiment?.includes('negative'),
-      diversityThreshold: 0.4,
+      diversityThreshold: SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_STRICT,
     });
   }
 
@@ -90,22 +94,22 @@ export class ContextualSearchEngine {
     return this.performContextualSearch(query, k, index, {
       contextTypes: ['thematic', 'general'],
       thematicFilter: themes,
-      diversityThreshold: 0.5,
+      diversityThreshold: SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_RELAXED,
     });
   }
 
   private applyContextFilters(chunks: EnhancedIndexedChunk[], options: SearchOptions): EnhancedIndexedChunk[] {
     let filtered = chunks;
 
-    if (options.contextTypes && options.contextTypes.length > 0) {
+    if (options.contextTypes && options.contextTypes.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
       filtered = filtered.filter(chunk => options.contextTypes!.includes(chunk.contextType));
     }
 
-    if (options.emotionalFilter && options.emotionalFilter.length > 0) {
+    if (options.emotionalFilter && options.emotionalFilter.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
       filtered = filtered.filter(chunk => chunk.emotionalTags?.some(tag => options.emotionalFilter!.includes(tag)));
     }
 
-    if (options.thematicFilter && options.thematicFilter.length > 0) {
+    if (options.thematicFilter && options.thematicFilter.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
       filtered = filtered.filter(chunk => chunk.thematicTags?.some(tag => options.thematicFilter!.includes(tag)));
     }
 
@@ -126,20 +130,20 @@ export class ContextualSearchEngine {
     let baseScore = VectorUtils.cosineSimilarity(queryVector, chunk.vector);
 
     if (options.boostRecent) {
-      const ageInDays = (Date.now() - chunk.date) / (1000 * 60 * 60 * 24);
-      const recencyBoost = Math.exp(-ageInDays / 7);
-      baseScore *= 1 + recencyBoost * 0.2;
+      const ageInDays = (Date.now() - chunk.date) / TIME_CONSTANTS.MS_PER_DAY;
+      const recencyBoost = Math.exp(-ageInDays / SEARCH_CONSTANTS.RECENCY_BOOST_DIVISOR);
+      baseScore *= SEARCH_CONSTANTS.BASE_SCORE_MULTIPLIER + recencyBoost * SEARCH_CONSTANTS.RECENCY_BOOST_MULTIPLIER;
     }
 
     const queryLower = query.toLowerCase();
     const textLower = chunk.text.toLowerCase();
 
     if (textLower.includes(queryLower)) {
-      baseScore *= 1.3;
+      baseScore *= SEARCH_CONSTANTS.EXACT_MATCH_BOOST;
     }
 
     if (chunk.contextType !== 'general') {
-      baseScore *= 1.1;
+      baseScore *= SEARCH_CONSTANTS.CONTEXT_TYPE_BOOST;
     }
 
     return baseScore;

@@ -2,6 +2,7 @@ import { PromptStyle, promptPacks } from './PromptRegistry';
 import type { MoodData } from '../services/rendering/FrontmatterService';
 import { PromptStyleSelectorService } from '../services/ai/PromptStyleSelectorService';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
+import { HASH_CONSTANTS } from '../services/shared/Constants';
 
 export class PromptService {
   private selector?: PromptStyleSelectorService;
@@ -63,7 +64,7 @@ export class PromptService {
     const key = `${style}:${date.getUTCFullYear()}-${date.getUTCMonth() + 1}-${date.getUTCDate()}`;
     let hash = 0;
     for (let i = 0; i < key.length; i += 1) {
-      hash = (hash << 5) - hash + key.charCodeAt(i);
+      hash = (hash << HASH_CONSTANTS.BIT_SHIFT_LEFT) - hash + key.charCodeAt(i);
       hash |= 0;
     }
     return Math.abs(hash);

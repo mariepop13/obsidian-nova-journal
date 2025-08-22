@@ -8,6 +8,7 @@ import { FrontmatterService } from '../rendering/FrontmatterService';
 import { PromptGenerationService } from '../ai/PromptGenerationService';
 import { RagContextService } from '../ai/RagContextService';
 import { ToastSpinnerService } from './ToastSpinnerService';
+import { CONTENT_LIMITS } from '../shared/Constants';
 
 export class PromptInsertionService {
   constructor(
@@ -86,8 +87,8 @@ export class PromptInsertionService {
 
     try {
       const editorContent = editor.getValue();
-      const trimmedContent = editorContent.trim().slice(0, 5000);
-      const hasSubstantialContent = trimmedContent.length > 50;
+      const trimmedContent = editorContent.trim().slice(0, CONTENT_LIMITS.TRIMMED_CONTENT_MAX);
+      const hasSubstantialContent = trimmedContent.length > CONTENT_LIMITS.MIN_CONTENT_LENGTH;
 
       const ragPromise = hasSubstantialContent
         ? this.ragContextService.getRagContext(trimmedContent, editor)

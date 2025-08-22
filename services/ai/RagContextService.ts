@@ -1,16 +1,11 @@
 import { App, Editor } from 'obsidian';
 import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
-
-const CONTENT_THRESHOLDS = {
-  MIN_CONTENT_LENGTH: 100,
-  MIN_SUBSTANTIAL_LENGTH: 200,
-  EMPTY_PROMPT_MAX_LENGTH: 300,
-  MARKUP_HEAVY_MAX_LENGTH: 500,
-  MAX_BUTTONS_ALLOWED: 2,
-  MAX_CONTEXT_CHUNKS: 8,
-  PREVIEW_LENGTH: 500,
-} as const;
+import {
+  CONTEXT_LIMITS,
+  SEARCH_CONSTANTS,
+  TIME_CONSTANTS,
+} from '../shared/Constants';
 
 export class RagContextService {
   private embeddingService: EnhancedEmbeddingService | null = null;
@@ -60,10 +55,10 @@ export class RagContextService {
 
       const searchOptions: SearchOptions = {
         boostRecent: false,
-        diversityThreshold: 0.3,
+        diversityThreshold: SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT,
       };
 
-      let contextChunks = await embeddingService.contextualSearch(searchText, 25, searchOptions);
+      let contextChunks = await embeddingService.contextualSearch(searchText, CONTEXT_LIMITS.BROAD_SEARCH_CHUNKS, searchOptions);
 
       contextChunks = this.filterSubstantialContent(contextChunks);
 
@@ -80,9 +75,9 @@ export class RagContextService {
       contextChunks = this.prioritizeBySubstance(contextChunks);
 
       const contextText = contextChunks
-        .slice(0, CONTENT_THRESHOLDS.MAX_CONTEXT_CHUNKS)
+        .slice(0, CONTEXT_LIMITS.MAX_CONTEXT_CHUNKS)
         .map((chunk, i) => {
-          const preview = chunk.text.substring(0, CONTENT_THRESHOLDS.PREVIEW_LENGTH);
+          const preview = chunk.text.substring(0, CONTEXT_LIMITS.PREVIEW_LENGTH_RAG);
           let contextInfo = '';
 
           if (chunk.date) {
@@ -149,8 +144,8 @@ export class RagContextService {
   ): Promise<any[]> {
     const allRecent = contextChunks.every(chunk => {
       if (!chunk.date) return false;
-      const daysDiff = Math.floor((Date.now() - chunk.date) / (1000 * 60 * 60 * 24));
-      return daysDiff <= 2;
+      const daysDiff = Math.floor((Date.now() - chunk.date) / TIME_CONSTANTS.MS_PER_DAY);
+      return daysDiff <= TIME_CONSTANTS.VERY_RECENT_DAYS_LIMIT;
     });
 
     if (allRecent && this.debug) {
@@ -160,9 +155,9 @@ export class RagContextService {
     const expandedSearchTerms = this.extractExpandedSearchTerms(searchText, contextChunks);
     if (expandedSearchTerms.length > 0 || allRecent) {
       const searchTerms = expandedSearchTerms.length > 0 ? expandedSearchTerms.join(' ') : searchText;
-      const additionalChunks = await embeddingService.contextualSearch(searchTerms, allRecent ? 15 : 5, {
+      const additionalChunks = await embeddingService.contextualSearch(searchTerms, allRecent ? CONTEXT_LIMITS.RECENT_SEARCH_LIMIT : CONTEXT_LIMITS.DEFAULT_MAX_CHUNKS, {
         ...searchOptions,
-        diversityThreshold: allRecent ? 0.05 : 0.3,
+        diversityThreshold: allRecent ? SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_MINIMAL : SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT,
         boostRecent: false,
       });
 
@@ -173,7 +168,7 @@ export class RagContextService {
         }
       });
 
-      contextChunks = combinedChunks.slice(0, 12);
+      contextChunks = combinedChunks.slice(0, CONTEXT_LIMITS.COMBINED_CHUNKS_MAX);
 
       if (this.debug) {
         console.log('[RagContextService] Debug - expanded search with terms:', expandedSearchTerms);
@@ -195,9 +190,9 @@ export class RagContextService {
         return;
       }
 
-      const daysDiff = Math.floor((now - chunk.date) / (1000 * 60 * 60 * 24));
+      const daysDiff = Math.floor((now - chunk.date) / TIME_CONSTANTS.MS_PER_DAY);
 
-      if (daysDiff <= 2) {
+      if (daysDiff <= TIME_CONSTANTS.VERY_RECENT_DAYS_LIMIT) {
         recentChunks.push(chunk);
       } else {
         historicalChunks.push(chunk);
@@ -209,7 +204,7 @@ export class RagContextService {
       const searchLower = searchText.toLowerCase();
       return (
         text.includes(searchLower) &&
-        text.length > 100 &&
+        text.length > CONTEXT_LIMITS.MIN_CONTENT_LENGTH_RAG &&
         !text.includes('## journal prompt') &&
         !text.includes('**nova**:')
       );
@@ -218,7 +213,7 @@ export class RagContextService {
     const historicalHasSubstance = historicalChunks.some(chunk => {
       const text = chunk.text.toLowerCase();
       const searchLower = searchText.toLowerCase();
-      return text.includes(searchLower) && text.length > 100;
+      return text.includes(searchLower) && text.length > CONTEXT_LIMITS.MIN_CONTENT_LENGTH_RAG;
     });
 
     if (this.debug) {
@@ -241,7 +236,7 @@ export class RagContextService {
     }
 
     if (historicalHasSubstance && recentHasSubstance) {
-      return [...historicalChunks.slice(0, 5), ...recentChunks.slice(0, 3)];
+      return [...historicalChunks.slice(0, CONTEXT_LIMITS.HISTORICAL_CHUNKS_LIMIT), ...recentChunks.slice(0, CONTEXT_LIMITS.RECENT_CHUNKS_LIMIT)];
     }
 
     return contextChunks;
@@ -259,7 +254,7 @@ export class RagContextService {
         .map((word: string) => word.replace(/[^\w]/g, ''))
         .filter(
           (word: string) =>
-            word.length > 3 && word.length < 15 && !originalSearch.toLowerCase().includes(word.toLowerCase())
+            word.length > CONTEXT_LIMITS.WORD_LENGTH_MIN && word.length < CONTEXT_LIMITS.WORD_LENGTH_MAX && !originalSearch.toLowerCase().includes(word.toLowerCase())
         );
 
       const wordCounts = new Map<string, number>();
@@ -270,41 +265,41 @@ export class RagContextService {
 
       const sentences = text.split(/[.!?]+/);
       sentences.forEach((sentence: string) => {
-        const sentenceWords = sentence.trim().split(/\s+/).slice(0, 5);
+        const sentenceWords = sentence.trim().split(/\s+/).slice(0, CONTEXT_LIMITS.SENTENCE_WORDS_MAX);
         sentenceWords.forEach((word: string) => {
           const cleanWord = word.replace(/[^\w]/g, '');
-          if (cleanWord.length > 3 && cleanWord.length < 15) {
+          if (cleanWord.length > CONTEXT_LIMITS.WORD_LENGTH_MIN && cleanWord.length < CONTEXT_LIMITS.WORD_LENGTH_MAX) {
             expandedTerms.add(cleanWord);
           }
         });
       });
 
       Array.from(wordCounts.entries())
-        .filter(([word, count]) => count > 1 && word.length > 3)
+        .filter(([word, count]) => count > CONTEXT_LIMITS.MIN_WORD_COUNT && word.length > CONTEXT_LIMITS.WORD_LENGTH_MIN)
         .sort(([, countA], [, countB]) => countB - countA)
-        .slice(0, 3)
+        .slice(0, CONTEXT_LIMITS.TOP_WORDS_MAX)
         .forEach(([word]) => expandedTerms.add(word));
     }
 
-    return Array.from(expandedTerms).slice(0, 5);
+    return Array.from(expandedTerms).slice(0, CONTEXT_LIMITS.EXPANDED_TERMS_MAX);
   }
 
   private getTimeAgoString(timestamp: number): string {
     const now = Date.now();
     const diffMs = now - timestamp;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor(diffMs / TIME_CONSTANTS.MS_PER_DAY);
 
-    if (diffDays === 0) return '0d';
-    if (diffDays === 1) return '1d';
-    if (diffDays < 7) return `${diffDays}d`;
+    if (diffDays === TIME_CONSTANTS.TIME_AGO_DAYS_MIN) return '0d';
+    if (diffDays === TIME_CONSTANTS.TIME_AGO_DAYS_ONE) return '1d';
+    if (diffDays < TIME_CONSTANTS.DAYS_IN_WEEK) return `${diffDays}d`;
 
-    const diffWeeks = Math.floor(diffDays / 7);
-    if (diffWeeks < 4) return `${diffWeeks}w`;
+    const diffWeeks = Math.floor(diffDays / TIME_CONSTANTS.DAYS_IN_WEEK);
+    if (diffWeeks < TIME_CONSTANTS.TIME_AGO_WEEKS_LIMIT) return `${diffWeeks}w`;
 
-    const diffMonths = Math.floor(diffDays / 30);
-    if (diffMonths < 12) return `${diffMonths}m`;
+    const diffMonths = Math.floor(diffDays / TIME_CONSTANTS.DAYS_IN_MONTH);
+    if (diffMonths < TIME_CONSTANTS.TIME_AGO_MONTHS_LIMIT) return `${diffMonths}m`;
 
-    const diffYears = Math.floor(diffMonths / 12);
+    const diffYears = Math.floor(diffMonths / TIME_CONSTANTS.MONTHS_IN_YEAR);
     return `${diffYears}y`;
   }
 
@@ -329,27 +324,27 @@ export class RagContextService {
     const hasNovaPrompt = text.includes('**nova**:');
     const hasUserSection = /\*\*[^*]+\*\*\s*\(you\)\s*:/i.test(text);
     const hasButton = text.includes('</button>');
-    const isTooShort = textLength < CONTENT_THRESHOLDS.EMPTY_PROMPT_MAX_LENGTH;
+    const isTooShort = textLength < CONTEXT_LIMITS.EMPTY_PROMPT_MAX_LENGTH;
 
     return hasNovaPrompt && hasUserSection && !hasButton && isTooShort;
   }
 
   private isTooShort(textLength: number): boolean {
-    return textLength < CONTENT_THRESHOLDS.MIN_CONTENT_LENGTH;
+    return textLength < CONTEXT_LIMITS.MIN_CONTENT_LENGTH_RAG;
   }
 
   private isMostlyMarkup(text: string, textLength: number): boolean {
     const buttonCount = (text.match(/<button/g) || []).length;
-    const tooManyButtons = buttonCount > CONTENT_THRESHOLDS.MAX_BUTTONS_ALLOWED;
-    const isShort = textLength < CONTENT_THRESHOLDS.MARKUP_HEAVY_MAX_LENGTH;
+    const tooManyButtons = buttonCount > CONTEXT_LIMITS.MAX_BUTTONS_ALLOWED;
+    const isShort = textLength < CONTEXT_LIMITS.MARKUP_HEAVY_MAX_LENGTH;
 
     return tooManyButtons && isShort;
   }
 
   private isSubstantialContent(text: string, textLength: number): boolean {
-    const isLongContent = textLength > CONTENT_THRESHOLDS.MIN_SUBSTANTIAL_LENGTH;
+    const isLongContent = textLength > CONTEXT_LIMITS.MIN_SUBSTANTIAL_LENGTH_RAG;
     const isMediumContentWithoutPrompt =
-      textLength > CONTENT_THRESHOLDS.MIN_CONTENT_LENGTH && !text.includes('**nova**:');
+      textLength > CONTEXT_LIMITS.MIN_CONTENT_LENGTH_RAG && !text.includes('**nova**:');
 
     return isLongContent || isMediumContentWithoutPrompt;
   }
@@ -357,10 +352,10 @@ export class RagContextService {
   private async searchInAllHistory(embeddingService: EnhancedEmbeddingService, searchText: string): Promise<any[]> {
     const broadSearchOptions: SearchOptions = {
       boostRecent: false,
-      diversityThreshold: 0.5,
+      diversityThreshold: SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_RELAXED,
     };
 
-    const chunks = await embeddingService.contextualSearch(searchText, 50, broadSearchOptions);
+    const chunks = await embeddingService.contextualSearch(searchText, CONTEXT_LIMITS.EXTENDED_SEARCH_CHUNKS, broadSearchOptions);
     return this.filterSubstantialContent(chunks);
   }
 
@@ -379,13 +374,13 @@ export class RagContextService {
   private hasUserContent(text: string): boolean {
     if (typeof text !== 'string' || !text) return false;
 
-    const userSectionMatch = text.match(/\*\*[^*]+\*\*\s*[:\-]\s*([\s\S]{0,1000}?)(?=(\*\*[^*]+\*\*|<button|$))/i);
+    const userSectionMatch = text.match(new RegExp(`\\*\\*[^*]+\\*\\*\\s*[:\\-]\\s*([\\s\\S]{0,${CONTEXT_LIMITS.USER_SECTION_MAX_CAPTURE_RAG}}?)(?=(\\*\\*[^*]+\\*\\*|<button|$))`, 'i'));
     if (!userSectionMatch) return false;
 
     const userContent = (userSectionMatch[1] || '').trim();
     const cleanUserContent = userContent.replace(/<[^>]*>/g, '').trim();
 
-    return cleanUserContent.length > 20;
+    return cleanUserContent.length > CONTEXT_LIMITS.USER_SECTION_MIN_LENGTH_RAG;
   }
 
   async getRecentContext(style: string): Promise<string> {
@@ -403,10 +398,10 @@ export class RagContextService {
     try {
       const searchOptions: SearchOptions = {
         boostRecent: true,
-        diversityThreshold: 0.3,
+        diversityThreshold: SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT,
       };
 
-      let contextChunks = await embeddingService.contextualSearch(style, 25, searchOptions);
+      let contextChunks = await embeddingService.contextualSearch(style, CONTEXT_LIMITS.BROAD_SEARCH_CHUNKS, searchOptions);
       contextChunks = this.filterSubstantialContent(contextChunks);
 
       if (this.debug) {
@@ -428,9 +423,9 @@ export class RagContextService {
       if (contextChunks.length === 0) return '';
 
       const contextText = contextChunks
-        .slice(0, CONTENT_THRESHOLDS.MAX_CONTEXT_CHUNKS)
+        .slice(0, CONTEXT_LIMITS.MAX_CONTEXT_CHUNKS)
         .map((chunk, i) => {
-          const preview = chunk.text.substring(0, CONTENT_THRESHOLDS.PREVIEW_LENGTH);
+          const preview = chunk.text.substring(0, CONTEXT_LIMITS.PREVIEW_LENGTH_RAG);
           let contextInfo = '';
 
           if (chunk.date) {
@@ -451,7 +446,7 @@ export class RagContextService {
   }
 
   private filterRecentEntries(chunks: any[], daysLimit: number): any[] {
-    const cutoffDate = Date.now() - daysLimit * 24 * 60 * 60 * 1000;
+    const cutoffDate = Date.now() - daysLimit * TIME_CONSTANTS.MS_PER_DAY;
 
     return chunks.filter(chunk => {
       if (!chunk.date) return false;

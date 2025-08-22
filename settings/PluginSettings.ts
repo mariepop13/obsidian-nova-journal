@@ -1,4 +1,5 @@
 import type { PromptStyle } from '../prompt/PromptRegistry';
+import { VALIDATION_LIMITS } from '../services/shared/Constants';
 
 export type InsertionLocation = 'cursor' | 'top' | 'bottom';
 export type EnhancedInsertionLocation = InsertionLocation | 'below-heading';
@@ -192,11 +193,11 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt)
       .replace(/javascript:/gi, '')
       .replace(/data:/gi, '')
-      .substring(0, 2000),
-    aiApiKey: cleanString(s.aiApiKey, DEFAULT_SETTINGS.aiApiKey).substring(0, 500),
-    dailyNoteFolder: cleanString(s.dailyNoteFolder, DEFAULT_SETTINGS.dailyNoteFolder).substring(0, 200),
-    sectionHeading: cleanString(s.sectionHeading, DEFAULT_SETTINGS.sectionHeading).substring(0, 100),
-    userName: cleanString(s.userName, DEFAULT_SETTINGS.userName).substring(0, 50),
+      .substring(0, VALIDATION_LIMITS.SYSTEM_PROMPT_MAX_LENGTH),
+    aiApiKey: cleanString(s.aiApiKey, DEFAULT_SETTINGS.aiApiKey).substring(0, VALIDATION_LIMITS.API_KEY_MAX_LENGTH),
+    dailyNoteFolder: cleanString(s.dailyNoteFolder, DEFAULT_SETTINGS.dailyNoteFolder).substring(0, VALIDATION_LIMITS.FOLDER_PATH_MAX_LENGTH),
+    sectionHeading: cleanString(s.sectionHeading, DEFAULT_SETTINGS.sectionHeading).substring(0, VALIDATION_LIMITS.SECTION_HEADING_MAX_LENGTH),
+    userName: cleanString(s.userName, DEFAULT_SETTINGS.userName).substring(0, VALIDATION_LIMITS.STRING_FIELD_MAX_LENGTH),
     dailyNoteFormat: SettingsValidator.validateDateFormat(s.dailyNoteFormat),
     typewriterSpeed: SettingsValidator.validateTypewriterSpeed(s.typewriterSpeed),
     defaultDeepenScope: SettingsValidator.validateDeepenScope(s.defaultDeepenScope),
@@ -204,9 +205,9 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
     aiRetryCount: SettingsValidator.validateRetryCount(s.aiRetryCount),
     buttonStyle: SettingsValidator.validateButtonStyle(s.buttonStyle),
     buttonPosition: SettingsValidator.validateButtonPosition(s.buttonPosition),
-    moodButtonLabel: cleanString(s.moodButtonLabel, DEFAULT_SETTINGS.moodButtonLabel).substring(0, 50),
-    deepenButtonLabel: cleanString(s.deepenButtonLabel, DEFAULT_SETTINGS.deepenButtonLabel).substring(0, 50),
-    buttonTheme: cleanString(s.buttonTheme, DEFAULT_SETTINGS.buttonTheme).substring(0, 50),
+    moodButtonLabel: cleanString(s.moodButtonLabel, DEFAULT_SETTINGS.moodButtonLabel).substring(0, VALIDATION_LIMITS.STRING_FIELD_MAX_LENGTH),
+    deepenButtonLabel: cleanString(s.deepenButtonLabel, DEFAULT_SETTINGS.deepenButtonLabel).substring(0, VALIDATION_LIMITS.STRING_FIELD_MAX_LENGTH),
+    buttonTheme: cleanString(s.buttonTheme, DEFAULT_SETTINGS.buttonTheme).substring(0, VALIDATION_LIMITS.STRING_FIELD_MAX_LENGTH),
   };
 }
 

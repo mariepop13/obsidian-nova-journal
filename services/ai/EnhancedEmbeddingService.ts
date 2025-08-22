@@ -6,6 +6,11 @@ import { ContextAnalyzer } from './ContextAnalyzer';
 import { TemporalUtils } from './TemporalUtils';
 import { VectorUtils } from './VectorUtils';
 import { ContextualSearchEngine } from './ContextualSearchEngine';
+import {
+  EMBEDDING_CONFIG,
+  TIME_CONSTANTS,
+  SEARCH_CONSTANTS,
+} from '../shared/Constants';
 
 export type ContextType = 'emotional' | 'temporal' | 'thematic' | 'general';
 
@@ -41,8 +46,8 @@ export interface SearchOptions {
 
 export class EnhancedEmbeddingService {
   private readonly indexPath = 'nova-journal-enhanced-index.json';
-  private readonly maxDays = 180;
-  private readonly maxChunksPerBatch = 50;
+  private readonly maxDays = EMBEDDING_CONFIG.MAX_DAYS_INDEX;
+  private readonly maxChunksPerBatch = EMBEDDING_CONFIG.MAX_CHUNKS_PER_BATCH;
   private readonly version = '2.0.0';
   private index: EnhancedIndexData | null = null;
   private readonly contextAnalyzer = new ContextAnalyzer();
@@ -99,7 +104,7 @@ export class EnhancedEmbeddingService {
     console.log('[EnhancedEmbeddingService] Debug - Index loaded:', !!this.index);
     console.log('[EnhancedEmbeddingService] Debug - Index items count:', this.index?.items?.length ?? 0);
 
-    if (!this.index || this.index.items.length === 0) {
+    if (!this.index || this.index.items.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
       console.log('[EnhancedEmbeddingService] Debug - No index or empty index, returning empty results');
       return [];
     }
@@ -109,23 +114,23 @@ export class EnhancedEmbeddingService {
     return results;
   }
 
-  async emotionalSearch(query: string, mood: Partial<MoodData>, k = 5): Promise<EnhancedIndexedChunk[]> {
+  async emotionalSearch(query: string, mood: Partial<MoodData>, k = EMBEDDING_CONFIG.EMOTIONAL_SEARCH_K): Promise<EnhancedIndexedChunk[]> {
     await this.ensureIndexLoaded();
-    if (!this.index || this.index.items.length === 0) return [];
+    if (!this.index || this.index.items.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
 
     return this.searchEngine.emotionalSearch(query, mood, k, this.index.items);
   }
 
-  async temporalSearch(query: string, timeFrame: 'recent' | 'week' | 'month', k = 5): Promise<EnhancedIndexedChunk[]> {
+  async temporalSearch(query: string, timeFrame: 'recent' | 'week' | 'month', k = EMBEDDING_CONFIG.TEMPORAL_SEARCH_K): Promise<EnhancedIndexedChunk[]> {
     await this.ensureIndexLoaded();
-    if (!this.index || this.index.items.length === 0) return [];
+    if (!this.index || this.index.items.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
 
     return this.searchEngine.temporalSearch(query, timeFrame, k, this.index.items);
   }
 
-  async thematicSearch(query: string, themes: string[], k = 5): Promise<EnhancedIndexedChunk[]> {
+  async thematicSearch(query: string, themes: string[], k = EMBEDDING_CONFIG.THEMATIC_SEARCH_K): Promise<EnhancedIndexedChunk[]> {
     await this.ensureIndexLoaded();
-    if (!this.index || this.index.items.length === 0) return [];
+    if (!this.index || this.index.items.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
 
     return this.searchEngine.thematicSearch(query, themes, k, this.index.items);
   }
@@ -138,7 +143,7 @@ export class EnhancedEmbeddingService {
     console.log('[EnhancedEmbeddingService] Performing full rebuild');
 
     const files = this.getMarkdownFilesInFolder(folder);
-    const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - this.maxDays * TIME_CONSTANTS.MS_PER_DAY;
 
     this.index = {
       model: 'text-embedding-3-small',
@@ -174,7 +179,7 @@ export class EnhancedEmbeddingService {
       const chunks = this.createEnhancedChunks(content, file);
       const texts = chunks.map(c => c.text);
 
-      if (texts.length === 0) {
+      if (texts.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
         this.index!.fileHashes[file.path] = fileHash;
         return;
       }
@@ -184,14 +189,14 @@ export class EnhancedEmbeddingService {
         inputs: texts.slice(0, this.maxChunksPerBatch),
       });
 
-      if (!embeddings || embeddings.length === 0) {
+      if (!embeddings || embeddings.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
         this.index!.fileHashes[file.path] = fileHash;
         return;
       }
 
       for (let i = 0; i < Math.min(chunks.length, embeddings.length); i++) {
         const vector = embeddings[i];
-        if (!Array.isArray(vector) || vector.length === 0) continue;
+        if (!Array.isArray(vector) || vector.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) continue;
 
         this.index!.items.push({
           ...chunks[i],
@@ -212,7 +217,7 @@ export class EnhancedEmbeddingService {
     const textChunks = VectorUtils.splitIntoChunks(content);
 
     for (const text of textChunks) {
-      if (text.trim().length < 50) continue;
+      if (text.trim().length < EMBEDDING_CONFIG.DEFAULT_OVERLAP) continue;
 
       const chunk: Omit<EnhancedIndexedChunk, 'vector'> = {
         path: file.path,
@@ -251,7 +256,7 @@ export class EnhancedEmbeddingService {
     const files = this.getMarkdownFilesInFolder(folder);
     console.log('[EnhancedEmbeddingService] Debug - Found', files.length, 'markdown files');
 
-    const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - this.maxDays * TIME_CONSTANTS.MS_PER_DAY;
     console.log('[EnhancedEmbeddingService] Debug - Date cutoff:', new Date(cutoff));
 
     const filesToUpdate: TFile[] = [];
@@ -283,7 +288,7 @@ export class EnhancedEmbeddingService {
     }
 
     return {
-      hasChanges: filesToUpdate.length > 0 || filesToRemove.length > 0,
+      hasChanges: filesToUpdate.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX || filesToRemove.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX,
       filesToUpdate,
       filesToRemove,
     };
@@ -314,7 +319,7 @@ export class EnhancedEmbeddingService {
 
   private async computeFileHash(file: TFile): Promise<string> {
     const content = await this.app.vault.read(file);
-    const mtime = file.stat?.mtime || 0;
+    const mtime = file.stat?.mtime || SEARCH_CONSTANTS.MIN_RESULT_INDEX;
     return VectorUtils.hashString(content + mtime.toString());
   }
 
