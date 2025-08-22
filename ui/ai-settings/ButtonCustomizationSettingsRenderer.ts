@@ -1,4 +1,4 @@
-import { DropdownComponent, Setting, ToggleComponent } from 'obsidian';
+import { Setting } from 'obsidian';
 import { SettingsValidator } from '../../settings/PluginSettings';
 import { ButtonCustomizationService } from '../../services/editor/ButtonCustomizationService';
 import { ToastSpinnerService } from '../../services/editor/ToastSpinnerService';

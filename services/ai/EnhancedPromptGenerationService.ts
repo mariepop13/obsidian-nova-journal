@@ -2,7 +2,7 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
-import { type ContextType, EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 
 export interface ContextualPromptOptions {
   prioritizeRecent?: boolean;

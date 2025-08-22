@@ -1,4 +1,4 @@
-import { Setting, ToggleComponent } from 'obsidian';
+import { Setting } from 'obsidian';
 import { SettingsValidator } from '../../settings/PluginSettings';
 import { ToastSpinnerService } from '../../services/editor/ToastSpinnerService';
 import type NovaJournalPlugin from '../../main';

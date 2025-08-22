@@ -16,7 +16,7 @@ export default class NovaJournalPlugin extends Plugin {
   private serviceInitializer: ServiceInitializer;
   private commandRegistry: CommandRegistry;
 
-  async onload() {
+  async onload(): Promise<void> {
     await this.loadSettings();
     this.initializeServices();
     this.registerCommands();
@@ -53,7 +53,7 @@ export default class NovaJournalPlugin extends Plugin {
     await this.serviceInitializer.initializeEmbeddingMigration();
   }
 
-  async loadSettings() {
+  async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     const normalized = normalizeSettings(this.settings);
     if (JSON.stringify(normalized) !== JSON.stringify(this.settings)) {
@@ -134,7 +134,7 @@ export default class NovaJournalPlugin extends Plugin {
     }
   }
 
-  async saveSettings() {
+  async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     this.services = this.serviceInitializer.recreateServicesAfterSettingsChange(this.services);
   }

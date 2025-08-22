@@ -43,9 +43,14 @@ export const CSS_CLASSES = {
 
 export const API_CONFIG = {
   OPENAI_CHAT_URL: 'https://api.openai.com/v1/chat/completions',
+  OPENAI_EMBEDDINGS_URL: 'https://api.openai.com/v1/embeddings',
   OPENAI_MODELS_URL: 'https://api.openai.com/v1/models',
   TIMEOUT_MS: 10000,
   USER_AGENT: 'Nova-Journal-Plugin/1.0',
+  MAX_REQUEST_SIZE_BYTES: 2000000, // ~2MB
+  HTTP_UNAUTHORIZED: 401,
+  HTTP_RATE_LIMIT: 429,
+  HTTP_SERVER_ERROR: 500,
 } as const;
 
 export const TEMPLATE_PATTERNS = {

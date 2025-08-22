@@ -1,4 +1,4 @@
-import { App, TFile, requestUrl } from 'obsidian';
+import { App } from 'obsidian';
 import type NovaJournalPlugin from '../main';
 import {
   DEFAULT_SETTINGS,
@@ -20,7 +20,6 @@ export class SettingsService {
     const {
       includeApiKey = false,
       includeMetadata = true,
-      format = 'json',
     } = options;
 
     const settings = { ...this.plugin.settings };
