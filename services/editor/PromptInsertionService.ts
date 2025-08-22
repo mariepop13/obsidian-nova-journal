@@ -52,12 +52,12 @@ export class PromptInsertionService {
   private async preparePromptContext(editor: Editor) {
     const date = new Date();
     const mood = FrontmatterService.readMoodProps(editor);
-    const contextAwareResult = await this.promptService.getContextAwarePrompt(
-      this.settings.promptStyle as PromptStyle,
+    const contextAwareResult = await this.promptService.getContextAwarePrompt({
+      preferredStyle: this.settings.promptStyle as PromptStyle,
       date,
-      editor.getValue(),
-      mood
-    );
+      noteText: editor.getValue(),
+      moodData: mood,
+    });
 
     if (!contextAwareResult) {
       ToastSpinnerService.error('Nova Journal: failed to generate prompt.');

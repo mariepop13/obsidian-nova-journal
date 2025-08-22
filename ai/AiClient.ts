@@ -102,28 +102,37 @@ async function handleAPIError(response: Response, debug: boolean): Promise<never
 function parseResponse(data: OpenAIResponse): string {
   const choice = data?.choices?.[0];
   const msg = choice?.message;
-  let text = '';
 
   if (!msg) {
     throw new Error('AI response missing message');
   }
 
-  if (typeof msg.content === 'string') {
-    text = msg.content.trim();
-  } else if (Array.isArray(msg.content)) {
-    text = msg.content
-      .map((p: { text?: string }) => p?.text ?? '')
-      .join('')
-      .trim();
-  } else if (typeof (msg as { output_text?: string })?.output_text === 'string') {
-    text = (msg as { output_text: string }).output_text.trim();
-  }
-
+  const text = extractTextFromMessage(msg);
+  
   if (!text) {
     throw new Error('AI response missing content');
   }
 
   return text;
+}
+
+function extractTextFromMessage(msg: { content?: string | Array<{ text?: string }>; output_text?: string }): string {
+  if (typeof msg.content === 'string') {
+    return msg.content.trim();
+  }
+  
+  if (Array.isArray(msg.content)) {
+    return msg.content
+      .map((p: { text?: string }) => p?.text ?? '')
+      .join('')
+      .trim();
+  }
+  
+  if (typeof (msg as { output_text?: string })?.output_text === 'string') {
+    return (msg as { output_text: string }).output_text.trim();
+  }
+
+  return '';
 }
 
 class RateLimiter {
@@ -219,27 +228,48 @@ async function executeChatWithRetry(
   fallbackModel: string
 ): Promise<string> {
   const tries = Math.max(0, Math.min(AI_LIMITS.MAX_RETRIES, retryCount));
+  
+  const primaryResult = await tryWithPrimaryModel(config, tries);
+  if (typeof primaryResult === 'string') {
+    return primaryResult;
+  }
+
+  const fallbackResult = await tryWithFallbackModel(config, fallbackModel);
+  if (fallbackResult.success) {
+    return fallbackResult.result;
+  }
+
+  throw fallbackResult.error ?? primaryResult ?? new Error('AI request failed');
+}
+
+async function tryWithPrimaryModel(config: APICallConfig, tries: number): Promise<string | Error> {
   let lastError: Error | null = null;
 
-  // Try with primary model
   for (let i = 0; i <= tries; i += 1) {
     try {
       return await callOnce(config);
     } catch (e) {
-      lastError = e as Error;
+      lastError = e instanceof Error ? e : new Error(String(e));
       await applyBackoffDelayIfNeeded(i, tries);
     }
   }
 
-  // Try with fallback model
-  if (fallbackModel && fallbackModel !== config.modelName) {
-    try {
-      const fallbackConfig = { ...config, modelName: fallbackModel };
-      return await callOnce(fallbackConfig);
-    } catch (e) {
-      lastError = e as Error;
-    }
+  return lastError ?? new Error('Primary model failed');
+}
+
+async function tryWithFallbackModel(
+  config: APICallConfig, 
+  fallbackModel: string
+): Promise<{ success: true; result: string } | { success: false; error: Error | null }> {
+  if (!fallbackModel || fallbackModel === config.modelName) {
+    return { success: false, error: null };
   }
 
-  throw lastError ?? new Error('AI request failed');
+  try {
+    const fallbackConfig = { ...config, modelName: fallbackModel };
+    const result = await callOnce(fallbackConfig);
+    return { success: true, result };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e : new Error(String(e)) };
+  }
 }

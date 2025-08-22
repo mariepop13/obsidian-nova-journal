@@ -92,7 +92,7 @@ export class SettingsService {
       // Use save dialog instead of open
       const a = document.createElement('a');
       
-      this.exportSettings({ includeApiKey }).then(data => {
+      const exportData = this.exportSettings({ includeApiKey }).then(data => {
         const content = JSON.stringify(data, null, 2);
         const blob = new Blob([content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -123,55 +123,65 @@ export class SettingsService {
 
   async loadSettingsFromFile(): Promise<SettingsImportResult> {
     return new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      
-      input.onchange = async (e): Promise<void> => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) {
-          resolve({
-            success: false,
-            errors: ['No file selected'],
-          });
-          return;
-        }
-
-        try {
-          const content = await file.text();
-          
-          if (content.length > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
-            resolve({
-              success: false,
-              errors: ['File too large. Maximum size is 1MB.'],
-            });
-            return;
-          }
-          
-          let data;
-          try {
-            data = JSON.parse(content);
-          } catch (parseError) {
-            resolve({
-              success: false,
-              errors: ['Invalid JSON format. Please check your file.'],
-            });
-            return;
-          }
-          
-          const result = await this.importSettings(data);
-          resolve(result);
-        } catch (error) {
-          console.error('Settings import failed:', error);
-          resolve({
-            success: false,
-            errors: ['Failed to read file. Please try again.'],
-          });
-        }
+      const input = this.createFileInput();
+      input.onchange = async (e) => {
+        const result = await this.handleFileSelection(e);
+        resolve(result);
       };
-
       input.click();
     });
+  }
+
+  private createFileInput(): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    return input;
+  }
+
+  private async handleFileSelection(e: Event): Promise<SettingsImportResult> {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) {
+      return {
+        success: false,
+        errors: ['No file selected'],
+      };
+    }
+
+    try {
+      const content = await file.text();
+      
+      if (content.length > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
+        return {
+          success: false,
+          errors: ['File too large. Maximum size is 1MB.'],
+        };
+      }
+
+      const data = await this.parseFileContent(content);
+      if (!data) {
+        return {
+          success: false,
+          errors: ['Invalid JSON format. Please check your file.'],
+        };
+      }
+
+      return await this.importSettings(data);
+    } catch (error) {
+      console.error('Settings import failed:', error);
+      return {
+        success: false,
+        errors: ['Failed to read file. Please try again.'],
+      };
+    }
+  }
+
+  private async parseFileContent(content: string): Promise<any | null> {
+    try {
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
   }
 
   async applyImportedSettings(settings: NovaJournalSettings): Promise<void> {
@@ -188,7 +198,7 @@ export class SettingsService {
     ToastSpinnerService.notice('Settings reset to defaults');
   }
 
-  private validateImportData(data: unknown): SettingsImportResult {
+  private validateImportData(data: any): SettingsImportResult {
     const errors: string[] = [];
 
     if (!data || typeof data !== 'object') {
@@ -196,21 +206,18 @@ export class SettingsService {
       return { success: false, errors };
     }
 
-    const dataObj = data as Record<string, unknown>;
-
-    if (!dataObj.version) {
+    if (!data.version) {
       errors.push('Missing version information');
     }
 
-    if (!dataObj.settings || typeof dataObj.settings !== 'object') {
+    if (!data.settings || typeof data.settings !== 'object') {
       errors.push('Missing or invalid settings data');
       return { success: false, errors };
     }
 
-    const settingsObj = dataObj.settings as Record<string, unknown>;
     const requiredFields = ['promptStyle', 'insertLocation', 'dailyNoteFolder'];
     for (const field of requiredFields) {
-      if (!(field in settingsObj)) {
+      if (!(field in data.settings)) {
         errors.push(`Missing required field: ${field}`);
       }
     }

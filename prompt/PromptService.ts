@@ -19,12 +19,13 @@ export class PromptService {
     return prompts[index];
   }
 
-  async getContextAwarePrompt(
-    preferredStyle: PromptStyle,
-    date: Date,
-    noteText?: string,
-    moodData?: Partial<MoodData>
-  ): Promise<{ style: PromptStyle; prompt: string }> {
+  async getContextAwarePrompt(config: {
+    preferredStyle: PromptStyle;
+    date: Date;
+    noteText?: string;
+    moodData?: Partial<MoodData>;
+  }): Promise<{ style: PromptStyle; prompt: string }> {
+    const { preferredStyle, date, noteText, moodData } = config;
     let style = preferredStyle;
     if (this.selector && noteText) {
       const aiStyle = await this.selector.recommendStyle(noteText, moodData);
