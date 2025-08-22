@@ -37,51 +37,37 @@ export class CommandRegistry {
   }
 
   private registerCommands(): void {
-    this.plugin.addCommand({
-      id: 'nova-insert-todays-prompt',
-      name: "Insert today's prompt",
-      callback: async () => {
-        await this.callbacks.insertTodaysPrompt();
-      },
-    });
+    this.addCommand('nova-insert-todays-prompt', "Insert today's prompt", () => 
+      this.callbacks.insertTodaysPrompt()
+    );
 
-    this.plugin.addCommand({
-      id: 'nova-open-settings',
-      name: 'Open settings',
-      callback: async () => {
-        SettingsCommandService.openSettings(this.plugin.app, this.plugin.manifest.id);
-      },
-    });
+    this.addCommand('nova-open-settings', 'Open settings', () => 
+      SettingsCommandService.openSettings(this.plugin.app, this.plugin.manifest.id)
+    );
 
-    this.plugin.addCommand({
-      id: 'nova-insert-prompt-here',
-      name: 'Insert prompt here',
-      callback: async () => {
-        await this.callbacks.insertPromptInActiveEditor();
-      },
-    });
+    this.addCommand('nova-insert-prompt-here', 'Insert prompt here', () => 
+      this.callbacks.insertPromptInActiveEditor()
+    );
 
-    this.plugin.addCommand({
-      id: 'nova-cycle-prompt-style',
-      name: 'Cycle prompt style',
-      callback: async () => {
-        this.callbacks.cyclePromptStyle();
-      },
-    });
+    this.addCommand('nova-cycle-prompt-style', 'Cycle prompt style', () => 
+      this.callbacks.cyclePromptStyle()
+    );
 
-    this.plugin.addCommand({
-      id: 'nova-deepen-last-line',
-      name: 'Deepen last line (AI)',
-      callback: async () => {
-        await this.callbacks.deepenLastLine();
-      },
-    });
+    this.addCommand('nova-deepen-last-line', 'Deepen last line (AI)', () => 
+      this.callbacks.deepenLastLine()
+    );
 
+    this.addCommand('nova-rebuild-embeddings', 'Rebuild embeddings index', () => 
+      this.callbacks.rebuildEmbeddings()
+    );
+  }
+
+  private addCommand(id: string, name: string, callback: () => void | Promise<void>): void {
     this.plugin.addCommand({
-      id: 'nova-rebuild-embeddings',
-      name: 'Rebuild embeddings index',
+      id,
+      name,
       callback: async () => {
-        await this.callbacks.rebuildEmbeddings();
+        await callback();
       },
     });
   }

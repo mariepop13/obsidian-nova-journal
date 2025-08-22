@@ -1,7 +1,7 @@
 import { ButtonComponent, Setting } from 'obsidian';
 import type NovaJournalPlugin from '../main';
 import { SettingsService } from '../services/SettingsService';
-import type { SettingsExportOptions } from '../settings/PluginSettings';
+import type { SettingsExportOptions, SettingsImportResult } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 
 export class SettingsImportExportRenderer {
@@ -26,6 +26,11 @@ export class SettingsImportExportRenderer {
   }
 
   private renderExportSettings(containerEl: HTMLElement): void {
+    this.renderExportButtons(containerEl);
+    this.renderApiKeyToggle(containerEl);
+  }
+
+  private renderExportButtons(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName('Export settings')
       .setDesc('Save your current settings to a file')
@@ -46,32 +51,44 @@ export class SettingsImportExportRenderer {
         button
           .setButtonText('Copy to clipboard')
           .onClick(async () => {
-            try {
-              const options: SettingsExportOptions = {
-                includeApiKey: this.includeApiKeyInExport,
-                includeMetadata: true,
-              };
-              const exportData = await this.settingsService.exportSettings(options);
-              const content = JSON.stringify(exportData, null, 2);
-              
-              if (this.includeApiKeyInExport && exportData.settings.aiApiKey) {
-                const confirmed = confirm(
-                  'WARNING: You are about to copy sensitive API key data to clipboard.\n\nThis data will be accessible to other applications and may remain in clipboard history.\n\nContinue only if you trust your current environment.\n\nContinue?'
-                );
-                if (!confirmed) {
-                  return;
-                }
-              }
-              
-              await navigator.clipboard.writeText(content);
-              ToastSpinnerService.notice('Settings copied to clipboard');
-            } catch (error) {
-              console.error('Copy to clipboard failed:', error);
-              ToastSpinnerService.error('Failed to copy settings. Please try again.');
-            }
+            await this.handleCopyToClipboard();
           });
       });
+  }
 
+  private async handleCopyToClipboard(): Promise<void> {
+    try {
+      const options: SettingsExportOptions = {
+        includeApiKey: this.includeApiKeyInExport,
+        includeMetadata: true,
+      };
+      const exportData = await this.settingsService.exportSettings(options);
+      const content = JSON.stringify(exportData, null, 2);
+      
+      if (this.includeApiKeyInExport && exportData.settings.aiApiKey) {
+        const confirmed = confirm(
+          'WARNING: You are about to copy sensitive API key data to clipboard.\\n\\nThis data will be accessible to other applications and may remain in clipboard history.\\n\\nContinue only if you trust your current environment.\\n\\nContinue?'
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+      
+      try {
+        await navigator.clipboard.writeText(content);
+        ToastSpinnerService.notice('Settings copied to clipboard');
+      } catch (clipboardError) {
+        // Fallback for clipboard permission issues
+        console.warn('Clipboard write failed, showing fallback:', clipboardError);
+        this.showCopyFallbackDialog(content);
+      }
+    } catch (error) {
+      console.error('Copy to clipboard failed:', error);
+      ToastSpinnerService.error('Failed to copy settings. Please try again.');
+    }
+  }
+
+  private renderApiKeyToggle(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName('Include API key in export')
       .setDesc('Warning: Only enable if you trust the export destination')
@@ -92,73 +109,211 @@ export class SettingsImportExportRenderer {
           .setButtonText('Import from file')
           .setClass('mod-cta')
           .onClick(async () => {
-            try {
-              const result = await this.settingsService.loadSettingsFromFile();
-              
-              if (!result.success) {
-                ToastSpinnerService.error('Import failed. Please check your file format.');
-                return;
-              }
-
-              if (result.warnings?.length) {
-                ToastSpinnerService.warn(
-                  `Import completed with warnings: ${result.warnings.join(', ')}`
-                );
-              }
-
-              if (result.settings) {
-                await this.settingsService.applyImportedSettings(result.settings);
-                this.refreshCallback();
-              }
-            } catch (error) {
-              console.error('File import failed:', error);
-              ToastSpinnerService.error('Failed to import settings. Please try again.');
-            }
+            await this.handleFileImport();
           });
       })
       .addButton((button: ButtonComponent) => {
         button
           .setButtonText('Import from clipboard')
           .onClick(async () => {
-            try {
-              const clipboardText = await navigator.clipboard.readText();
-              
-              if (clipboardText.length > 1024 * 1024) {
-                ToastSpinnerService.error('Clipboard content too large. Maximum size is 1MB.');
-                return;
-              }
-              
-              let data;
-              try {
-                data = JSON.parse(clipboardText);
-              } catch (parseError) {
-                ToastSpinnerService.error('Invalid JSON format in clipboard.');
-                return;
-              }
-              
-              const result = await this.settingsService.importSettings(data);
-
-              if (!result.success) {
-                ToastSpinnerService.error('Import failed. Please check your file format.');
-                return;
-              }
-
-              if (result.warnings?.length) {
-                ToastSpinnerService.warn(
-                  `Import completed with warnings: ${result.warnings.join(', ')}`
-                );
-              }
-
-              if (result.settings) {
-                await this.settingsService.applyImportedSettings(result.settings);
-                this.refreshCallback();
-              }
-            } catch (error) {
-              console.error('Clipboard import failed:', error);
-              ToastSpinnerService.error('Failed to import from clipboard. Please check the format.');
-            }
+            await this.handleClipboardImport();
           });
       });
+  }
+
+  private async handleFileImport(): Promise<void> {
+    try {
+      const result = await this.settingsService.loadSettingsFromFile();
+      await this.processImportResult(result);
+    } catch (error) {
+      console.error('File import failed:', error);
+      ToastSpinnerService.error('Failed to import settings. Please try again.');
+    }
+  }
+
+  private async handleClipboardImport(): Promise<void> {
+    try {
+      let clipboardText: string;
+      
+      try {
+        clipboardText = await navigator.clipboard.readText();
+      } catch (permissionError) {
+        // Fallback for clipboard permission issues
+        const fallbackText = await this.showClipboardFallbackDialog();
+        if (!fallbackText) {
+          return;
+        }
+        clipboardText = fallbackText;
+      }
+      
+      if (clipboardText.length > 1024 * 1024) {
+        ToastSpinnerService.error('Clipboard content too large. Maximum size is 1MB.');
+        return;
+      }
+      
+      let data;
+      try {
+        data = JSON.parse(clipboardText);
+      } catch (parseError) {
+        ToastSpinnerService.error('Invalid JSON format in clipboard.');
+        return;
+      }
+      
+      const result = await this.settingsService.importSettings(data);
+      await this.processImportResult(result);
+    } catch (error) {
+      console.error('Clipboard import failed:', error);
+      ToastSpinnerService.error('Failed to import from clipboard. Please check the format.');
+    }
+  }
+
+  private async processImportResult(result: SettingsImportResult): Promise<void> {
+    if (!result.success) {
+      ToastSpinnerService.error('Import failed. Please check your file format.');
+      return;
+    }
+
+    if (result.warnings?.length) {
+      ToastSpinnerService.warn(
+        `Import completed with warnings: ${result.warnings.join(', ')}`
+      );
+    }
+
+    if (result.settings) {
+      await this.settingsService.applyImportedSettings(result.settings);
+      this.refreshCallback();
+    }
+  }
+
+  private async showClipboardFallbackDialog(): Promise<string | null> {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'modal-container';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      `;
+      
+      const content = document.createElement('div');
+      content.className = 'modal';
+      content.style.cssText = `
+        background: var(--background-primary);
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 500px;
+        width: 90%;
+      `;
+      
+      content.innerHTML = `
+        <h3>Clipboard Access Required</h3>
+        <p>Unable to access clipboard automatically. Please paste your settings data below:</p>
+        <textarea id="fallback-textarea" style="width: 100%; height: 200px; margin: 10px 0; font-family: monospace; font-size: 12px;"></textarea>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="fallback-cancel">Cancel</button>
+          <button id="fallback-import" class="mod-cta">Import</button>
+        </div>
+      `;
+      
+      modal.appendChild(content);
+      document.body.appendChild(modal);
+      
+      const textarea = content.querySelector('#fallback-textarea') as HTMLTextAreaElement;
+      const cancelBtn = content.querySelector('#fallback-cancel') as HTMLButtonElement;
+      const importBtn = content.querySelector('#fallback-import') as HTMLButtonElement;
+      
+      textarea.focus();
+      
+      const cleanup = () => {
+        document.body.removeChild(modal);
+      };
+      
+      cancelBtn.onclick = () => {
+        cleanup();
+        resolve(null);
+      };
+      
+      importBtn.onclick = () => {
+        const text = textarea.value.trim();
+        cleanup();
+        resolve(text || null);
+      };
+      
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          cleanup();
+          resolve(null);
+        }
+      };
+    });
+  }
+
+  private showCopyFallbackDialog(content: string): void {
+    const modal = document.createElement('div');
+    modal.className = 'modal-container';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal';
+    modalContent.style.cssText = `
+      background: var(--background-primary);
+      border: 1px solid var(--background-modifier-border);
+      border-radius: 8px;
+      padding: 20px;
+      max-width: 600px;
+      width: 90%;
+    `;
+    
+    modalContent.innerHTML = `
+      <h3>Copy Settings Data</h3>
+      <p>Unable to copy automatically. Please manually copy the data below:</p>
+      <textarea readonly style="width: 100%; height: 300px; margin: 10px 0; font-family: monospace; font-size: 11px;">${content}</textarea>
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="copy-fallback-close" class="mod-cta">Close</button>
+      </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    const textarea = modalContent.querySelector('textarea') as HTMLTextAreaElement;
+    const closeBtn = modalContent.querySelector('#copy-fallback-close') as HTMLButtonElement;
+    
+    // Select all text for easy copying
+    textarea.select();
+    textarea.focus();
+    
+    const cleanup = () => {
+      document.body.removeChild(modal);
+    };
+    
+    closeBtn.onclick = cleanup;
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup();
+      }
+    };
+    
+    ToastSpinnerService.notice('Settings data displayed - please copy manually');
   }
 
   private renderResetSettings(containerEl: HTMLElement): void {
