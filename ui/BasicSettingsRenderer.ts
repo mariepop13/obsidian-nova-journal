@@ -46,7 +46,7 @@ export class BasicSettingsRenderer {
         .addText((text: TextComponent) => {
           text
             .setPlaceholder('## Journal')
-            .setValue(this.plugin.settings.insertHeadingName || '')
+            .setValue(this.plugin.settings.insertHeadingName ?? '')
             .onChange(async value => {
               try {
                 this.plugin.settings.insertHeadingName = value;
@@ -123,7 +123,7 @@ export class BasicSettingsRenderer {
           .setValue(this.plugin.settings.dailyNoteFolder)
           .onChange(async value => {
             try {
-              this.plugin.settings.dailyNoteFolder = value || 'Journal';
+              this.plugin.settings.dailyNoteFolder = value ?? 'Journal';
               await this.plugin.saveSettings();
             } catch (error) {
               ToastSpinnerService.error('Failed to save folder setting');
@@ -135,7 +135,7 @@ export class BasicSettingsRenderer {
       .setName('Organize by year/month')
       .setDesc('Nest daily notes under YYYY/MM subfolders')
       .addToggle((toggle: ToggleComponent) => {
-        toggle.setValue(this.plugin.settings.organizeByYearMonth || false);
+        toggle.setValue(this.plugin.settings.organizeByYearMonth ?? false);
         toggle.onChange(async value => {
           try {
             this.plugin.settings.organizeByYearMonth = value;
@@ -157,7 +157,7 @@ export class BasicSettingsRenderer {
         dropdown.setValue(this.plugin.settings.dailyNoteFormat);
         dropdown.onChange(async value => {
           try {
-            this.plugin.settings.dailyNoteFormat = value || 'YYYY-MM-DD';
+            this.plugin.settings.dailyNoteFormat = value ?? 'YYYY-MM-DD';
             await this.plugin.saveSettings();
             this.refreshCallback();
           } catch (error) {

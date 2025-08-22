@@ -27,7 +27,7 @@ export class UserInterfaceSettingsRenderer {
           normal: 'Normal',
           fast: 'Fast',
         });
-        dropdown.setValue(this.plugin.settings.typewriterSpeed || 'normal');
+        dropdown.setValue(this.plugin.settings.typewriterSpeed ?? 'normal');
         dropdown.onChange(async value => {
           try {
             this.plugin.settings.typewriterSpeed = SettingsValidator.validateTypewriterSpeed(value);
@@ -67,7 +67,7 @@ export class UserInterfaceSettingsRenderer {
       .addText(text =>
         text.setValue(this.plugin.settings.deepenButtonLabel).onChange(async value => {
           try {
-            this.plugin.settings.deepenButtonLabel = value || 'Explore more';
+            this.plugin.settings.deepenButtonLabel = value ?? 'Explore more';
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save button label');
@@ -83,7 +83,7 @@ export class UserInterfaceSettingsRenderer {
       .addText(text =>
         text.setValue(this.plugin.settings.userName).onChange(async value => {
           try {
-            this.plugin.settings.userName = value || 'You';
+            this.plugin.settings.userName = value ?? 'You';
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save display name');

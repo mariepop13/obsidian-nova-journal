@@ -43,7 +43,7 @@ export class ModelSettingsRenderer {
           .setValue(this.plugin.settings.aiModel)
           .onChange(async value => {
             try {
-              this.plugin.settings.aiModel = value || 'gpt-4o-mini';
+              this.plugin.settings.aiModel = value ?? 'gpt-4o-mini';
               await this.plugin.saveSettings();
             } catch {
               ToastSpinnerService.error('Failed to save model');
@@ -60,10 +60,10 @@ export class ModelSettingsRenderer {
       .addText(text =>
         text
           .setPlaceholder('gpt-4o-mini')
-          .setValue(this.plugin.settings.aiFallbackModel || '')
+          .setValue(this.plugin.settings.aiFallbackModel ?? '')
           .onChange(async value => {
             try {
-              this.plugin.settings.aiFallbackModel = value || '';
+              this.plugin.settings.aiFallbackModel = value ?? '';
               await this.plugin.saveSettings();
             } catch {
               ToastSpinnerService.error('Failed to save fallback model');

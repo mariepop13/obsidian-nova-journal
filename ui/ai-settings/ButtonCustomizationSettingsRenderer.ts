@@ -94,7 +94,7 @@ export class ButtonCustomizationSettingsRenderer {
       .addText(text =>
         text.setValue(this.plugin.settings.moodButtonLabel).onChange(async value => {
           try {
-            this.plugin.settings.moodButtonLabel = value || 'Analyze mood';
+            this.plugin.settings.moodButtonLabel = value ?? 'Analyze mood';
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save mood button label');

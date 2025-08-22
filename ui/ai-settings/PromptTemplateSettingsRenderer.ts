@@ -43,7 +43,7 @@ export class PromptTemplateSettingsRenderer {
       .addTextArea((textArea: TextAreaComponent) => {
         textArea
           .setPlaceholder('{{prompt}}')
-          .setValue(this.plugin.settings.promptTemplate || '')
+          .setValue(this.plugin.settings.promptTemplate ?? '')
           .onChange(async value => {
             try {
               this.plugin.settings.promptTemplate = value;
@@ -62,7 +62,7 @@ export class PromptTemplateSettingsRenderer {
     this.renderTemplatePresetSection(containerEl);
     SettingsUtils.renderTemplatePreview(
       containerEl,
-      this.plugin.settings.promptTemplate || '',
+      this.plugin.settings.promptTemplate ?? '',
       this.plugin.settings.userName
     );
   }
@@ -79,7 +79,7 @@ export class PromptTemplateSettingsRenderer {
           custom: 'Custom',
         });
 
-        const currentPreset = SettingsUtils.getCurrentTemplatePreset(this.plugin.settings.promptTemplate || '');
+        const currentPreset = SettingsUtils.getCurrentTemplatePreset(this.plugin.settings.promptTemplate ?? '');
         dropdown.setValue(currentPreset);
 
         if (currentPreset === 'custom') {

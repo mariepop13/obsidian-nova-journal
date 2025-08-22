@@ -29,10 +29,10 @@ export class SettingsUtils {
 
     const now = new Date();
     const samplePrompt = 'What are you grateful for today?';
-    let output = (promptTemplate || '').trim();
+    let output = (promptTemplate ?? '').trim();
 
     output = output.replace(/\{\{\s*prompt\s*\}\}/g, samplePrompt);
-    output = output.replace(/\{\{\s*user_line\s*\}\}/g, `**${userName || 'You'}** (you): `);
+    output = output.replace(/\{\{\s*user_line\s*\}\}/g, `**${userName ?? 'You'}** (you): `);
     output = output.replace(/\{\{\s*date(?::([^}]+))?\s*\}\}/g, (_match: string, format?: string) => {
       const dateFormat = typeof format === 'string' ? format.trim() : 'YYYY-MM-DD';
       return DateFormatter.format(now, dateFormat);
@@ -50,7 +50,7 @@ export class SettingsUtils {
   }
 
   static getCurrentTemplatePreset(promptTemplate: string): string {
-    return TemplateFactory.getPresetType(promptTemplate || '');
+    return TemplateFactory.getPresetType(promptTemplate ?? '');
   }
 
   static getTemplatePreset(preset: string): string {
@@ -58,11 +58,11 @@ export class SettingsUtils {
   }
 
   static isValidOpenAIKey(apiKey: string): boolean {
-    return (apiKey || '').startsWith('sk-');
+    return (apiKey ?? '').startsWith('sk-');
   }
 
   static isValidOpenAIModel(model: string): boolean {
-    return /^(gpt|o\d)/i.test(model || '');
+    return /^(gpt|o\d)/i.test(model ?? '');
   }
 
   static hasAIExploreLinks(template: string): boolean {
