@@ -15,8 +15,11 @@ pr_commands = [
     "/update_changelog",
     "/help"
 ]
-handle_push_commits_message = true
-handle_push_commits = true
+handle_push_trigger = true
+push_commands = [
+    "/review",
+    "/describe"
+]
 auto_describe = true
 auto_review = true
 auto_add_labels = true
