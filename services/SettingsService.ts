@@ -196,14 +196,14 @@ export class SettingsService {
   }
 
   async applyImportedSettings(settings: NovaJournalSettings): Promise<void> {
-    console.log('Settings import: Applying imported settings');
+
     this.plugin.settings = settings;
     await this.plugin.saveSettings();
     ToastSpinnerService.notice('Settings imported successfully');
   }
 
   async resetToDefaults(): Promise<void> {
-    console.log('Settings reset: Resetting all settings to defaults');
+
     this.plugin.settings = { ...DEFAULT_SETTINGS };
     await this.plugin.saveSettings();
     ToastSpinnerService.notice('Settings reset to defaults');

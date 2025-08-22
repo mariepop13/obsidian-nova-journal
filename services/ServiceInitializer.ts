@@ -62,7 +62,7 @@ export class ServiceInitializer {
   ): Promise<void> {
     const needsMigration = await migration.checkMigrationNeeded();
     if (needsMigration) {
-      console.log('[NovaJournal] Migrating to enhanced embedding system...');
+
       const success = await migration.migrateToEnhancedSystem();
       if (success) {
         await migration.cleanupLegacyIndex();

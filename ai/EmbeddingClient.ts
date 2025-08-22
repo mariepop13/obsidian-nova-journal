@@ -76,9 +76,7 @@ function createEmbeddingPayload(model: string, filteredInputs: string[]): Embedd
   const totalChars = filteredInputs.reduce((sum, text) => sum + text.length, 0);
   const requestSize = JSON.stringify(payload).length;
 
-  console.log(
-    `[Embedding Debug] Inputs: ${filteredInputs.length}, Total chars: ${totalChars}, Request size: ${requestSize} bytes`
-  );
+
 
   return payload;
 }
@@ -135,6 +133,6 @@ async function parseEmbeddingResponse(response: Response): Promise<EmbeddingResp
   const vectors = data
     .map((d: EmbeddingData) => (Array.isArray(d?.embedding) ? d.embedding : undefined))
     .filter((v: number[] | undefined): v is number[] => Array.isArray(v));
-  console.log(`[Embedding Debug] Success: ${vectors.length} embeddings received`);
+
   return { embeddings: vectors };
 }

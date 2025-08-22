@@ -113,7 +113,7 @@ export class EmbeddingService {
 
       files.push(f);
     }
-    console.log(`[EmbeddingService] Found ${files.length} files in folder "${targetFolder}"`);
+
     return files;
   }
 
@@ -162,7 +162,7 @@ export class EmbeddingService {
 
   private async generateEmbeddings(chunks: { path: string; date: number; text: string }[]): Promise<number[][]> {
     const inputs = chunks.map(c => c.text).filter(t => t.length > 0);
-    console.log(`[EmbeddingService] Processing ${inputs.length} chunks, limiting to ${this.maxChunksPerBatch}`);
+
     const limitedInputs = inputs.slice(0, this.maxChunksPerBatch);
 
     try {

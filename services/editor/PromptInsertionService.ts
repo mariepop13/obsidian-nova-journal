@@ -86,7 +86,7 @@ export class PromptInsertionService {
     if (aiPrompt && aiPrompt.length > 0) {
       return aiPrompt;
     } 
-      console.log('[PromptInsertionService] Debug - Using fallback prompt');
+
       return fallbackPrompt;
     
   }
