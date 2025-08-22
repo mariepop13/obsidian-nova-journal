@@ -123,55 +123,65 @@ export class SettingsService {
 
   async loadSettingsFromFile(): Promise<SettingsImportResult> {
     return new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      
+      const input = this.createFileInput();
       input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) {
-          resolve({
-            success: false,
-            errors: ['No file selected'],
-          });
-          return;
-        }
-
-        try {
-          const content = await file.text();
-          
-          if (content.length > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
-            resolve({
-              success: false,
-              errors: ['File too large. Maximum size is 1MB.'],
-            });
-            return;
-          }
-          
-          let data;
-          try {
-            data = JSON.parse(content);
-          } catch (parseError) {
-            resolve({
-              success: false,
-              errors: ['Invalid JSON format. Please check your file.'],
-            });
-            return;
-          }
-          
-          const result = await this.importSettings(data);
-          resolve(result);
-        } catch (error) {
-          console.error('Settings import failed:', error);
-          resolve({
-            success: false,
-            errors: ['Failed to read file. Please try again.'],
-          });
-        }
+        const result = await this.handleFileSelection(e);
+        resolve(result);
       };
-
       input.click();
     });
+  }
+
+  private createFileInput(): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    return input;
+  }
+
+  private async handleFileSelection(e: Event): Promise<SettingsImportResult> {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) {
+      return {
+        success: false,
+        errors: ['No file selected'],
+      };
+    }
+
+    try {
+      const content = await file.text();
+      
+      if (content.length > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
+        return {
+          success: false,
+          errors: ['File too large. Maximum size is 1MB.'],
+        };
+      }
+
+      const data = await this.parseFileContent(content);
+      if (!data) {
+        return {
+          success: false,
+          errors: ['Invalid JSON format. Please check your file.'],
+        };
+      }
+
+      return await this.importSettings(data);
+    } catch (error) {
+      console.error('Settings import failed:', error);
+      return {
+        success: false,
+        errors: ['Failed to read file. Please try again.'],
+      };
+    }
+  }
+
+  private async parseFileContent(content: string): Promise<any | null> {
+    try {
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
   }
 
   async applyImportedSettings(settings: NovaJournalSettings): Promise<void> {
