@@ -131,35 +131,64 @@ export async function chat({
   retryCount = 0,
   fallbackModel = '',
 }: ChatArgs): Promise<string> {
-  if (!apiKey || typeof apiKey !== 'string') {
-    throw new Error('Valid API key required');
-  }
-
+  validateApiKey(apiKey);
+  
   if (!RateLimiter.checkRateLimit(apiKey)) {
     throw new Error('Rate limit exceeded. Please wait before making more requests');
   }
 
-  const { sanitizeUserInput } = await import('../utils/Sanitizer');
-
-  const primary = model || 'gpt-5-mini';
-  const tries = Math.max(0, Math.min(AI_LIMITS.MAX_RETRIES, retryCount));
-
-  const config: APICallConfig = {
+  const config = await createChatConfig({
     apiKey,
-    modelName: primary,
-    systemPrompt: sanitizeUserInput(systemPrompt, 5000),
-    userText: sanitizeUserInput(userText, 50000),
+    model: model || 'gpt-5-mini',
+    systemPrompt,
+    userText,
     maxTokens,
     debug,
+  });
+
+  return await executeChatWithRetry(config, retryCount, fallbackModel);
+}
+
+function validateApiKey(apiKey: string): void {
+  if (!apiKey || typeof apiKey !== 'string') {
+    throw new Error('Valid API key required');
+  }
+}
+
+async function createChatConfig(params: {
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  userText: string;
+  maxTokens: number;
+  debug: boolean;
+}): Promise<APICallConfig> {
+  const { sanitizeUserInput } = await import('../utils/Sanitizer');
+  
+  return {
+    apiKey: params.apiKey,
+    modelName: params.model,
+    systemPrompt: sanitizeUserInput(params.systemPrompt, AI_LIMITS.USER_INPUT_MAX_LENGTH),
+    userText: sanitizeUserInput(params.userText, AI_LIMITS.USER_TEXT_MAX_LENGTH),
+    maxTokens: params.maxTokens,
+    debug: params.debug,
   };
+}
 
-  let lastError: any = null;
+async function executeChatWithRetry(
+  config: APICallConfig,
+  retryCount: number,
+  fallbackModel: string
+): Promise<string> {
+  const tries = Math.max(0, Math.min(AI_LIMITS.MAX_RETRIES, retryCount));
+  let lastError: Error | null = null;
 
+  // Try with primary model
   for (let i = 0; i <= tries; i += 1) {
     try {
       return await callOnce(config);
     } catch (e) {
-      lastError = e;
+      lastError = e as Error;
       if (i < tries) {
         const backoff = AI_LIMITS.BACKOFF_BASE_MS * Math.pow(2, i);
         await new Promise(r => setTimeout(r, backoff));
@@ -167,14 +196,15 @@ export async function chat({
     }
   }
 
-  if (fallbackModel && fallbackModel !== primary) {
+  // Try with fallback model
+  if (fallbackModel && fallbackModel !== config.modelName) {
     try {
       const fallbackConfig = { ...config, modelName: fallbackModel };
       return await callOnce(fallbackConfig);
     } catch (e) {
-      lastError = e;
+      lastError = e as Error;
     }
   }
 
-  throw lastError || new Error('AI request failed');
+  throw lastError ?? new Error('AI request failed');
 }
