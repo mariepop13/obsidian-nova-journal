@@ -32,7 +32,7 @@ export class UserInterfaceSettingsRenderer {
           try {
             this.plugin.settings.typewriterSpeed = SettingsValidator.validateTypewriterSpeed(value);
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save typewriter speed');
           }
         });
@@ -53,7 +53,7 @@ export class UserInterfaceSettingsRenderer {
           try {
             this.plugin.settings.defaultDeepenScope = SettingsValidator.validateDeepenScope(value);
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save deepen scope');
           }
         });
@@ -69,7 +69,7 @@ export class UserInterfaceSettingsRenderer {
           try {
             this.plugin.settings.deepenButtonLabel = value || 'Explore more';
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save button label');
           }
         })
@@ -85,7 +85,7 @@ export class UserInterfaceSettingsRenderer {
           try {
             this.plugin.settings.userName = value || 'You';
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save display name');
           }
         })

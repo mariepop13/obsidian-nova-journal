@@ -29,7 +29,7 @@ export class PromptTemplateSettingsRenderer {
           try {
             this.plugin.settings.promptStyle = value as 'reflective' | 'gratitude' | 'planning' | 'dreams';
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save prompt style');
           }
         });
@@ -48,7 +48,7 @@ export class PromptTemplateSettingsRenderer {
             try {
               this.plugin.settings.promptTemplate = value;
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save template');
             }
           });
@@ -95,7 +95,7 @@ export class PromptTemplateSettingsRenderer {
               await this.plugin.saveSettings();
               this.refreshCallback();
             }
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save preset');
           }
         });
