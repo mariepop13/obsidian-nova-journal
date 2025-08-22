@@ -44,6 +44,7 @@ export interface OpenAIResponse {
 import { sanitizeForLogging } from '../utils/Sanitizer';
 import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/shared/Constants';
 import { logger } from '../services/shared/LoggingService';
+import { requestUrl } from 'obsidian';
 
 async function callOnce(config: APICallConfig): Promise<string> {
   const payload = buildPayload(config);
@@ -80,18 +81,47 @@ function buildPayload(config: APICallConfig): ChatCompletionPayload {
   return payload;
 }
 
-async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Promise<Response> {
-  return fetch(API_CONFIG.OPENAI_CHAT_URL, {
+interface ResponseLike {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json: () => Promise<any>;
+  text: () => Promise<string>;
+}
+
+async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Promise<ResponseLike> {
+  const res = await requestUrl({
+    url: API_CONFIG.OPENAI_CHAT_URL,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
+      'User-Agent': API_CONFIG.USER_AGENT,
     },
     body: JSON.stringify(payload),
   });
+
+  const responseLike: ResponseLike = {
+    ok: res.status >= 200 && res.status < 300,
+    status: res.status,
+    statusText: String(res.status),
+    json: async () => {
+      try {
+        // Obsidian provides a parsed json field in many cases
+        const anyRes: any = res as any;
+        if (typeof anyRes.json !== 'undefined') return anyRes.json;
+        return JSON.parse(res.text || '{}');
+      } catch {
+        return {};
+      }
+    },
+    text: async () => res.text || '',
+  };
+
+  return responseLike;
 }
 
-async function handleAPIError(response: Response, debug: boolean): Promise<never> {
+async function handleAPIError(response: ResponseLike, debug: boolean): Promise<never> {
   const errText = await response.text().catch(() => '');
   
   if (debug) {

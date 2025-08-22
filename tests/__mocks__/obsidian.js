@@ -61,6 +61,25 @@ class MockPluginSettingTab {
   hide() { return; }
 }
 
+// Mock requestUrl for API calls
+const requestUrl = async (options) => {
+  // Check if we're in a test that expects failure
+  if (global._mockRequestUrlShouldFail) {
+    throw new Error('API failure');
+  }
+  
+  // Mock successful API response
+  return {
+    status: 200,
+    text: JSON.stringify({
+      choices: [{ message: { content: 'Mock AI response' } }]
+    }),
+    json: {
+      choices: [{ message: { content: 'Mock AI response' } }]
+    }
+  };
+};
+
 const mockApp = {
   vault: {
     getName: () => 'test-vault',
@@ -94,6 +113,7 @@ module.exports = {
   PluginSettingTab: MockPluginSettingTab,
   App: class MockApp {},
   Component: class MockComponent {},
+  requestUrl: requestUrl,
   Setting: class MockSetting {
     constructor(containerEl) {
       this.containerEl = containerEl;
