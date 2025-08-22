@@ -1,6 +1,7 @@
 
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import type { App } from 'obsidian';
 import { ToastSpinnerService } from '../editor/ToastSpinnerService';
 import {
   TIME_CONSTANTS,
@@ -9,7 +10,7 @@ import {
   PARSING_CONSTANTS,
 } from '../shared/Constants';
 export interface FrontmatterData {
-  [key: string]: any;
+  [key: string]: string | number | string[] | undefined;
   mood?: string;
   mood_level?: number;
   energy?: number;
@@ -28,7 +29,7 @@ export interface MoodHistoryEntry {
 export class MoodAnalysisService {
   constructor(
     private readonly settings: NovaJournalSettings,
-    private readonly app: any
+    private readonly app: App
   ) {}
 
   async analyzeCurrentNoteContent(noteText: string): Promise<string | null> {

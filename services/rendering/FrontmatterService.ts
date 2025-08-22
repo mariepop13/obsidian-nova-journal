@@ -93,10 +93,10 @@ export class FrontmatterService {
     return VALID_SENTIMENTS.includes(sentiment as (typeof VALID_SENTIMENTS)[number]) ? sentiment : 'neutral';
   }
 
-  private static extractStringArray(value: any): string[] {
+  private static extractStringArray(value: unknown): string[] {
     if (!Array.isArray(value)) return [];
     return value
-      .filter((item: any) => typeof item === 'string' && item.trim())
+      .filter((item: unknown) => typeof item === 'string' && item.trim())
       .map((item: string) => item.toLowerCase());
   }
 

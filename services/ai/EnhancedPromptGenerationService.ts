@@ -4,6 +4,7 @@ import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
 
+
 export interface ContextualPromptOptions {
   prioritizeRecent?: boolean;
   includeEmotionalContext?: boolean;
@@ -290,7 +291,7 @@ Generate a thematically focused question that explores patterns and development 
     return searchText;
   }
 
-  private buildSearchOptions(options: any, mood: Partial<MoodData> | undefined): SearchOptions {
+  private buildSearchOptions(options: Record<string, any>, mood: Partial<MoodData> | undefined): SearchOptions {
     console.log('[EnhancedPromptGenerationService] Debug - Search options:', options);
     
     const searchOptions: SearchOptions = {
@@ -311,7 +312,7 @@ Generate a thematically focused question that explores patterns and development 
     return searchOptions;
   }
 
-  private async performContextualSearch(embeddingService: any, searchText: string, maxChunks: number, searchOptions: SearchOptions): Promise<string> {
+  private async performContextualSearch(embeddingService: EnhancedEmbeddingService, searchText: string, maxChunks: number, searchOptions: SearchOptions): Promise<string> {
     try {
       console.log('[EnhancedPromptGenerationService] Debug - Performing contextual search...');
       const contextChunks = await embeddingService.contextualSearch(searchText, maxChunks, searchOptions);

@@ -4,6 +4,7 @@ import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
+
 import {
   SEARCH_CONSTANTS,
   CONTENT_LIMITS,
