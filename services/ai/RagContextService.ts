@@ -35,7 +35,7 @@ export class RagContextService {
     const embeddingService = this.getEmbeddingService();
 
     if (this.debug) {
-      console.log('[RagContextService] Searching for context with query length:', userText?.trim().length);
+
     }
 
     if (!embeddingService) {
@@ -45,7 +45,7 @@ export class RagContextService {
 
     if (!userText?.trim()) {
       if (this.debug) {
-        console.log('[RagContextService] No user text provided, returning empty context');
+
       }
       return '';
     }
@@ -63,7 +63,7 @@ export class RagContextService {
       contextChunks = this.filterSubstantialContent(contextChunks);
 
       if (this.debug) {
-        console.log('[RagContextService] Found substantial chunks:', contextChunks.length);
+
       }
 
       if (contextChunks.length === 0) {
@@ -405,7 +405,7 @@ export class RagContextService {
       contextChunks = this.filterSubstantialContent(contextChunks);
 
       if (this.debug) {
-        console.log('[RagContextService] Found substantial chunks:', contextChunks.length);
+
       }
 
       if (contextChunks.length === 0) {

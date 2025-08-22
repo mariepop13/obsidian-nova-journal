@@ -8,6 +8,15 @@ import { FrontmatterService } from '../rendering/FrontmatterService';
 import { PromptGenerationService } from '../ai/PromptGenerationService';
 import { RagContextService } from '../ai/RagContextService';
 import { ToastSpinnerService } from './ToastSpinnerService';
+
+interface ContextData {
+  style: PromptStyle;
+  prompt: string;
+  mood?: any;
+  date: Date;
+}
+
+
 import { CONTENT_LIMITS } from '../shared/Constants';
 
 export class PromptInsertionService {
@@ -49,7 +58,7 @@ export class PromptInsertionService {
     }
   }
 
-  private async preparePromptContext(editor: Editor) {
+  private async preparePromptContext(editor: Editor): Promise<ContextData | null> {
     const date = new Date();
     const mood = FrontmatterService.readMoodProps(editor);
     const contextAwareResult = await this.promptService.getContextAwarePrompt({
@@ -67,7 +76,7 @@ export class PromptInsertionService {
     return { ...contextAwareResult, date, mood };
   }
 
-  private async generatePromptWithContext(editor: Editor, contextData: any): Promise<string> {
+  private async generatePromptWithContext(editor: Editor, contextData: ContextData): Promise<string> {
     const { style, prompt: fallbackPrompt, mood } = contextData;
     
     const ragContext = await this.retrieveRagContext(editor, style);
@@ -77,12 +86,12 @@ export class PromptInsertionService {
     if (aiPrompt && aiPrompt.length > 0) {
       return aiPrompt;
     } 
-      console.log('[PromptInsertionService] Debug - Using fallback prompt');
+
       return fallbackPrompt;
     
   }
 
-  private async retrieveRagContext(editor: Editor, style: any): Promise<string> {
+  private async retrieveRagContext(editor: Editor, style: PromptStyle): Promise<string> {
     if (!this.ragContextService) return '';
 
     try {

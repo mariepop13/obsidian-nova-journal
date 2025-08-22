@@ -1,5 +1,6 @@
-import { Editor } from 'obsidian';
+import { Editor, EditorPosition } from 'obsidian';
 import { ButtonCustomizationService } from './ButtonCustomizationService';
+import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import { isDeepenButtonMarkup, isMoodAnalyzeButtonMarkup } from './ContentDetectionUtils';
 import { deleteRangesInReverse } from './ContentCleanupUtils';
 
@@ -13,7 +14,7 @@ function removeExistingButtons(editor: Editor): void {
   deleteRangesInReverse(editor, buttonRanges);
 }
 
-function findAllButtonRanges(editor: Editor): Array<{ from: any; to: any }> {
+function findAllButtonRanges(editor: Editor): Array<{ from: EditorPosition; to: EditorPosition }> {
   const ranges = [];
   const lastLine = editor.lastLine();
 
@@ -36,7 +37,7 @@ function insertBottomButtons(editor: Editor, label: string, settings?: any): voi
   editor.replaceRange(buttons, insertionPoint.from, insertionPoint.to);
 }
 
-function findButtonInsertionPoint(editor: Editor) {
+function findButtonInsertionPoint(editor: Editor): { from: EditorPosition; to: EditorPosition } {
   const endLine = editor.lastLine();
   const lastNonEmpty = findLastNonEmptyLine(editor, endLine);
   const insertLine = Math.max(0, lastNonEmpty + 1);

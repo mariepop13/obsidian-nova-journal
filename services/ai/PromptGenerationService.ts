@@ -4,6 +4,7 @@ import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
+
 import {
   SEARCH_CONSTANTS,
   CONTENT_LIMITS,
@@ -78,7 +79,7 @@ export class PromptGenerationService {
     const ragContext = await this.getRagContext(noteText, providedRagContext);
     const userPrompt = this.buildUserPrompt(style, noteText, mood, ragContext);
     
-    console.log(`[PromptGenerationService] Final user prompt:`, userPrompt);
+
     return this.callAIService(systemPrompt, userPrompt);
   }
 
@@ -120,7 +121,7 @@ Styles:
   private async getRagContext(noteText: string, providedRagContext?: string): Promise<string> {
     if (providedRagContext && providedRagContext.trim().length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
       const ragContext = `\n\nPrevious journal entries context:\n${providedRagContext}`;
-      console.log(`[PromptGenerationService] Using provided RAG context:`, ragContext.substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.PREVIEW_LENGTH));
+
       return ragContext;
     }
     
@@ -130,22 +131,22 @@ Styles:
   private async fetchRagContext(noteText: string): Promise<string> {
     try {
       if (!noteText || noteText.trim().length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-        console.log(`[PromptGenerationService] No note text provided`);
+
         return '';
       }
 
       const appRef = (window as any)?.app;
       if (!appRef) {
-        console.log(`[PromptGenerationService] No app reference found`);
+
         return '';
       }
 
       const embeddingService = new EmbeddingService(appRef, this.settings);
       const top = await embeddingService.topK(noteText, EMBEDDING_CONFIG.TOP_K_DEFAULT);
-      console.log(`[PromptGenerationService] RAG results:`, top);
+
       
       if (!Array.isArray(top) || top.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-        console.log(`[PromptGenerationService] No RAG results found`);
+
         return '';
       }
 
@@ -154,7 +155,7 @@ Styles:
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('[PromptGenerationService] RAG fetch failed:', errorMessage);
       if (this.settings.aiDebug) {
-        console.log('[PromptGenerationService] Debug - RAG retrieval failed, proceeding without context');
+
       }
       return '';
     }
@@ -169,7 +170,7 @@ Styles:
       .join('\n');
     
     const ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
-    console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.PREVIEW_LENGTH));
+
     return ragContext;
   }
 
@@ -201,7 +202,7 @@ Generate a question that:
       const text = (response ?? '').trim();
       if (!text) {
         if (this.settings.aiDebug) {
-          console.log('[PromptGenerationService] Debug - Empty response from AI service');
+
         }
         return null;
       }

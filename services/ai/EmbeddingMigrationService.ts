@@ -10,7 +10,7 @@ export class EmbeddingMigrationService {
 
   async migrateToEnhancedSystem(): Promise<boolean> {
     try {
-      console.log('[EmbeddingMigrationService] Starting migration to enhanced system');
+
 
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
       localStorage.getItem(legacyIndexKey);
@@ -22,7 +22,7 @@ export class EmbeddingMigrationService {
       const folder = this.settings.dailyNoteFolder ?? 'Journal';
       await enhancedService.incrementalUpdateIndex(folder);
 
-      console.log('[EmbeddingMigrationService] Migration completed successfully');
+
       return true;
     } catch (error) {
       console.error('[EmbeddingMigrationService] Migration failed', error);
@@ -53,7 +53,7 @@ export class EmbeddingMigrationService {
       if (legacyData) {
         try {
           localStorage.setItem(backupKey, legacyData);
-          console.log('[EmbeddingMigrationService] Legacy index backed up');
+
         } catch (storageError) {
           console.error('[EmbeddingMigrationService] Failed to write backup to localStorage', storageError);
         }
@@ -67,7 +67,7 @@ export class EmbeddingMigrationService {
     try {
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
       localStorage.removeItem(legacyIndexKey);
-      console.log('[EmbeddingMigrationService] Legacy index cleaned up');
+
     } catch (error) {
       console.error('[EmbeddingMigrationService] Failed to cleanup legacy index', error);
     }
