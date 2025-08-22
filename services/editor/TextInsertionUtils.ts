@@ -82,7 +82,7 @@ function insertAtHeadingPosition(editor: Editor, block: string, insertLine: numb
   editor.replaceRange(insertText, insertPos);
 }
 
-function handleHeadingRegexError(editor: Editor, block: string, regexError: any): void {
+function handleHeadingRegexError(editor: Editor, block: string, regexError: Error): void {
   console.warn('Nova Journal: Invalid heading name for regex, falling back to cursor insertion', regexError);
   editor.replaceSelection(block);
 }

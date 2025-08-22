@@ -1,4 +1,4 @@
-import { Editor } from 'obsidian';
+import { Editor, EditorPosition } from 'obsidian';
 import { RegexHelpers } from '../utils/RegexHelpers';
 
 export function removeDateHeadingInEditor(editor: Editor): void {
@@ -64,7 +64,7 @@ function findBlockEnd(editor: Editor, startLine: number): number {
   return end;
 }
 
-function findAnchorRanges(editor: Editor, start: number, end: number): Array<{ from: any; to: any }> {
+function findAnchorRanges(editor: Editor, start: number, end: number): Array<{ from: EditorPosition; to: EditorPosition }> {
   const ranges = [];
 
   for (let line = start; line <= end; line += 1) {
@@ -80,7 +80,7 @@ function findAnchorRanges(editor: Editor, start: number, end: number): Array<{ f
   return ranges;
 }
 
-export function deleteRangesInReverse(editor: Editor, ranges: Array<{ from: any; to: any }>): void {
+export function deleteRangesInReverse(editor: Editor, ranges: Array<{ from: EditorPosition; to: EditorPosition }>): void {
   for (let i = ranges.length - 1; i >= 0; i -= 1) {
     const range = ranges[i];
     editor.replaceRange('', range.from, range.to);
