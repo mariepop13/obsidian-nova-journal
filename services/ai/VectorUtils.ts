@@ -1,4 +1,5 @@
 import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
+import { HASH_CONSTANTS, EMBEDDING_CONFIG } from '../shared/Constants';
 
 export class VectorUtils {
   static cosineSimilarity(a: number[], b: number[]): number {
@@ -61,13 +62,14 @@ export class VectorUtils {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
+      hash = (hash << HASH_CONSTANTS.BIT_SHIFT_LEFT) - hash + char;
+      hash = hash | 0; // force 32-bit int
     }
-    return hash.toString();
+    // normalize to positive integer string
+    return (hash >>> 0).toString();
   }
 
-  static splitIntoChunks(content: string, chunkSize = 250, overlap = 75): string[] {
+  static splitIntoChunks(content: string, chunkSize = EMBEDDING_CONFIG.CHUNK_SIZE_ALTERNATIVE, overlap = EMBEDDING_CONFIG.OVERLAP_ALTERNATIVE): string[] {
     const tokens = content.split(/\s+/);
     const chunks: string[] = [];
     let i = 0;

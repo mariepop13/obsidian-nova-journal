@@ -28,7 +28,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Test notice';
       ToastSpinnerService.notice(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 4000);
+      expect(MockNotice).toHaveBeenCalledWith('', 5000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -47,7 +47,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Warning message';
       ToastSpinnerService.warn(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 4000);
+      expect(MockNotice).toHaveBeenCalledWith('', 5000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -85,7 +85,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Info message';
       ToastSpinnerService.info(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 4000);
+      expect(MockNotice).toHaveBeenCalledWith('', 5000);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 

@@ -3,6 +3,7 @@ import type NovaJournalPlugin from '../main';
 import { SettingsService } from '../services/SettingsService';
 import type { SettingsExportOptions, SettingsImportResult } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
+import { FILE_LIMITS, UI_CONSTANTS } from '../services/shared/Constants';
 
 export class SettingsImportExportRenderer {
   private readonly plugin: NovaJournalPlugin;
@@ -65,26 +66,36 @@ export class SettingsImportExportRenderer {
       const exportData = await this.settingsService.exportSettings(options);
       const content = JSON.stringify(exportData, null, 2);
       
-      if (this.includeApiKeyInExport && exportData.settings.aiApiKey) {
-        const confirmed = confirm(
-          'WARNING: You are about to copy sensitive API key data to clipboard.\\n\\nThis data will be accessible to other applications and may remain in clipboard history.\\n\\nContinue only if you trust your current environment.\\n\\nContinue?'
-        );
-        if (!confirmed) {
-          return;
-        }
+      const shouldProceed = await this.confirmApiKeyExportIfNeeded(exportData);
+      if (!shouldProceed) {
+        return;
       }
       
-      try {
-        await navigator.clipboard.writeText(content);
-        ToastSpinnerService.notice('Settings copied to clipboard');
-      } catch (clipboardError) {
-        // Fallback for clipboard permission issues
-        console.warn('Clipboard write failed, showing fallback:', clipboardError);
-        this.showCopyFallbackDialog(content);
-      }
+      await this.attemptClipboardWrite(content);
     } catch (error) {
       console.error('Copy to clipboard failed:', error);
       ToastSpinnerService.error('Failed to copy settings. Please try again.');
+    }
+  }
+
+  private async confirmApiKeyExportIfNeeded(exportData: any): Promise<boolean> {
+    if (this.includeApiKeyInExport && exportData.settings.aiApiKey) {
+      const confirmed = confirm(
+        'WARNING: You are about to copy sensitive API key data to clipboard.\\n\\nThis data will be accessible to other applications and may remain in clipboard history.\\n\\nContinue only if you trust your current environment.\\n\\nContinue?'
+      );
+      return confirmed;
+    }
+    return true;
+  }
+
+  private async attemptClipboardWrite(content: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(content);
+      ToastSpinnerService.notice('Settings copied to clipboard');
+    } catch (clipboardError) {
+      // Fallback for clipboard permission issues
+      console.warn('Clipboard write failed, showing fallback:', clipboardError);
+      this.showCopyFallbackDialog(content);
     }
   }
 
@@ -133,29 +144,18 @@ export class SettingsImportExportRenderer {
 
   private async handleClipboardImport(): Promise<void> {
     try {
-      let clipboardText: string;
-      
-      try {
-        clipboardText = await navigator.clipboard.readText();
-      } catch (permissionError) {
-        // Fallback for clipboard permission issues
-        const fallbackText = await this.showClipboardFallbackDialog();
-        if (!fallbackText) {
-          return;
-        }
-        clipboardText = fallbackText;
+      const clipboardText = await this.getClipboardText();
+      if (!clipboardText) {
+        return;
       }
       
-      if (clipboardText.length > 1024 * 1024) {
+      if (clipboardText.length > FILE_LIMITS.MAX_CLIPBOARD_SIZE_BYTES) {
         ToastSpinnerService.error('Clipboard content too large. Maximum size is 1MB.');
         return;
       }
       
-      let data;
-      try {
-        data = JSON.parse(clipboardText);
-      } catch (parseError) {
-        ToastSpinnerService.error('Invalid JSON format in clipboard.');
+      const data = await this.parseClipboardJson(clipboardText);
+      if (!data) {
         return;
       }
       
@@ -164,6 +164,25 @@ export class SettingsImportExportRenderer {
     } catch (error) {
       console.error('Clipboard import failed:', error);
       ToastSpinnerService.error('Failed to import from clipboard. Please check the format.');
+    }
+  }
+
+  private async getClipboardText(): Promise<string | null> {
+    try {
+      return await navigator.clipboard.readText();
+    } catch (permissionError) {
+      // Fallback for clipboard permission issues
+      const fallbackText = await this.showClipboardFallbackDialog();
+      return fallbackText;
+    }
+  }
+
+  private async parseClipboardJson(clipboardText: string): Promise<any | null> {
+    try {
+      return JSON.parse(clipboardText);
+    } catch (parseError) {
+      ToastSpinnerService.error('Invalid JSON format in clipboard.');
+      return null;
     }
   }
 
@@ -193,13 +212,13 @@ export class SettingsImportExportRenderer {
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        width: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
+        height: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
         background: rgba(0, 0, 0, 0.5);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1000;
+        z-index: ${UI_CONSTANTS.Z_INDEX_MODAL};
       `;
       
       const content = document.createElement('div');
@@ -216,7 +235,7 @@ export class SettingsImportExportRenderer {
       content.innerHTML = `
         <h3>Clipboard Access Required</h3>
         <p>Unable to access clipboard automatically. Please paste your settings data below:</p>
-        <textarea id="fallback-textarea" style="width: 100%; height: 200px; margin: 10px 0; font-family: monospace; font-size: 12px;"></textarea>
+        <textarea id="fallback-textarea" style="width: ${UI_CONSTANTS.PERCENTAGE_FULL}%; height: ${UI_CONSTANTS.HEIGHT_SMALL}px; margin: 10px 0; font-family: monospace; font-size: ${UI_CONSTANTS.FONT_SIZE_NORMAL}px;"></textarea>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
           <button id="fallback-cancel">Cancel</button>
           <button id="fallback-import" class="mod-cta">Import</button>
@@ -263,13 +282,13 @@ export class SettingsImportExportRenderer {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
+      height: ${UI_CONSTANTS.PERCENTAGE_FULL}%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: ${UI_CONSTANTS.Z_INDEX_MODAL};
     `;
     
     const modalContent = document.createElement('div');
@@ -286,7 +305,7 @@ export class SettingsImportExportRenderer {
     modalContent.innerHTML = `
       <h3>Copy Settings Data</h3>
       <p>Unable to copy automatically. Please manually copy the data below:</p>
-      <textarea readonly style="width: 100%; height: 300px; margin: 10px 0; font-family: monospace; font-size: 11px;">${content}</textarea>
+      <textarea readonly style="width: ${UI_CONSTANTS.PERCENTAGE_FULL}%; height: ${UI_CONSTANTS.HEIGHT_MEDIUM}px; margin: 10px 0; font-family: monospace; font-size: ${UI_CONSTANTS.FONT_SIZE_SMALL}px;">${content}</textarea>
       <div style="display: flex; gap: 10px; justify-content: flex-end;">
         <button id="copy-fallback-close" class="mod-cta">Close</button>
       </div>

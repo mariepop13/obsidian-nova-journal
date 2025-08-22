@@ -8,6 +8,7 @@ import { EnhancedEmbeddingService } from './ai/EnhancedEmbeddingService';
 import { EmbeddingMigrationService } from './ai/EmbeddingMigrationService';
 import { RagContextService } from './ai/RagContextService';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
+import { TIMING_CONFIG } from './shared/Constants';
 
 export interface ServiceCollection {
   promptService: PromptService;
@@ -48,20 +49,27 @@ export class ServiceInitializer {
 
     setTimeout(async () => {
       try {
-        const needsMigration = await migration.checkMigrationNeeded();
-        if (needsMigration) {
-          console.log('[NovaJournal] Migrating to enhanced embedding system...');
-          const success = await migration.migrateToEnhancedSystem();
-          if (success) {
-            await migration.cleanupLegacyIndex();
-          }
-        } else {
-          await enhancedEmb.incrementalUpdateIndex(this.settings.dailyNoteFolder);
-        }
+        await this.performEmbeddingMigrationOrUpdate(migration, enhancedEmb);
       } catch (error) {
         console.error('[NovaJournal] Embedding migration failed:', error);
       }
-    }, 3000);
+    }, TIMING_CONFIG.EMBEDDING_MIGRATION_DELAY);
+  }
+
+  private async performEmbeddingMigrationOrUpdate(
+    migration: EmbeddingMigrationService,
+    enhancedEmb: EnhancedEmbeddingService
+  ): Promise<void> {
+    const needsMigration = await migration.checkMigrationNeeded();
+    if (needsMigration) {
+      console.log('[NovaJournal] Migrating to enhanced embedding system...');
+      const success = await migration.migrateToEnhancedSystem();
+      if (success) {
+        await migration.cleanupLegacyIndex();
+      }
+    } else {
+      await enhancedEmb.incrementalUpdateIndex(this.settings.dailyNoteFolder);
+    }
   }
 
   recreateServicesAfterSettingsChange(services: ServiceCollection): ServiceCollection {

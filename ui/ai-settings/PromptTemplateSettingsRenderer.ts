@@ -2,6 +2,7 @@ import { DropdownComponent, Setting, TextAreaComponent } from 'obsidian';
 import { ToastSpinnerService } from '../../services/editor/ToastSpinnerService';
 import { SettingsUtils } from '../SettingsUtils';
 import type NovaJournalPlugin from '../../main';
+import { UI_CONSTANTS } from '../../services/shared/Constants';
 
 export class PromptTemplateSettingsRenderer {
   private readonly plugin: NovaJournalPlugin;
@@ -51,8 +52,8 @@ export class PromptTemplateSettingsRenderer {
               ToastSpinnerService.error('Failed to save template');
             }
           });
-        textArea.inputEl.cols = 40;
-        textArea.inputEl.rows = 4;
+        textArea.inputEl.cols = UI_CONSTANTS.TEXTAREA_COLS_DEFAULT;
+        textArea.inputEl.rows = UI_CONSTANTS.TEXTAREA_ROWS_MEDIUM;
         textArea.inputEl.addEventListener('blur', () => {
           this.refreshCallback();
         });

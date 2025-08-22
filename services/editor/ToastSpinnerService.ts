@@ -1,5 +1,6 @@
 import { Notice } from 'obsidian';
 import { LoadingSpinnerService, type LoadingState, type SpinnerInstance } from './LoadingSpinnerService';
+import { TIMING_CONFIG } from '../shared/Constants';
 
 export interface ToastSpinnerConfig {
   message: string;
@@ -204,7 +205,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || 4000,
+      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
       autoHide: true,
     });
     return instance.notice;
@@ -214,7 +215,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || 4000,
+      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
       autoHide: true,
     });
 
@@ -230,7 +231,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || 5000,
+      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_ERROR,
       autoHide: true,
     });
 
@@ -246,7 +247,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || 4000,
+      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
       autoHide: true,
     });
 
@@ -281,7 +282,7 @@ export class ToastSpinnerService {
 
       if (successMessage) {
         toast.hide();
-        this.notice(successMessage, 3000);
+        this.notice(successMessage, TIMING_CONFIG.TOAST_TIMEOUT_SHORT);
       } else {
         toast.hide();
       }
@@ -290,7 +291,7 @@ export class ToastSpinnerService {
     } catch (error) {
       const finalErrorMessage = errorMessage || (error instanceof Error ? error.message : 'Operation failed');
       toast.hide();
-      this.error(finalErrorMessage, 5000);
+      this.error(finalErrorMessage, TIMING_CONFIG.TOAST_TIMEOUT_ERROR);
       throw error;
     }
   }

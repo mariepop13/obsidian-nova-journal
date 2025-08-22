@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { embed } from '../../ai/EmbeddingClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import { EMBEDDING_CONFIG, TIME_CONSTANTS, CONTENT_LIMITS } from '../shared/Constants';
 
 type IndexedChunk = {
   path: string;
@@ -18,9 +19,9 @@ type IndexData = {
 export class EmbeddingService {
   private readonly indexPath = 'nova-journal-index.json';
   private readonly maxDays = 90;
-  private readonly chunkSize = 200;
-  private readonly overlap = 50;
-  private readonly maxChunksPerBatch = 100;
+  private readonly chunkSize = EMBEDDING_CONFIG.DEFAULT_CHUNK_SIZE;
+  private readonly overlap = EMBEDDING_CONFIG.DEFAULT_OVERLAP;
+  private readonly maxChunksPerBatch = EMBEDDING_CONFIG.MAX_CHUNKS_LARGE_BATCH;
   private index: IndexData | null = null;
 
   constructor(

@@ -9,6 +9,7 @@ import {
   normalizeSettings,
 } from '../settings/PluginSettings';
 import { ToastSpinnerService } from './editor/ToastSpinnerService';
+import { TIMING_CONFIG, FILE_LIMITS } from './shared/Constants';
 
 export class SettingsService {
   constructor(
@@ -115,7 +116,7 @@ export class SettingsService {
           URL.revokeObjectURL(url);
           ToastSpinnerService.notice(`Settings exported to ${defaultFilename}`);
           resolve();
-        }, 100);
+        }, TIMING_CONFIG.FILE_OPERATION_DELAY);
       }).catch(reject);
     });
   }
@@ -139,7 +140,7 @@ export class SettingsService {
         try {
           const content = await file.text();
           
-          if (content.length > 1024 * 1024) {
+          if (content.length > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
             resolve({
               success: false,
               errors: ['File too large. Maximum size is 1MB.'],

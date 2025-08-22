@@ -2,6 +2,12 @@
 import { chat } from '../../ai/AiClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import { ToastSpinnerService } from '../editor/ToastSpinnerService';
+import {
+  TIME_CONSTANTS,
+  CONTENT_LIMITS,
+  MOOD_LIMITS,
+  PARSING_CONSTANTS,
+} from '../shared/Constants';
 export interface FrontmatterData {
   [key: string]: any;
   mood?: string;
@@ -76,7 +82,7 @@ ${meaningfulContent}`;
     }
   }
 
-  async analyzeMoodData(daysBack = 7): Promise<string | null> {
+  async analyzeMoodData(daysBack = TIME_CONSTANTS.DEFAULT_ANALYSIS_DAYS): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
       ToastSpinnerService.warn('AI must be enabled for mood analysis.');
       return null;
@@ -104,7 +110,7 @@ ${meaningfulContent}`;
     const files = this.app.vault.getMarkdownFiles();
 
     const today = new Date();
-    const cutoffDate = new Date(today.getTime() - daysBack * 24 * 60 * 60 * 1000);
+    const cutoffDate = new Date(today.getTime() - daysBack * TIME_CONSTANTS.MS_PER_DAY);
 
     for (const file of files) {
       try {
@@ -145,12 +151,12 @@ ${meaningfulContent}`;
 
   private parseFrontmatter(content: string): FrontmatterData {
     const lines = content.split('\n');
-    if (lines[0] !== '---') return {};
+    if (lines[PARSING_CONSTANTS.FRONTMATTER_START_INDEX] !== '---') return {};
 
-    const endIndex = lines.findIndex((line, index) => index > 0 && line === '---');
+    const endIndex = lines.findIndex((line, index) => index > PARSING_CONSTANTS.FRONTMATTER_SEARCH_START && line === '---');
     if (endIndex === -1) return {};
 
-    const frontmatterText = lines.slice(1, endIndex).join('\n');
+    const frontmatterText = lines.slice(PARSING_CONSTANTS.FRONTMATTER_LINE_AFTER_START, endIndex).join('\n');
     const result: FrontmatterData = {};
 
     frontmatterText.split('\n').forEach(line => {
@@ -161,11 +167,11 @@ ${meaningfulContent}`;
       if (colonIndex === -1) return;
 
       const key = trimmed.substring(0, colonIndex).trim();
-      const value = trimmed.substring(colonIndex + 1).trim();
+      const value = trimmed.substring(colonIndex + PARSING_CONSTANTS.STRING_NEXT_CHAR_OFFSET).trim();
 
       if (value.startsWith('[') && value.endsWith(']')) {
         result[key] = value
-          .slice(1, -1)
+          .slice(PARSING_CONSTANTS.ARRAY_BRACKET_TRIM_START, PARSING_CONSTANTS.ARRAY_BRACKET_TRIM_END)
           .split(',')
           .map(v => v.trim().replace(/['"]/g, ''));
       } else if (!isNaN(Number(value))) {
@@ -180,18 +186,18 @@ ${meaningfulContent}`;
 
   private removeMarkdownFrontmatter(content: string): string {
     const lines = content.split('\n');
-    if (lines[0] !== '---') return content;
+    if (lines[PARSING_CONSTANTS.FRONTMATTER_START_INDEX] !== '---') return content;
 
-    const endIndex = lines.findIndex((line, index) => index > 0 && line === '---');
+    const endIndex = lines.findIndex((line, index) => index > PARSING_CONSTANTS.FRONTMATTER_SEARCH_START && line === '---');
     if (endIndex === -1) return content;
 
     return lines
-      .slice(endIndex + 1)
+      .slice(endIndex + PARSING_CONSTANTS.FRONTMATTER_NEXT_LINE_OFFSET)
       .join('\n')
       .trim();
   }
 
-  private extractNoteExcerpt(content: string, maxLength = 200): string {
+  private extractNoteExcerpt(content: string, maxLength = CONTENT_LIMITS.NOTE_EXCERPT_MAX_LENGTH): string {
     const cleanContent = content
       .replace(/^#+\s+.*$/gm, '')
       .replace(/\*\*.*?\*\*/g, '')
@@ -237,8 +243,8 @@ Please provide insights about patterns, trends, and suggestions for maintaining 
         const parts = [`Date: ${entry.date}`];
 
         if (entry.mood) parts.push(`Mood: ${entry.mood}`);
-        if (entry.moodLevel) parts.push(`Level: ${entry.moodLevel}/10`);
-        if (entry.energy) parts.push(`Energy: ${entry.energy}/10`);
+        if (entry.moodLevel) parts.push(`Level: ${entry.moodLevel}/${MOOD_LIMITS.MAX_MOOD_LEVEL}`);
+        if (entry.energy) parts.push(`Energy: ${entry.energy}/${MOOD_LIMITS.MAX_ENERGY_LEVEL}`);
         if (entry.tags && entry.tags.length > 0) parts.push(`Tags: ${entry.tags.join(', ')}`);
         if (entry.note) parts.push(`Note: ${entry.note}`);
 
@@ -262,6 +268,6 @@ Please provide insights about patterns, trends, and suggestions for maintaining 
       .replace(/\s+/g, ' ')
       .trim();
 
-    return cleanedContent.length > 10 ? cleanedContent : '';
+    return cleanedContent.length > CONTENT_LIMITS.MIN_MEANINGFUL_CONTENT ? cleanedContent : '';
   }
 }

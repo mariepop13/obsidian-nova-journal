@@ -4,6 +4,12 @@ import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
+import {
+  SEARCH_CONSTANTS,
+  CONTENT_LIMITS,
+  TOKEN_LIMITS,
+  EMBEDDING_CONFIG,
+} from '../shared/Constants';
 
 export class PromptGenerationService {
   private enhancedService: EnhancedPromptGenerationService | null = null;
@@ -31,27 +37,27 @@ export class PromptGenerationService {
 
     try {
       if (this.enhancedService) {
-        if (mood?.dominant_emotions && mood.dominant_emotions.length > 0) {
+        if (mood?.dominant_emotions && mood.dominant_emotions.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
           return await this.enhancedService.generateEmotionallyAwarePrompt(style, noteText, mood);
         }
 
-        if (mood?.tags && mood.tags.length > 0) {
+        if (mood?.tags && mood.tags.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
           return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
         }
 
-        if (ragContext && ragContext.trim().length > 0) {
+        if (ragContext && ragContext.trim().length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
           return await this.enhancedService.generateContextualPromptWithRag(style, noteText, mood, ragContext, {
             prioritizeRecent: true,
             includeEmotionalContext: true,
             includeThematicContext: true,
-            maxContextChunks: 3,
+            maxContextChunks: EMBEDDING_CONFIG.TOP_K_DEFAULT,
           });
         }
         return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
           prioritizeRecent: true,
           includeEmotionalContext: true,
           includeThematicContext: true,
-          maxContextChunks: 3,
+          maxContextChunks: EMBEDDING_CONFIG.TOP_K_DEFAULT,
         });
       }
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
@@ -81,7 +87,7 @@ export class PromptGenerationService {
 
 CRITICAL RULES:
 - Output ONLY the question text (no quotes/labels).
-- One sentence, concise (<= 25 words).
+- One sentence, concise (<= ${TOKEN_LIMITS.PROMPT_MAX_WORDS} words).
 - ONLY reference EXACT details, people, events explicitly mentioned in the RAG context.
 - If no specific details exist in context, ask a general question without invented references.
 - DO NOT invent dates, years, people, or events not present in the context.
@@ -112,9 +118,9 @@ Styles:
   }
 
   private async getRagContext(noteText: string, providedRagContext?: string): Promise<string> {
-    if (providedRagContext && providedRagContext.trim().length > 0) {
+    if (providedRagContext && providedRagContext.trim().length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
       const ragContext = `\n\nPrevious journal entries context:\n${providedRagContext}`;
-      console.log(`[PromptGenerationService] Using provided RAG context:`, ragContext.substring(0, 200));
+      console.log(`[PromptGenerationService] Using provided RAG context:`, ragContext.substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.PREVIEW_LENGTH));
       return ragContext;
     }
     
@@ -123,7 +129,7 @@ Styles:
 
   private async fetchRagContext(noteText: string): Promise<string> {
     try {
-      if (!noteText || noteText.trim().length === 0) {
+      if (!noteText || noteText.trim().length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
         console.log(`[PromptGenerationService] No note text provided`);
         return '';
       }
@@ -135,10 +141,10 @@ Styles:
       }
 
       const embeddingService = new EmbeddingService(appRef, this.settings);
-      const top = await embeddingService.topK(noteText, 3);
+      const top = await embeddingService.topK(noteText, EMBEDDING_CONFIG.TOP_K_DEFAULT);
       console.log(`[PromptGenerationService] RAG results:`, top);
       
-      if (!Array.isArray(top) || top.length === 0) {
+      if (!Array.isArray(top) || top.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
         console.log(`[PromptGenerationService] No RAG results found`);
         return '';
       }
@@ -157,13 +163,13 @@ Styles:
   private buildRagContextFromResults(top: any[]): string {
     const enriched = top
       .map((t, i) => {
-        const preview = (t.text || '').substring(0, 400);
+        const preview = (t.text || '').substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.MAX_CONTENT_DISPLAY);
         return `${i + 1}. ${preview}...`;
       })
       .join('\n');
     
     const ragContext = `\n\nPrevious journal entries context:\n${enriched}`;
-    console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(0, 200));
+    console.log(`[PromptGenerationService] Fallback RAG context:`, ragContext.substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.PREVIEW_LENGTH));
     return ragContext;
   }
 
@@ -186,7 +192,7 @@ Generate a question that:
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(60, this.settings.aiMaxTokens || 60),
+        maxTokens: Math.min(TOKEN_LIMITS.PROMPT_MAX_TOKENS, this.settings.aiMaxTokens || TOKEN_LIMITS.PROMPT_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
         fallbackModel: this.settings.aiFallbackModel || '',
