@@ -249,7 +249,7 @@ async function tryWithPrimaryModel(config: APICallConfig, tries: number): Promis
     try {
       return await callOnce(config);
     } catch (e) {
-      lastError = e as Error;
+      lastError = e instanceof Error ? e : new Error(String(e));
       await applyBackoffDelayIfNeeded(i, tries);
     }
   }
@@ -270,6 +270,6 @@ async function tryWithFallbackModel(
     const result = await callOnce(fallbackConfig);
     return { success: true, result };
   } catch (e) {
-    return { success: false, error: e as Error };
+    return { success: false, error: e instanceof Error ? e : new Error(String(e)) };
   }
 }
