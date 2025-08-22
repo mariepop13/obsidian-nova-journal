@@ -89,7 +89,7 @@ export class FrontmatterService {
   }
 
   private static extractSentiment(input: Record<string, any>): string {
-    const sentiment = (input?.sentiment || '').toLowerCase();
+    const sentiment = (input?.sentiment ?? '').toLowerCase();
     return VALID_SENTIMENTS.includes(sentiment as (typeof VALID_SENTIMENTS)[number]) ? sentiment : 'neutral';
   }
 
@@ -102,7 +102,7 @@ export class FrontmatterService {
 
   private static extractPeoplePresent(input: Record<string, any>, userName: string): string[] {
     const peopleRaw = this.extractStringArray(input.people_present);
-    const excludeNames = new Set([...EXCLUDED_NAMES, (userName || 'you').toLowerCase()]);
+    const excludeNames = new Set([...EXCLUDED_NAMES, (userName ?? 'you').toLowerCase()]);
     return peopleRaw.filter(person => !excludeNames.has(person));
   }
 

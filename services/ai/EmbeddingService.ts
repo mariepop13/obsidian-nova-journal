@@ -101,7 +101,7 @@ export class EmbeddingService {
 
   private getMarkdownFilesInFolder(folder: string): TFile[] {
     const files: TFile[] = [];
-    const targetFolder = folder || 'Journal';
+    const targetFolder = folder ?? 'Journal';
     const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
 
     const all = this.app.vault.getFiles();
@@ -142,7 +142,7 @@ export class EmbeddingService {
     for (const f of files) {
       try {
         const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
-        const mtime = stat?.stat?.mtime || Date.now();
+        const mtime = stat?.stat?.mtime ?? Date.now();
         if (mtime < cutoff) continue;
 
         const content = await this.app.vault.read(stat);
@@ -225,7 +225,7 @@ export class EmbeddingService {
       const json = localStorage.getItem(`nova-journal-index-${this.app.vault.getName()}`);
       if (json) {
         const { validateAndParseJSON } = await import('../../utils/Sanitizer');
-        this.index = validateAndParseJSON<IndexData>(json) || null;
+        this.index = validateAndParseJSON<IndexData>(json) ?? null;
       }
     } catch {
       this.index = null;
@@ -233,7 +233,7 @@ export class EmbeddingService {
   }
 
   private async saveIndex(): Promise<void> {
-    const payload = JSON.stringify(this.index || { items: [] });
+    const payload = JSON.stringify(this.index ?? { items: [] });
     localStorage.setItem(`nova-journal-index-${this.app.vault.getName()}`, payload);
   }
 }

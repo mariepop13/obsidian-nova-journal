@@ -10,8 +10,8 @@ export class VectorUtils {
       nb = 0;
 
     for (let i = 0; i < len; i += 1) {
-      const ai = a[i] || 0;
-      const bi = b[i] || 0;
+      const ai = a[i] ?? 0;
+      const bi = b[i] ?? 0;
       dot += ai * bi;
       na += ai * ai;
       nb += bi * bi;

@@ -163,7 +163,7 @@ Styles:
   private buildRagContextFromResults(top: any[]): string {
     const enriched = top
       .map((t, i) => {
-        const preview = (t.text || '').substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.MAX_CONTENT_DISPLAY);
+        const preview = (t.text ?? '').substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.MAX_CONTENT_DISPLAY);
         return `${i + 1}. ${preview}...`;
       })
       .join('\n');
@@ -175,7 +175,7 @@ Styles:
 
   private buildUserPrompt(style: PromptStyle, noteText: string, mood?: Partial<MoodData>, ragContext?: string): string {
     const moodFragment = mood ? `\n\nFrontmatter mood (optional, JSON):\n${JSON.stringify(mood)}` : '';
-    return `Style: ${style}\n\nCurrent note content:\n${noteText || '(empty)'}${moodFragment}${ragContext || ''}
+    return `Style: ${style}\n\nCurrent note content:\n${noteText ?? '(empty)'}${moodFragment}${ragContext ?? ''}
 
 Generate a question that:
 1. Uses the same language as the provided context
@@ -192,13 +192,13 @@ Generate a question that:
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(TOKEN_LIMITS.PROMPT_MAX_TOKENS, this.settings.aiMaxTokens || TOKEN_LIMITS.PROMPT_MAX_TOKENS),
+        maxTokens: Math.min(TOKEN_LIMITS.PROMPT_MAX_TOKENS, this.settings.aiMaxTokens ?? TOKEN_LIMITS.PROMPT_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || '',
+        fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const text = (response || '').trim();
+      const text = (response ?? '').trim();
       if (!text) {
         if (this.settings.aiDebug) {
           console.log('[PromptGenerationService] Debug - Empty response from AI service');
@@ -207,7 +207,7 @@ Generate a question that:
       }
 
       const cleaned = text.replace(/^"|"$/g, '').trim();
-      return cleaned || null;
+      return cleaned ?? null;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[PromptGenerationService] AI generation failed:', errorMessage);

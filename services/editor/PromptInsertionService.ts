@@ -110,7 +110,7 @@ export class PromptInsertionService {
 
   private performPromptInsertion(editor: Editor, basePrompt: string, date: Date, location?: EnhancedInsertionLocation): boolean {
     const prompt = this.renderPrompt(basePrompt, date);
-    const insertLocation = location || this.settings.insertLocation;
+    const insertLocation = location ?? this.settings.insertLocation;
 
     insertAtLocation(editor, prompt, insertLocation, this.settings.insertHeadingName);
     ensureBottomButtons(editor, this.settings.deepenButtonLabel, this.createButtonSettings());

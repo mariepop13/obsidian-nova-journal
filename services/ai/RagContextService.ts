@@ -16,12 +16,12 @@ export class RagContextService {
   constructor(settings: NovaJournalSettings, app?: App) {
     this.settings = settings;
     this.debug = settings.aiDebug;
-    this.app = app || null;
+    this.app = app ?? null;
   }
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
     if (!this.embeddingService) {
-      const appRef = this.app || (window as any)?.app;
+      const appRef = this.app ?? (window as any)?.app;
       if (appRef) {
         this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
       } else {
@@ -260,7 +260,7 @@ export class RagContextService {
       const wordCounts = new Map<string, number>();
       words.forEach((word: string) => {
         const lowerWord = word.toLowerCase();
-        wordCounts.set(lowerWord, (wordCounts.get(lowerWord) || 0) + 1);
+        wordCounts.set(lowerWord, (wordCounts.get(lowerWord) ?? 0) + 1);
       });
 
       const sentences = text.split(/[.!?]+/);
@@ -334,7 +334,7 @@ export class RagContextService {
   }
 
   private isMostlyMarkup(text: string, textLength: number): boolean {
-    const buttonCount = (text.match(/<button/g) || []).length;
+    const buttonCount = (text.match(/<button/g) ?? []).length;
     const tooManyButtons = buttonCount > CONTEXT_LIMITS.MAX_BUTTONS_ALLOWED;
     const isShort = textLength < CONTEXT_LIMITS.MARKUP_HEAVY_MAX_LENGTH;
 
@@ -367,7 +367,7 @@ export class RagContextService {
       if (aHasSubstance && !bHasSubstance) return -1;
       if (!aHasSubstance && bHasSubstance) return 1;
 
-      return (b.text?.length || 0) - (a.text?.length || 0);
+      return (b.text?.length ?? 0) - (a.text?.length ?? 0);
     });
   }
 
@@ -377,7 +377,7 @@ export class RagContextService {
     const userSectionMatch = text.match(new RegExp(`\\*\\*[^*]+\\*\\*\\s*[:\\-]\\s*([\\s\\S]{0,${CONTEXT_LIMITS.USER_SECTION_MAX_CAPTURE_RAG}}?)(?=(\\*\\*[^*]+\\*\\*|<button|$))`, 'i'));
     if (!userSectionMatch) return false;
 
-    const userContent = (userSectionMatch[1] || '').trim();
+    const userContent = (userSectionMatch[1] ?? '').trim();
     const cleanUserContent = userContent.replace(/<[^>]*>/g, '').trim();
 
     return cleanUserContent.length > CONTEXT_LIMITS.USER_SECTION_MIN_LENGTH_RAG;

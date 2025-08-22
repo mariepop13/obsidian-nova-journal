@@ -42,7 +42,7 @@ export class ContextualSearchEngine {
         }))
         .sort((a, b) => b.score - a.score);
 
-      const results = VectorUtils.applyDiversityFilter(scored, options.diversityThreshold || SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT);
+      const results = VectorUtils.applyDiversityFilter(scored, options.diversityThreshold ?? SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT);
 
       return results.slice(SEARCH_CONSTANTS.MIN_RESULT_INDEX, Math.max(SEARCH_CONSTANTS.MIN_RESULT_INDEX, k)).map(s => ({
         ...s.item,
@@ -59,7 +59,7 @@ export class ContextualSearchEngine {
     k: number,
     index: EnhancedIndexedChunk[]
   ): Promise<EnhancedIndexedChunk[]> {
-    const emotionalTags = mood.dominant_emotions || [];
+    const emotionalTags = mood.dominant_emotions ?? [];
     const sentiment = mood.sentiment;
 
     return this.performContextualSearch(query, k, index, {

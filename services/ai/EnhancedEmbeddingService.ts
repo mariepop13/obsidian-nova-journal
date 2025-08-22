@@ -109,7 +109,7 @@ export class EnhancedEmbeddingService {
       return [];
     }
 
-    const results = await this.searchEngine.performContextualSearch(query || '', k, this.index.items, options);
+    const results = await this.searchEngine.performContextualSearch(query ?? '', k, this.index.items, options);
     console.log('[EnhancedEmbeddingService] Debug - Search completed, resultsCount:', results?.length ?? 0);
     return results;
   }
@@ -155,7 +155,7 @@ export class EnhancedEmbeddingService {
 
     for (const file of files) {
       const stat = this.app.vault.getAbstractFileByPath(file.path) as TFile;
-      const fileDate = TemporalUtils.extractDateFromFilename(file.name) || Date.now();
+      const fileDate = TemporalUtils.extractDateFromFilename(file.name) ?? Date.now();
 
       if (fileDate < cutoff) continue;
 
@@ -211,7 +211,7 @@ export class EnhancedEmbeddingService {
   }
 
   private createEnhancedChunks(content: string, file: TFile): Omit<EnhancedIndexedChunk, 'vector'>[] {
-    const fileDate = TemporalUtils.extractDateFromFilename(file.name) || Date.now();
+    const fileDate = TemporalUtils.extractDateFromFilename(file.name) ?? Date.now();
     const chunks: Omit<EnhancedIndexedChunk, 'vector'>[] = [];
 
     const textChunks = VectorUtils.splitIntoChunks(content);
@@ -319,13 +319,13 @@ export class EnhancedEmbeddingService {
 
   private async computeFileHash(file: TFile): Promise<string> {
     const content = await this.app.vault.read(file);
-    const mtime = file.stat?.mtime || SEARCH_CONSTANTS.MIN_RESULT_INDEX;
+    const mtime = file.stat?.mtime ?? SEARCH_CONSTANTS.MIN_RESULT_INDEX;
     return VectorUtils.hashString(content + mtime.toString());
   }
 
   private getMarkdownFilesInFolder(folder: string): TFile[] {
     const files: TFile[] = [];
-    const targetFolder = folder || 'Journal';
+    const targetFolder = folder ?? 'Journal';
     const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
 
     const all = this.app.vault.getFiles();
@@ -366,7 +366,7 @@ export class EnhancedEmbeddingService {
           'expected:',
           this.version
         );
-        console.log('[EnhancedEmbeddingService] Debug - Parsed index items count:', loaded?.items?.length || 0);
+        console.log('[EnhancedEmbeddingService] Debug - Parsed index items count:', loaded?.items?.length ?? 0);
 
         if (loaded && loaded.version === this.version) {
           this.index = loaded;

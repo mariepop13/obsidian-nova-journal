@@ -205,7 +205,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
+      timeout: timeout ?? TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
       autoHide: true,
     });
     return instance.notice;
@@ -215,7 +215,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
+      timeout: timeout ?? TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
       autoHide: true,
     });
 
@@ -231,7 +231,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_ERROR,
+      timeout: timeout ?? TIMING_CONFIG.TOAST_TIMEOUT_ERROR,
       autoHide: true,
     });
 
@@ -247,7 +247,7 @@ export class ToastSpinnerService {
     const instance = this.create({
       message,
       showSpinner: false,
-      timeout: timeout || TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
+      timeout: timeout ?? TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT,
       autoHide: true,
     });
 
@@ -289,7 +289,7 @@ export class ToastSpinnerService {
 
       return result;
     } catch (error) {
-      const finalErrorMessage = errorMessage || (error instanceof Error ? error.message : 'Operation failed');
+      const finalErrorMessage = errorMessage ?? (error instanceof Error ? error.message : 'Operation failed');
       toast.hide();
       this.error(finalErrorMessage, TIMING_CONFIG.TOAST_TIMEOUT_ERROR);
       throw error;
