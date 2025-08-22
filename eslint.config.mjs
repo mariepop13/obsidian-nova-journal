@@ -3,7 +3,10 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 
 export default [
+  // Base JS rules for all files
   eslint.configs.recommended,
+  
+  // TypeScript-specific config applied only to TS/TSX files
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
@@ -12,7 +15,7 @@ export default [
         ecmaVersion: 2020,
         sourceType: 'module',
         project: './tsconfig.json',
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: new URL('.', import.meta.url).pathname,
       },
       globals: {
         console: 'readonly',
@@ -45,9 +48,9 @@ export default [
       '@typescript-eslint': tseslint,
     },
     rules: {
-      // Base ESLint rules
+      // TypeScript rules
       'no-unused-vars': 'off',
-      'no-undef': 'error',
+      '@typescript-eslint/no-unused-vars': 'error',
       
       // Clean Code: Naming conventions
       'camelcase': ['error', { 
