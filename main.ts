@@ -82,38 +82,54 @@ export default class NovaJournalPlugin extends Plugin {
 
   private async rebuildEmbeddings(): Promise<void> {
     try {
-      if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
-        ToastSpinnerService.error('Nova Journal: AI must be enabled to rebuild embeddings.');
+      if (!this.validateEmbeddingPrerequisites()) {
         return;
       }
 
       ToastSpinnerService.info('Nova Journal: Rebuilding embeddings index...');
 
-      const mod = await import('./services/ai/EnhancedEmbeddingService');
-      const enhancedEmbeddingService = mod.EnhancedEmbeddingService;
-      if (!enhancedEmbeddingService) {
-        console.error('[Nova Journal] EnhancedEmbeddingService not found in module:', mod);
-        ToastSpinnerService.error('Nova Journal: Embedding service unavailable.');
-        return;
-      }
-
-      const embeddingService = new enhancedEmbeddingService(this.app, this.settings);
-      if (typeof embeddingService.forceFullRebuild !== 'function') {
-        console.error(
-          '[Nova Journal] forceFullRebuild method missing on EnhancedEmbeddingService instance',
-          embeddingService
-        );
-        ToastSpinnerService.error('Nova Journal: Embedding service method missing.');
+      const embeddingService = await this.createEmbeddingService();
+      if (!embeddingService) {
         return;
       }
 
       await embeddingService.forceFullRebuild(this.settings.dailyNoteFolder);
-
       ToastSpinnerService.notice('Nova Journal: Embeddings index rebuilt successfully.');
     } catch (error) {
       console.error('[Nova Journal] Failed to rebuild embeddings:', error);
       ToastSpinnerService.error('Nova Journal: Failed to rebuild embeddings index.');
     }
+  }
+
+  private validateEmbeddingPrerequisites(): boolean {
+    if (!this.settings.aiEnabled || !this.settings.aiApiKey) {
+      ToastSpinnerService.error('Nova Journal: AI must be enabled to rebuild embeddings.');
+      return false;
+    }
+    return true;
+  }
+
+  private async createEmbeddingService(): Promise<any | null> {
+    const mod = await import('./services/ai/EnhancedEmbeddingService');
+    const enhancedEmbeddingService = mod.EnhancedEmbeddingService;
+    
+    if (!enhancedEmbeddingService) {
+      console.error('[Nova Journal] EnhancedEmbeddingService not found in module:', mod);
+      ToastSpinnerService.error('Nova Journal: Embedding service unavailable.');
+      return null;
+    }
+
+    const embeddingService = new enhancedEmbeddingService(this.app, this.settings);
+    if (typeof embeddingService.forceFullRebuild !== 'function') {
+      console.error(
+        '[Nova Journal] forceFullRebuild method missing on EnhancedEmbeddingService instance',
+        embeddingService
+      );
+      ToastSpinnerService.error('Nova Journal: Embedding service method missing.');
+      return null;
+    }
+
+    return embeddingService;
   }
 
   private getActiveEditor(): Editor {
@@ -193,17 +209,22 @@ export default class NovaJournalPlugin extends Plugin {
       ToastSpinnerService.info('Analyzing mood...');
       const editor = view.editor;
       const noteText = editor.getValue();
-      const analysis = await this.services.moodAnalysisService.analyzeCurrentNoteContent(noteText);
-      if (!analysis) return;
-
-      const { validateAndParseJSON } = await import('./utils/Sanitizer');
-      const props = validateAndParseJSON<Record<string, unknown>>(analysis, {}) ?? {};
-      const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
-      FrontmatterService.upsertFrontmatter(editor, cleaned);
+      
+      await this.processMoodAnalysis(editor, noteText);
       ToastSpinnerService.notice('Mood properties updated.');
     } catch (error) {
       console.error('Mood analysis error:', error);
       ToastSpinnerService.error('Failed to analyze mood data.');
     }
+  }
+
+  private async processMoodAnalysis(editor: Editor, noteText: string): Promise<void> {
+    const analysis = await this.services.moodAnalysisService.analyzeCurrentNoteContent(noteText);
+    if (!analysis) return;
+
+    const { validateAndParseJSON } = await import('./utils/Sanitizer');
+    const props = validateAndParseJSON<Record<string, unknown>>(analysis, {}) ?? {};
+    const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
+    FrontmatterService.upsertFrontmatter(editor, cleaned);
   }
 }

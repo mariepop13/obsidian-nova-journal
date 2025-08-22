@@ -19,12 +19,13 @@ export class PromptService {
     return prompts[index];
   }
 
-  async getContextAwarePrompt(
-    preferredStyle: PromptStyle,
-    date: Date,
-    noteText?: string,
-    moodData?: Partial<MoodData>
-  ): Promise<{ style: PromptStyle; prompt: string }> {
+  async getContextAwarePrompt(config: {
+    preferredStyle: PromptStyle;
+    date: Date;
+    noteText?: string;
+    moodData?: Partial<MoodData>;
+  }): Promise<{ style: PromptStyle; prompt: string }> {
+    const { preferredStyle, date, noteText, moodData } = config;
     let style = preferredStyle;
     if (this.selector && noteText) {
       const aiStyle = await this.selector.recommendStyle(noteText, moodData);
@@ -44,15 +45,15 @@ export class PromptService {
     noteText?: string,
     moodData?: Partial<MoodData>
   ): PromptStyle {
-    const text = (noteText || '').toLowerCase();
+    const text = (noteText ?? '').toLowerCase();
 
     const indicatesDream = /\b(dream|rêve|reves|rêves|nightmare|cauchemar)\b/i.test(text);
     if (indicatesDream) {
       return 'dreams';
     }
 
-    const tags = (moodData?.tags || []).map(t => t.toLowerCase());
-    const emotions = (moodData?.dominant_emotions || []).map(e => e.toLowerCase());
+    const tags = (moodData?.tags ?? []).map(t => t.toLowerCase());
+    const emotions = (moodData?.dominant_emotions ?? []).map(e => e.toLowerCase());
     if (tags.includes('sleep') || tags.includes('dreams') || emotions.includes('curious')) {
       return 'dreams';
     }
