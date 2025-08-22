@@ -49,7 +49,7 @@ require_security_review = true  # Security scan but you can still merge
 num_code_suggestions_per_chunk = 3
 suggestions_depth = "detailed"
 commitable_code_suggestions = false
-suggestions_score_threshold = 7
+suggestions_score_threshold = 0
 auto_extended_mode = true
 rank_suggestions = true
 
