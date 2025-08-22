@@ -127,7 +127,7 @@ async function parseEmbeddingResponse(response: Response): Promise<EmbeddingResp
   let json: OpenAIEmbeddingResponse;
   try {
     json = await response.json();
-  } catch (e) {
+  } catch {
     throw new Error('Embedding API returned invalid JSON');
   }
   

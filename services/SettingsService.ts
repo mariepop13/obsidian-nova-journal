@@ -92,7 +92,7 @@ export class SettingsService {
       // Use save dialog instead of open
       const a = document.createElement('a');
       
-      const exportData = this.exportSettings({ includeApiKey }).then(data => {
+      this.exportSettings({ includeApiKey }).then(data => {
         const content = JSON.stringify(data, null, 2);
         const blob = new Blob([content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -127,7 +127,7 @@ export class SettingsService {
       input.type = 'file';
       input.accept = '.json';
       
-      input.onchange = async (e) => {
+      input.onchange = async (e): Promise<void> => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) {
           resolve({
@@ -188,7 +188,7 @@ export class SettingsService {
     ToastSpinnerService.notice('Settings reset to defaults');
   }
 
-  private validateImportData(data: any): SettingsImportResult {
+  private validateImportData(data: unknown): SettingsImportResult {
     const errors: string[] = [];
 
     if (!data || typeof data !== 'object') {
@@ -196,18 +196,21 @@ export class SettingsService {
       return { success: false, errors };
     }
 
-    if (!data.version) {
+    const dataObj = data as Record<string, unknown>;
+
+    if (!dataObj.version) {
       errors.push('Missing version information');
     }
 
-    if (!data.settings || typeof data.settings !== 'object') {
+    if (!dataObj.settings || typeof dataObj.settings !== 'object') {
       errors.push('Missing or invalid settings data');
       return { success: false, errors };
     }
 
+    const settingsObj = dataObj.settings as Record<string, unknown>;
     const requiredFields = ['promptStyle', 'insertLocation', 'dailyNoteFolder'];
     for (const field of requiredFields) {
-      if (!(field in data.settings)) {
+      if (!(field in settingsObj)) {
         errors.push(`Missing required field: ${field}`);
       }
     }
