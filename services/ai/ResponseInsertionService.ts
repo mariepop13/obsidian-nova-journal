@@ -43,7 +43,7 @@ export class ResponseInsertionService {
     const scopeAttr = 'data-scope="note"';
 
     if (anchorLine !== null) {
-      await this.insertAtExistingAnchor(editor, anchorLine, response, scopeAttr);
+      await this.insertAtExistingAnchor({ editor, anchorLine, response, scopeAttr });
     } else {
       await this.insertAfterLine(editor, line, response, scopeAttr);
     }
@@ -54,7 +54,7 @@ export class ResponseInsertionService {
     this.prepareUserLine(editor, anchorLine);
 
     if (anchorLine !== null) {
-      await this.insertAtExistingAnchor(editor, anchorLine, response, 'data-scope="note"', label);
+      await this.insertAtExistingAnchor({ editor, anchorLine, response, scopeAttr: 'data-scope="note"', label });
     } else {
       await this.insertAtEndOfNote(editor, response, label);
     }

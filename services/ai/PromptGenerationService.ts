@@ -3,6 +3,8 @@ import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
+import type { IndexedChunk } from './EmbeddingService';
+import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
 
 import {
@@ -38,21 +40,15 @@ export class PromptGenerationService {
         }
 
         if (mood?.tags && mood.tags.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-          return await this.enhancedService.generateThematicPrompt({ style, noteText, themes: mood.tags });
+          return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
         }
 
         if (ragContext && ragContext.trim().length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-          return await this.enhancedService.generateContextualPromptWithRag({
-            style,
-            noteText,
-            mood,
-            ragContext,
-            options: {
-              prioritizeRecent: true,
-              includeEmotionalContext: true,
-              includeThematicContext: true,
-              maxContextChunks: EMBEDDING_CONFIG.TOP_K_DEFAULT,
-            },
+          return await this.enhancedService.generateContextualPromptWithRag(style, noteText, mood, ragContext, {
+            prioritizeRecent: true,
+            includeEmotionalContext: true,
+            includeThematicContext: true,
+            maxContextChunks: EMBEDDING_CONFIG.TOP_K_DEFAULT,
           });
         }
         return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
@@ -155,7 +151,7 @@ Styles:
     }
   }
 
-  private buildRagContextFromResults(top: any[]): string {
+  private buildRagContextFromResults(top: IndexedChunk[]): string {
     const enriched = top
       .map((t, i) => {
         const preview = (t.text ?? '').substring(SEARCH_CONSTANTS.MIN_RESULT_INDEX, CONTENT_LIMITS.MAX_CONTENT_DISPLAY);
