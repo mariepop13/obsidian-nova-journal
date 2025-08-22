@@ -90,14 +90,14 @@ export default class NovaJournalPlugin extends Plugin {
       ToastSpinnerService.info('Nova Journal: Rebuilding embeddings index...');
 
       const mod = await import('./services/ai/EnhancedEmbeddingService');
-      const EnhancedEmbeddingService = mod.EnhancedEmbeddingService;
-      if (!EnhancedEmbeddingService) {
+      const enhancedEmbeddingService = mod.EnhancedEmbeddingService;
+      if (!enhancedEmbeddingService) {
         console.error('[Nova Journal] EnhancedEmbeddingService not found in module:', mod);
         ToastSpinnerService.error('Nova Journal: Embedding service unavailable.');
         return;
       }
 
-      const embeddingService = new EnhancedEmbeddingService(this.app, this.settings);
+      const embeddingService = new enhancedEmbeddingService(this.app, this.settings);
       if (typeof embeddingService.forceFullRebuild !== 'function') {
         console.error(
           '[Nova Journal] forceFullRebuild method missing on EnhancedEmbeddingService instance',
@@ -197,7 +197,7 @@ export default class NovaJournalPlugin extends Plugin {
       if (!analysis) return;
 
       const { validateAndParseJSON } = await import('./utils/Sanitizer');
-      const props = validateAndParseJSON<Record<string, any>>(analysis, {}) || {};
+      const props = validateAndParseJSON<Record<string, unknown>>(analysis, {}) ?? {};
       const cleaned = FrontmatterService.normalizeMoodProps(props, this.settings.userName);
       FrontmatterService.upsertFrontmatter(editor, cleaned);
       ToastSpinnerService.notice('Mood properties updated.');

@@ -1,4 +1,4 @@
-import { DateFormatter, TemplateFactory } from '../settings/PluginSettings';
+import { DateFormatter, TemplateFactory, type PromptPreset } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 import type NovaJournalPlugin from '../main';
 
@@ -54,7 +54,7 @@ export class SettingsUtils {
   }
 
   static getTemplatePreset(preset: string): string {
-    return TemplateFactory.getPreset(preset as any);
+    return TemplateFactory.getPreset(preset as PromptPreset);
   }
 
   static isValidOpenAIKey(apiKey: string): boolean {

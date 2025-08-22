@@ -6,6 +6,15 @@ export default [
   // Base JS rules for all files
   eslint.configs.recommended,
   
+  // Global Node.js/ESM compatibility
+  {
+    languageOptions: {
+      globals: {
+        URL: 'readonly',
+      },
+    },
+  },
+  
   // TypeScript-specific config applied only to TS/TSX files
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -49,8 +58,6 @@ export default [
     },
     rules: {
       // TypeScript rules
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': 'error',
       
       // Clean Code: Naming conventions
       'camelcase': ['error', { 

@@ -41,14 +41,21 @@ export class ApiTester {
     }
   }
 
-  private static handleApiResponse(response: Response, data: any): void {
+  private static handleApiResponse(response: Response, data: unknown): void {
     if (response.ok) {
-      const modelCount = Array.isArray(data?.data) ? data.data.length : undefined;
+      const isValidData = data && typeof data === 'object' && 'data' in data;
+      const modelCount = isValidData && Array.isArray((data as { data: unknown }).data) 
+        ? (data as { data: unknown[] }).data.length 
+        : undefined;
       const message = `OpenAI test: OK${modelCount ? ` (${modelCount} models accessible)` : ''}`;
       ToastSpinnerService.notice(message);
     } else {
-      const errorMessage = sanitizeForLogging(data?.error?.message || `HTTP ${response.status}`);
-      ToastSpinnerService.error(`OpenAI test failed: ${errorMessage}`);
+      const isErrorData = data && typeof data === 'object' && 'error' in data;
+      const errorObj = isErrorData ? (data as { error: unknown }).error : null;
+      const errorMessage = errorObj && typeof errorObj === 'object' && errorObj !== null && 'message' in errorObj
+        ? String((errorObj as { message: unknown }).message)
+        : `HTTP ${response.status}`;
+      ToastSpinnerService.error(`OpenAI test failed: ${sanitizeForLogging(errorMessage)}`);
     }
   }
 

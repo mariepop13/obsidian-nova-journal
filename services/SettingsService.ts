@@ -9,7 +9,7 @@ import {
   normalizeSettings,
 } from '../settings/PluginSettings';
 import { ToastSpinnerService } from './editor/ToastSpinnerService';
-import { TIMING_CONFIG, FILE_LIMITS } from './shared/Constants';
+import { FILE_LIMITS, TIMING_CONFIG } from './shared/Constants';
 
 export class SettingsService {
   constructor(

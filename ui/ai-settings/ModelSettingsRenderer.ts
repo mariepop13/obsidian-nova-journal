@@ -19,7 +19,7 @@ export class ModelSettingsRenderer {
         try {
           this.plugin.settings.aiSystemPrompt = value;
           await this.plugin.saveSettings();
-        } catch (error) {
+        } catch {
           ToastSpinnerService.error('Failed to save system prompt');
         }
       });
@@ -45,7 +45,7 @@ export class ModelSettingsRenderer {
             try {
               this.plugin.settings.aiModel = value || 'gpt-4o-mini';
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save model');
             }
           });
@@ -65,7 +65,7 @@ export class ModelSettingsRenderer {
             try {
               this.plugin.settings.aiFallbackModel = value || '';
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save fallback model');
             }
           })
