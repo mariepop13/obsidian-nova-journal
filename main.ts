@@ -9,6 +9,11 @@ import { ToastSpinnerService } from './services/editor/ToastSpinnerService';
 import { type ServiceCollection, ServiceInitializer } from './services/ServiceInitializer';
 import { type CommandCallbacks, CommandRegistry } from './commands/CommandRegistry';
 import { NovaJournalSettingTab } from './ui/SettingsTab';
+import { logger } from './services/shared/LoggingService';
+
+interface EmbeddingServiceInterface {
+  forceFullRebuild(folder: string): Promise<void>;
+}
 
 export default class NovaJournalPlugin extends Plugin {
   settings: NovaJournalSettings;
@@ -93,10 +98,10 @@ export default class NovaJournalPlugin extends Plugin {
         return;
       }
 
-      await (embeddingService as any).forceFullRebuild(this.settings.dailyNoteFolder);
+      await (embeddingService as EmbeddingServiceInterface).forceFullRebuild(this.settings.dailyNoteFolder);
       ToastSpinnerService.notice('Nova Journal: Embeddings index rebuilt successfully.');
-    } catch (error) {
-      console.error('[Nova Journal] Failed to rebuild embeddings:', error);
+    } catch {
+      logger.error('Failed to rebuild embeddings index', 'NovaJournalPlugin');
       ToastSpinnerService.error('Nova Journal: Failed to rebuild embeddings index.');
     }
   }
@@ -109,22 +114,19 @@ export default class NovaJournalPlugin extends Plugin {
     return true;
   }
 
-  private async createEmbeddingService(): Promise<unknown | null> {
+  private async createEmbeddingService(): Promise<EmbeddingServiceInterface | null> {
     const mod = await import('./services/ai/EnhancedEmbeddingService');
     const enhancedEmbeddingService = mod.EnhancedEmbeddingService;
     
     if (!enhancedEmbeddingService) {
-      console.error('[Nova Journal] EnhancedEmbeddingService not found in module:', mod);
+      logger.error('Embedding service module not found', 'NovaJournalPlugin');
       ToastSpinnerService.error('Nova Journal: Embedding service unavailable.');
       return null;
     }
 
     const embeddingService = new enhancedEmbeddingService(this.app, this.settings);
     if (typeof embeddingService.forceFullRebuild !== 'function') {
-      console.error(
-        '[Nova Journal] forceFullRebuild method missing on EnhancedEmbeddingService instance',
-        embeddingService
-      );
+      logger.error('forceFullRebuild method not available on embedding service', 'NovaJournalPlugin');
       ToastSpinnerService.error('Nova Journal: Embedding service method missing.');
       return null;
     }
@@ -141,7 +143,7 @@ export default class NovaJournalPlugin extends Plugin {
   }
 
   private handleError(error: unknown): void {
-    console.error(error);
+    logger.error(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'NovaJournalPlugin');
 
     if (error instanceof EditorNotFoundError) {
       ToastSpinnerService.error(error.message);
@@ -174,7 +176,7 @@ export default class NovaJournalPlugin extends Plugin {
         ToastSpinnerService.error('Nova Journal: prompt insertion was unsuccessful.');
       }
     } catch (error) {
-      console.error('Nova Journal insert error', error);
+      logger.error(`Failed to insert today's prompt: ${error instanceof Error ? error.message : 'Unknown error'}`, 'NovaJournalPlugin');
       ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
     }
   }
@@ -213,7 +215,7 @@ export default class NovaJournalPlugin extends Plugin {
       await this.processMoodAnalysis(editor, noteText);
       ToastSpinnerService.notice('Mood properties updated.');
     } catch (error) {
-      console.error('Mood analysis error:', error);
+      logger.error(`Mood analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'NovaJournalPlugin');
       ToastSpinnerService.error('Failed to analyze mood data.');
     }
   }

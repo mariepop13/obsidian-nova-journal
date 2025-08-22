@@ -43,6 +43,7 @@ export interface OpenAIResponse {
 
 import { sanitizeForLogging } from '../utils/Sanitizer';
 import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/shared/Constants';
+import { logger } from '../services/shared/LoggingService';
 
 async function callOnce(config: APICallConfig): Promise<string> {
   const payload = buildPayload(config);
@@ -91,10 +92,14 @@ async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Prom
 }
 
 async function handleAPIError(response: Response, debug: boolean): Promise<never> {
-  if (debug) console.error('Nova AI status', response.status, response.statusText);
-
   const errText = await response.text().catch(() => '');
-  if (debug) console.error('Nova AI error body', sanitizeForLogging(errText));
+  
+  if (debug) {
+    logger.debug(`AI API error: ${response.status} ${response.statusText}`, 'AiClient');
+    logger.debug(`Error details: ${sanitizeForLogging(errText)}`, 'AiClient');
+  } else {
+    logger.error(`AI request failed: ${response.status}`, 'AiClient');
+  }
 
   throw new Error(`AI request failed (${response.status}): ${response.statusText}`);
 }
@@ -214,7 +219,7 @@ async function createChatConfig(params: {
 
 async function applyBackoffDelayIfNeeded(attempt: number, maxTries: number): Promise<void> {
   if (attempt < maxTries) {
-    const base = Math.max(1, Number(AI_LIMITS.BACKOFF_BASE_MS) ?? AI_LIMITS.BACKOFF_BASE_FALLBACK_MS);
+    const base = Math.max(1, AI_LIMITS.BACKOFF_BASE_MS);
     const exponent = Math.max(0, Number(attempt));
     const raw = base * Math.pow(2, exponent);
     const backoff = Math.min(raw, AI_LIMITS.BACKOFF_MAX_DELAY_MS);
