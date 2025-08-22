@@ -203,8 +203,6 @@ Respond by first acknowledging the specific context above, then continue with yo
   }
 
   private handleError(error: unknown): void {
-    console.error(error);
-
     if (
       error instanceof AINotConfiguredError ||
       error instanceof EmptyNoteError ||

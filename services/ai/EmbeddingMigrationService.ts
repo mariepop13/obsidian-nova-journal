@@ -13,7 +13,6 @@ export class EmbeddingMigrationService {
 
 
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
-      localStorage.getItem(legacyIndexKey);
 
       const enhancedService = new EnhancedEmbeddingService(this.app, this.settings);
 
@@ -25,7 +24,6 @@ export class EmbeddingMigrationService {
 
       return true;
     } catch (error) {
-      console.error('[EmbeddingMigrationService] Migration failed', error);
       return false;
     }
   }
@@ -53,13 +51,12 @@ export class EmbeddingMigrationService {
       if (legacyData) {
         try {
           localStorage.setItem(backupKey, legacyData);
-
         } catch (storageError) {
-          console.error('[EmbeddingMigrationService] Failed to write backup to localStorage', storageError);
+          throw storageError;
         }
       }
     } catch (error) {
-      console.error('[EmbeddingMigrationService] Failed to backup legacy index', error);
+      throw error;
     }
   }
 
@@ -69,7 +66,6 @@ export class EmbeddingMigrationService {
       localStorage.removeItem(legacyIndexKey);
 
     } catch (error) {
-      console.error('[EmbeddingMigrationService] Failed to cleanup legacy index', error);
     }
   }
 }

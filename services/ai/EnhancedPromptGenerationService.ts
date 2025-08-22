@@ -2,7 +2,7 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
-import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 
 
 export interface ContextualPromptOptions {
@@ -291,7 +291,7 @@ Generate a thematically focused question that explores patterns and development 
     return searchText;
   }
 
-  private buildSearchOptions(options: Record<string, any>, mood: Partial<MoodData> | undefined): SearchOptions {
+  private buildSearchOptions(options: ContextualPromptOptions, mood: Partial<MoodData> | undefined): SearchOptions {
     console.log('[EnhancedPromptGenerationService] Debug - Search options:', options);
     
     const searchOptions: SearchOptions = {
@@ -331,7 +331,7 @@ Generate a thematically focused question that explores patterns and development 
     }
   }
 
-  private enrichContextChunks(contextChunks: any[]): string {
+  private enrichContextChunks(contextChunks: EnhancedIndexedChunk[]): string {
     const enrichedContext = contextChunks
       .map((chunk, i) => {
         const preview = chunk.text.substring(0, 350);
@@ -348,7 +348,7 @@ Generate a thematically focused question that explores patterns and development 
     return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
   }
 
-  private buildChunkMetadata(chunk: any): string[] {
+  private buildChunkMetadata(chunk: EnhancedIndexedChunk): string[] {
     const contextInfo = [];
 
     if (chunk.contextType !== 'general') {

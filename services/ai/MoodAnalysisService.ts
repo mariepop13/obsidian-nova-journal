@@ -77,7 +77,6 @@ ${meaningfulContent}`;
       });
       return analysis;
     } catch (error) {
-      console.error('Mood analysis (current note) failed:', error);
       ToastSpinnerService.error('Mood analysis failed.');
       return null;
     }
@@ -100,7 +99,6 @@ ${meaningfulContent}`;
       const analysis = await this.generateMoodInsights(moodHistory);
       return analysis;
     } catch (error) {
-      console.error('Mood analysis failed:', error);
       ToastSpinnerService.error('Mood analysis failed. Check console for details.');
       return null;
     }
@@ -135,7 +133,6 @@ ${meaningfulContent}`;
           });
         }
       } catch (error) {
-        console.warn(`Failed to process file ${file.name}:`, error);
       }
     }
 

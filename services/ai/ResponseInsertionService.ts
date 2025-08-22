@@ -7,6 +7,14 @@ import {
 } from '../editor/NoteEditor';
 import type { ButtonSettings } from './ConversationService';
 
+interface AnchorInsertionConfig {
+  editor: Editor;
+  anchorLine: number;
+  response: string;
+  scopeAttr: string;
+  label?: string;
+}
+
 export class ResponseInsertionService {
   private readonly userName: string;
   private readonly deepenButtonLabel: string;
@@ -27,7 +35,7 @@ export class ResponseInsertionService {
 
   async insertTargetLineResponse(editor: Editor, buttonLine: number, response: string): Promise<void> {
     editor.replaceRange('**Nova**: \n', { line: buttonLine, ch: 0 });
-    await typewriterInsert(editor, buttonLine, '**Nova**: ', response, this.typewriterSpeed);
+    await typewriterInsert({ editor, line: buttonLine, prefix: '**Nova**: ', text: response, speed: this.typewriterSpeed });
   }
 
   async insertGeneralLineResponse(editor: Editor, line: number, response: string): Promise<void> {
@@ -35,7 +43,7 @@ export class ResponseInsertionService {
     const scopeAttr = 'data-scope="note"';
 
     if (anchorLine !== null) {
-      await this.insertAtExistingAnchor(editor, anchorLine, response, scopeAttr);
+      await this.insertAtExistingAnchor({ editor, anchorLine, response, scopeAttr });
     } else {
       await this.insertAfterLine(editor, line, response, scopeAttr);
     }
@@ -46,7 +54,7 @@ export class ResponseInsertionService {
     this.prepareUserLine(editor, anchorLine);
 
     if (anchorLine !== null) {
-      await this.insertAtExistingAnchor(editor, anchorLine, response, 'data-scope="note"', label);
+      await this.insertAtExistingAnchor({ editor, anchorLine, response, scopeAttr: 'data-scope="note"', label });
     } else {
       await this.insertAtEndOfNote(editor, response, label);
     }
@@ -116,20 +124,16 @@ export class ResponseInsertionService {
     }
   }
 
-  private async insertAtExistingAnchor(
-    editor: Editor,
-    anchorLine: number,
-    response: string,
-    _scopeAttr: string,
-    label?: string
-  ): Promise<void> {
+  private async insertAtExistingAnchor(config: AnchorInsertionConfig): Promise<void> {
+    const { editor, anchorLine, response, scopeAttr, label } = config;
+    
     editor.replaceRange(
       '**Nova**: \n',
       { line: anchorLine, ch: 0 },
       { line: anchorLine, ch: editor.getLine(anchorLine).length }
     );
 
-    await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.typewriterSpeed);
+    await typewriterInsert({ editor, line: anchorLine, prefix: '**Nova**: ', text: response, speed: this.typewriterSpeed });
     removeAnchorsInBlock(editor, anchorLine);
     ensureBottomButtons(editor, label ?? this.deepenButtonLabel, this.buttonSettings);
     ensureUserPromptLine(editor, this.userName);
@@ -137,7 +141,7 @@ export class ResponseInsertionService {
 
   private async insertAfterLine(editor: Editor, line: number, response: string, scopeAttr: string): Promise<void> {
     editor.replaceRange('**Nova**: \n', { line: line + 1, ch: 0 });
-    await typewriterInsert(editor, line + 1, '**Nova**: ', response, this.typewriterSpeed);
+    await typewriterInsert({ editor, line: line + 1, prefix: '**Nova**: ', text: response, speed: this.typewriterSpeed });
     removeAnchorsInBlock(editor, line);
     ensureBottomButtons(editor, this.deepenButtonLabel, this.buttonSettings);
     ensureUserPromptLine(editor, this.userName);
@@ -151,7 +155,7 @@ export class ResponseInsertionService {
     editor.replaceRange(`${needsBreak}**Nova**: \n`, insertPos);
     const answerLine = editor.lastLine();
 
-    await typewriterInsert(editor, answerLine, '**Nova**: ', response, this.typewriterSpeed);
+    await typewriterInsert({ editor, line: answerLine, prefix: '**Nova**: ', text: response, speed: this.typewriterSpeed });
     removeAnchorsInBlock(editor, answerLine);
     ensureBottomButtons(editor, label, this.buttonSettings);
     ensureUserPromptLine(editor, this.userName);

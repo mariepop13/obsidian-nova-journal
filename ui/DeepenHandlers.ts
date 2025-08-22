@@ -16,8 +16,8 @@ export function registerDeepenHandlers(
         const label = btn.textContent ?? getLabel();
         const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
         const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-        if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
-        else deepenLine(parsed as number).catch(console.error);
+        if (scope === 'note' || !hasValidLine) deepenNote(label).catch(() => {});
+        else deepenLine(parsed as number).catch(() => {});
       });
     });
 
@@ -25,16 +25,18 @@ export function registerDeepenHandlers(
       el.querySelectorAll('button.nova-mood-analyze').forEach(btn => {
         btn.addEventListener('click', evt => {
           evt.preventDefault();
-          analyzeMood().catch(console.error);
+          analyzeMood().catch(() => {});
         });
       });
     }
   });
 
   plugin.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-    const t = evt.target as HTMLElement;
-    const deepenBtn = t.closest('a.nova-deepen, button.nova-deepen');
-    const moodBtn = t.closest('button.nova-mood-analyze');
+    const target = evt.target as HTMLElement | null;
+    if (!target) return;
+    
+    const deepenBtn = target.closest('a.nova-deepen, button.nova-deepen');
+    const moodBtn = target.closest('button.nova-mood-analyze');
 
     if (deepenBtn) {
       evt.preventDefault();
@@ -43,11 +45,11 @@ export function registerDeepenHandlers(
       const lineAttr = deepenBtn.getAttribute('data-line');
       const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
       const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-      if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
-      else deepenLine(parsed as number).catch(console.error);
+      if (scope === 'note' || !hasValidLine) deepenNote(label).catch(() => {});
+      else deepenLine(parsed as number).catch(() => {});
     } else if (moodBtn && analyzeMood) {
       evt.preventDefault();
-      analyzeMood().catch(console.error);
+      analyzeMood().catch(() => {});
     }
   });
 }

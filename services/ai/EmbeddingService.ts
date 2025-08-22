@@ -3,7 +3,7 @@ import { embed } from '../../ai/EmbeddingClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import { EMBEDDING_CONFIG, TIME_CONSTANTS, CONTENT_LIMITS } from '../shared/Constants';
 
-type IndexedChunk = {
+export type IndexedChunk = {
   path: string;
   date: number;
   text: string;
@@ -172,7 +172,6 @@ export class EmbeddingService {
       });
       return Array.isArray(resp?.embeddings) ? resp.embeddings : [];
     } catch (err) {
-      console.error('[EmbeddingService] embed() failed', err);
       return [];
     }
   }

@@ -1,18 +1,27 @@
 import { Editor } from 'obsidian';
 import { PromptService } from '../../prompt/PromptService';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
-import type { EnhancedInsertionLocation, NovaJournalSettings } from '../../settings/PluginSettings';
+import type { EnhancedInsertionLocation, NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { ensureBottomButtons, insertAtLocation, removeDateHeadingInEditor } from './NoteEditor';
 import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
-import { FrontmatterService } from '../rendering/FrontmatterService';
+import { FrontmatterService, type MoodData } from '../rendering/FrontmatterService';
 import { PromptGenerationService } from '../ai/PromptGenerationService';
 import { RagContextService } from '../ai/RagContextService';
 import { ToastSpinnerService } from './ToastSpinnerService';
 
+interface ButtonSettings {
+  buttonStyle?: ButtonStyle;
+  buttonPosition?: ButtonPosition;
+  moodButtonLabel?: string;
+  showMoodButton?: boolean;
+  buttonTheme?: string;
+  deepenButtonLabel?: string;
+}
+
 interface ContextData {
   style: PromptStyle;
   prompt: string;
-  mood?: any;
+  mood?: Partial<MoodData> | null;
   date: Date;
 }
 
@@ -51,8 +60,7 @@ export class PromptInsertionService {
       }
 
       return this.performPromptInsertion(editor, basePrompt, contextData.date, location);
-    } catch (error) {
-      console.error('Nova Journal: prompt insertion error', error);
+    } catch (_error) {
       ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
@@ -73,7 +81,7 @@ export class PromptInsertionService {
       return null;
     }
 
-    return { ...contextAwareResult, date, mood };
+    return { ...contextAwareResult, date, mood: mood || null };
   }
 
   private async generatePromptWithContext(editor: Editor, contextData: ContextData): Promise<string> {
@@ -81,7 +89,7 @@ export class PromptInsertionService {
     
     const ragContext = await this.retrieveRagContext(editor, style);
     const generator = new PromptGenerationService(this.settings);
-    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood, ragContext);
+    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood || undefined, ragContext);
 
     if (aiPrompt && aiPrompt.length > 0) {
       return aiPrompt;
@@ -104,8 +112,7 @@ export class PromptInsertionService {
         : this.ragContextService.getRecentContext(style);
 
       return await Promise.race([ragPromise, new Promise<string>(res => setTimeout(() => res(''), 2000))]);
-    } catch (err) {
-      console.warn('[PromptInsertionService] RAG retrieval failed, proceeding without context');
+    } catch (_err) {
       return '';
     }
   }
@@ -144,7 +151,7 @@ export class PromptInsertionService {
     return PromptRenderingService.renderFinalPrompt(config);
   }
 
-  private createButtonSettings(): any {
+  private createButtonSettings(): ButtonSettings {
     return {
       buttonStyle: this.settings.buttonStyle,
       buttonPosition: this.settings.buttonPosition,

@@ -1,4 +1,6 @@
 import { Notice } from 'obsidian';
+
+type NoticeWithElement = Notice & { noticeEl: HTMLElement };
 import { LoadingSpinnerService, type LoadingState, type SpinnerInstance } from './LoadingSpinnerService';
 import { TIMING_CONFIG } from '../shared/Constants';
 
@@ -44,8 +46,8 @@ export class ToastSpinnerService {
     const noticeElement = this.createNoticeElement(message, showSpinner, state, spinnerPosition);
     const notice = new Notice('', timeout);
 
-    if ((notice as any).noticeEl) {
-      const noticeEl = (notice as any).noticeEl as HTMLElement;
+    if ((notice as NoticeWithElement).noticeEl) {
+      const noticeEl = (notice as NoticeWithElement).noticeEl;
       while (noticeEl.firstChild) {
         noticeEl.removeChild(noticeEl.firstChild);
       }
@@ -110,7 +112,7 @@ export class ToastSpinnerService {
   private static updateMessage(id: string, message: string): void {
     const toast = this.activeToasts.get(id);
     if (toast) {
-      const noticeEl = (toast.notice as any).noticeEl as HTMLElement;
+      const noticeEl = (toast.notice as NoticeWithElement).noticeEl;
       const messageElement = noticeEl?.querySelector('.nova-toast-message') as HTMLElement;
       if (messageElement) {
         messageElement.textContent = message;
@@ -219,7 +221,7 @@ export class ToastSpinnerService {
       autoHide: true,
     });
 
-    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
+    const noticeEl = (instance.notice as NoticeWithElement).noticeEl;
     if (noticeEl && noticeEl.classList) {
       noticeEl.classList.add('nova-toast-warn');
     }
@@ -235,7 +237,7 @@ export class ToastSpinnerService {
       autoHide: true,
     });
 
-    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
+    const noticeEl = (instance.notice as NoticeWithElement).noticeEl;
     if (noticeEl && noticeEl.classList) {
       noticeEl.classList.add('nova-toast-error');
     }
@@ -251,7 +253,7 @@ export class ToastSpinnerService {
       autoHide: true,
     });
 
-    const noticeEl = (instance.notice as any).noticeEl as HTMLElement;
+    const noticeEl = (instance.notice as NoticeWithElement).noticeEl;
     if (noticeEl && noticeEl.classList) {
       noticeEl.classList.add('nova-toast-info');
     }

@@ -145,7 +145,7 @@ describe('PromptGenerationService', () => {
     test('should return null on total failure', async () => {
       mockEnhancedService.generateContextualPrompt = jest.fn().mockRejectedValue(new Error('Total failure'));
 
-      global.fetch = jest.fn().mockRejectedValue(new Error('API failure'));
+      global._mockRequestUrlShouldFail = true;
 
       const originalConsoleError = console.error;
       console.error = jest.fn();
@@ -155,6 +155,7 @@ describe('PromptGenerationService', () => {
       expect(result).toBeNull();
 
       console.error = originalConsoleError;
+      global._mockRequestUrlShouldFail = false;
 
       global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
         Promise.resolve({

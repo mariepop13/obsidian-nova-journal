@@ -1,5 +1,6 @@
 import { App, MarkdownView, TFile } from 'obsidian';
 import { DateFormatter } from '../../settings/PluginSettings';
+import { logger } from '../shared/LoggingService';
 
 export class FileService {
   constructor(private readonly app: App) {}
@@ -42,7 +43,7 @@ export class FileService {
         await this.app.vault.modify(file, filtered.join('\n'));
       }
     } catch (error) {
-      console.warn('Nova Journal: could not sanitize date heading', error);
+      logger.error(`Failed to remove date heading from file ${file.path}: ${error.message}`, 'FileService');
     }
   }
 

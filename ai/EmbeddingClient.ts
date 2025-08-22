@@ -1,5 +1,5 @@
-import { sanitizeForLogging } from '../utils/Sanitizer';
 import { API_CONFIG } from '../services/shared/Constants';
+import { logger } from '../services/shared/LoggingService';
 
 type EmbedArgs = {
   apiKey: string;
@@ -73,11 +73,6 @@ function createEmbeddingPayload(model: string, filteredInputs: string[]): Embedd
     encoding_format: 'float',
   };
 
-  const totalChars = filteredInputs.reduce((sum, text) => sum + text.length, 0);
-  const requestSize = JSON.stringify(payload).length;
-
-
-
   return payload;
 }
 
@@ -106,9 +101,8 @@ async function makeEmbeddingRequest(apiKey: string, payload: EmbeddingPayload): 
 }
 
 async function handleApiError(res: Response, payload: EmbeddingPayload): Promise<never> {
-  const errorText = await res.text().catch(() => '');
-  console.error(`[Embedding Debug] API Error ${res.status}:`, sanitizeForLogging(errorText));
-  console.error(`[Embedding Debug] Request payload size: ${JSON.stringify(payload).length} bytes`);
+  const requestSize = JSON.stringify(payload).length;
+  logger.error(`Embedding API error: ${res.status}, request size: ${requestSize} bytes`, 'EmbeddingClient');
 
   if (res.status === API_CONFIG.HTTP_UNAUTHORIZED) {
     throw new Error('Embedding API authentication failed');

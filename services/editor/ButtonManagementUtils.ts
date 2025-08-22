@@ -1,10 +1,19 @@
 import { Editor, EditorPosition } from 'obsidian';
 import { ButtonCustomizationService } from './ButtonCustomizationService';
-import type { NovaJournalSettings } from '../../settings/PluginSettings';
+import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
 import { isDeepenButtonMarkup, isMoodAnalyzeButtonMarkup } from './ContentDetectionUtils';
 import { deleteRangesInReverse } from './ContentCleanupUtils';
 
-export function ensureBottomButtons(editor: Editor, label: string, settings?: any): void {
+interface ButtonSettings {
+  buttonStyle?: ButtonStyle;
+  buttonPosition?: ButtonPosition;
+  moodButtonLabel?: string;
+  showMoodButton?: boolean;
+  buttonTheme?: string;
+  deepenButtonLabel?: string;
+}
+
+export function ensureBottomButtons(editor: Editor, label: string, settings?: ButtonSettings): void {
   removeExistingButtons(editor);
   insertBottomButtons(editor, label, settings);
 }
@@ -31,7 +40,7 @@ function findAllButtonRanges(editor: Editor): Array<{ from: EditorPosition; to: 
   return ranges;
 }
 
-function insertBottomButtons(editor: Editor, label: string, settings?: any): void {
+function insertBottomButtons(editor: Editor, label: string, settings?: ButtonSettings): void {
   const insertionPoint = findButtonInsertionPoint(editor);
   const buttons = createButtonMarkup(label, settings);
   editor.replaceRange(buttons, insertionPoint.from, insertionPoint.to);
@@ -58,14 +67,22 @@ function findLastNonEmptyLine(editor: Editor, endLine: number): number {
   return -1;
 }
 
-function createButtonMarkup(label: string, settings?: any): string {
+function createButtonMarkup(label: string, settings?: ButtonSettings): string {
   if (settings) {
     try {
-      const config = ButtonCustomizationService.createFromSettings(settings);
+      const fullSettings = {
+        deepenButtonLabel: settings.deepenButtonLabel || 'Deepen',
+        moodButtonLabel: settings.moodButtonLabel || 'Mood',
+        buttonStyle: settings.buttonStyle || 'default',
+        buttonPosition: settings.buttonPosition || 'bottom',
+        buttonTheme: settings.buttonTheme || 'primary',
+        showMoodButton: settings.showMoodButton ?? true,
+      } as Partial<NovaJournalSettings>;
+      const config = ButtonCustomizationService.createFromSettings(fullSettings as NovaJournalSettings);
       config.scope = 'note';
       const markup = ButtonCustomizationService.generateButtonMarkup(config);
       if (typeof markup === 'string' && markup.length) return markup;
-    } catch (e) {
+    } catch (_e) {
       // Fallback to default markup
     }
   }

@@ -9,6 +9,7 @@ import { EmbeddingMigrationService } from './ai/EmbeddingMigrationService';
 import { RagContextService } from './ai/RagContextService';
 import type { NovaJournalSettings } from '../settings/PluginSettings';
 import { TIMING_CONFIG } from './shared/Constants';
+import { logger } from './shared/LoggingService';
 
 export interface ServiceCollection {
   promptService: PromptService;
@@ -51,7 +52,7 @@ export class ServiceInitializer {
       try {
         await this.performEmbeddingMigrationOrUpdate(migration, enhancedEmb);
       } catch (error) {
-        console.error('[NovaJournal] Embedding migration failed:', error);
+        logger.error(`Failed to perform embedding migration or update: ${error.message}`, 'ServiceInitializer');
       }
     }, TIMING_CONFIG.EMBEDDING_MIGRATION_DELAY);
   }
