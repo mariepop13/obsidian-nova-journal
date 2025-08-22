@@ -16,6 +16,7 @@ pr_commands = [
     "/help"
 ]
 handle_push_commits_message = true
+handle_push_commits = true
 auto_describe = true
 auto_review = true
 auto_add_labels = true
