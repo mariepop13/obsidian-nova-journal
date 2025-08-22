@@ -1,5 +1,5 @@
 # PR Agent Configuration
-# Last tested: 2025-08-20 - Auto-approval functionality verified
+# Last tested: 2025-08-22 - Auto-approval functionality verified
 [config]
 model = "gpt-5-mini"
 ai_timeout = 120
@@ -9,17 +9,18 @@ max_commits_tokens = 500
 [github_app]
 pr_commands = [
     "/describe",
-    "/review", 
+    "/review",
     "/improve",
     "/ask",
     "/update_changelog",
     "/help"
 ]
+handle_push_commits_message = true
 handle_push_trigger = true
-push_commands = [
-    "/review",
-    "/describe"
-]
+push_trigger_ignore_bot_commits = true
+push_trigger_ignore_merge_commits = true
+push_trigger_wait_for_initial_review = false
+push_commands = ["/describe", "/review"]
 auto_describe = true
 auto_review = true
 auto_add_labels = true
