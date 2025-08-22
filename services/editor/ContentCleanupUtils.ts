@@ -24,7 +24,7 @@ function findDateHeadingRanges(editor: Editor): Array<{
   return ranges;
 }
 
-function createDateHeadingRange(editor: Editor, line: number, lastLine: number) {
+function createDateHeadingRange(editor: Editor, line: number, lastLine: number): { from: EditorPosition; to: EditorPosition } {
   const nextIsBlank = line + 1 <= lastLine && editor.getLine(line + 1).trim() === '';
   const from = { line, ch: 0 };
   const to = nextIsBlank

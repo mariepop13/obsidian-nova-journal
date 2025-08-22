@@ -13,7 +13,7 @@ interface ContextData {
   style: PromptStyle;
   prompt: string;
   mood?: any;
-  date?: Date | string;
+  date: Date;
 }
 
 
@@ -58,7 +58,7 @@ export class PromptInsertionService {
     }
   }
 
-  private async preparePromptContext(editor: Editor) {
+  private async preparePromptContext(editor: Editor): Promise<ContextData | null> {
     const date = new Date();
     const mood = FrontmatterService.readMoodProps(editor);
     const contextAwareResult = await this.promptService.getContextAwarePrompt({

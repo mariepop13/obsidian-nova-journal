@@ -37,7 +37,7 @@ function insertBottomButtons(editor: Editor, label: string, settings?: any): voi
   editor.replaceRange(buttons, insertionPoint.from, insertionPoint.to);
 }
 
-function findButtonInsertionPoint(editor: Editor) {
+function findButtonInsertionPoint(editor: Editor): { from: EditorPosition; to: EditorPosition } {
   const endLine = editor.lastLine();
   const lastNonEmpty = findLastNonEmptyLine(editor, endLine);
   const insertLine = Math.max(0, lastNonEmpty + 1);
