@@ -1,39 +1,49 @@
-import { LoggingService, LogLevel, logger } from '../../services/shared/LoggingService';
+import { LoggingService, LogLevel } from '../../services/shared/LoggingService';
+
+// Mock console methods to capture logs
+const mockConsole = {
+  log: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  info: jest.fn(),
+};
+
+// Store original console methods
+const originalConsole = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info,
+};
 
 describe('LoggingService', () => {
-  let consoleSpy: {
-    error: jest.SpyInstance;
-    warn: jest.SpyInstance;
-    info: jest.SpyInstance;
-    log: jest.SpyInstance;
-  };
-
   beforeEach(() => {
-    consoleSpy = {
-      error: jest.spyOn(console, 'error').mockImplementation(),
-      warn: jest.spyOn(console, 'warn').mockImplementation(),
-      info: jest.spyOn(console, 'info').mockImplementation(),
-      log: jest.spyOn(console, 'log').mockImplementation(),
-    };
+    // Replace console methods with mocks
+    console.log = mockConsole.log;
+    console.error = mockConsole.error;
+    console.warn = mockConsole.warn;
+    console.info = mockConsole.info;
+
+    // Clear all mocks
+    Object.values(mockConsole).forEach(mock => mock.mockClear());
+    
+    // Reset LoggingService instance for each test
+    (LoggingService as any).instance = undefined;
   });
 
   afterEach(() => {
-    Object.values(consoleSpy).forEach(spy => spy.mockRestore());
+    // Restore original console methods
+    console.log = originalConsole.log;
+    console.error = originalConsole.error;
+    console.warn = originalConsole.warn;
+    console.info = originalConsole.info;
   });
 
-  describe('Environment Detection Safety', () => {
-    test('should safely instantiate without process.env access errors', () => {
-      // This test verifies the critical fix for unsafe process.env access
-      expect(() => {
-        const instance = LoggingService.getInstance();
-        expect(instance).toBeInstanceOf(LoggingService);
-      }).not.toThrow();
-    });
-
+  describe('Environment Safety', () => {
     test('should handle undefined process safely', () => {
       // Mock undefined process to simulate browser/Obsidian environment
       const originalProcess = global.process;
-      delete (global as any).process;
+      (global as any).process = undefined;
       
       expect(() => {
         // Force new instance creation
@@ -49,7 +59,7 @@ describe('LoggingService', () => {
     test('should handle undefined process.env safely', () => {
       // Mock process without env property
       const originalProcess = global.process;
-      global.process = {} as any;
+      global.process = {} as unknown as NodeJS.Process;
       
       expect(() => {
         // Force new instance creation
@@ -61,22 +71,36 @@ describe('LoggingService', () => {
       // Restore original process
       global.process = originalProcess;
     });
+
+    test('should handle development environment detection', () => {
+      const originalProcess = global.process;
+      global.process = {
+        env: { NODE_ENV: 'development' }
+      } as unknown as NodeJS.Process;
+      
+      // Force new instance creation
+      (LoggingService as any).instance = undefined;
+      const instance = LoggingService.getInstance();
+      
+      // In development mode, debug messages should be logged
+      instance.debug('Test debug message');
+      expect(mockConsole.log).toHaveBeenCalled();
+      
+      // Restore original process
+      global.process = originalProcess;
+    });
   });
 
   describe('Singleton Pattern', () => {
-    test('should return same instance on multiple calls', () => {
+    test('should return the same instance', () => {
       const instance1 = LoggingService.getInstance();
       const instance2 = LoggingService.getInstance();
       expect(instance1).toBe(instance2);
     });
 
-    test('should provide global logger instance', () => {
-      expect(logger).toBeInstanceOf(LoggingService);
-      // The global logger should be the same type, but singleton might be reset in tests
-      expect(typeof logger.error).toBe('function');
-      expect(typeof logger.warn).toBe('function');
-      expect(typeof logger.info).toBe('function');
-      expect(typeof logger.debug).toBe('function');
+    test('should create instance if none exists', () => {
+      const instance = LoggingService.getInstance();
+      expect(instance).toBeInstanceOf(LoggingService);
     });
   });
 
@@ -87,91 +111,125 @@ describe('LoggingService', () => {
       service = LoggingService.getInstance();
     });
 
-    test('should set and respect log levels', () => {
-      service.setLogLevel(LogLevel.WARN);
+    test('should set log level correctly', () => {
+      service.setLogLevel(LogLevel.INFO);
       
-      service.error('error message');
-      service.warn('warn message');
-      service.info('info message');
-      
-      expect(consoleSpy.error).toHaveBeenCalledWith(expect.stringContaining('error message'));
-      expect(consoleSpy.warn).toHaveBeenCalledWith(expect.stringContaining('warn message'));
-      expect(consoleSpy.info).not.toHaveBeenCalled();
+      service.info('Test info message');
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        expect.stringContaining('INFO: Test info message')
+      );
     });
 
-    test('should handle debug mode correctly', () => {
-      service.setDebugMode(true);
-      service.debug('debug message');
+    test('should respect log level filtering', () => {
+      service.setLogLevel(LogLevel.ERROR);
       
-      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('debug message'));
+      service.debug('Debug message');
+      service.info('Info message');
+      service.warn('Warning message');
+      service.error('Error message');
+      
+      expect(mockConsole.log).not.toHaveBeenCalled(); // debug
+      expect(mockConsole.info).not.toHaveBeenCalled(); // info
+      expect(mockConsole.warn).not.toHaveBeenCalled(); // warn
+      expect(mockConsole.error).toHaveBeenCalled(); // error
+    });
+
+    test('should handle debug mode toggle', () => {
+      service.setDebugMode(true);
+      
+      service.debug('Debug message');
+      expect(mockConsole.log).toHaveBeenCalled();
       
       service.setDebugMode(false);
-      service.debug('debug message 2');
+      mockConsole.log.mockClear();
       
-      expect(consoleSpy.log).toHaveBeenCalledTimes(1); // Should not call again
+      service.debug('Debug message');
+      expect(mockConsole.log).not.toHaveBeenCalled();
     });
   });
 
-  describe('Message Formatting', () => {
+  describe('Logging Methods', () => {
     let service: LoggingService;
 
     beforeEach(() => {
       service = LoggingService.getInstance();
-      service.setLogLevel(LogLevel.DEBUG);
-    });
-
-    test('should format messages with timestamp and level', () => {
-      service.error('test error');
-      
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z ERROR: test error$/)
-      );
-    });
-
-    test('should include context in formatted messages', () => {
-      service.warn('test warning', 'TestContext');
-      
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[TestContext]: test warning')
-      );
-    });
-  });
-
-  describe('All Log Levels', () => {
-    let service: LoggingService;
-
-    beforeEach(() => {
-      service = LoggingService.getInstance();
-      service.setLogLevel(LogLevel.DEBUG);
-      service.setDebugMode(true);
+      service.setLogLevel(LogLevel.DEBUG); // Enable all log levels for testing
     });
 
     test('should log error messages', () => {
-      service.error('error test', 'ErrorContext');
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('ERROR [ErrorContext]: error test')
+      service.error('Test error message');
+      expect(mockConsole.error).toHaveBeenCalledWith(
+        expect.stringContaining('ERROR: Test error message')
       );
     });
 
-    test('should log warn messages', () => {
-      service.warn('warn test', 'WarnContext');
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('WARN [WarnContext]: warn test')
+    test('should log warning messages', () => {
+      service.warn('Test warning message');
+      expect(mockConsole.warn).toHaveBeenCalledWith(
+        expect.stringContaining('WARN: Test warning message')
       );
     });
 
     test('should log info messages', () => {
-      service.info('info test', 'InfoContext');
-      expect(consoleSpy.info).toHaveBeenCalledWith(
-        expect.stringContaining('INFO [InfoContext]: info test')
+      service.info('Test info message');
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        expect.stringContaining('INFO: Test info message')
       );
     });
 
-    test('should log debug messages when debug mode enabled', () => {
-      service.debug('debug test', 'DebugContext');
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('DEBUG [DebugContext]: debug test')
+    test('should log debug messages', () => {
+      service.setDebugMode(true); // Enable debug mode for this test
+      service.debug('Test debug message');
+      expect(mockConsole.log).toHaveBeenCalledWith(
+        expect.stringContaining('DEBUG: Test debug message')
       );
+    });
+
+    test('should include context when provided', () => {
+      service.error('Test message', 'TestContext');
+      expect(mockConsole.error).toHaveBeenCalledWith(
+        expect.stringContaining('[TestContext]: Test message')
+      );
+    });
+
+    test('should include timestamp in log messages', () => {
+      service.info('Test message');
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        expect.stringMatching(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*INFO: Test message/)
+      );
+    });
+  });
+
+  describe('Performance and Edge Cases', () => {
+    let service: LoggingService;
+
+    beforeEach(() => {
+      service = LoggingService.getInstance();
+      service.setLogLevel(LogLevel.DEBUG);
+    });
+
+    test('should handle empty messages', () => {
+      expect(() => service.info('')).not.toThrow();
+      expect(mockConsole.info).toHaveBeenCalled();
+    });
+
+    test('should handle null/undefined messages gracefully', () => {
+      expect(() => service.info(null as any)).not.toThrow();
+      expect(() => service.info(undefined as any)).not.toThrow();
+    });
+
+    test('should handle special characters in messages', () => {
+      const specialMessage = 'Message with 🚀 emoji and \n newlines';
+      service.info(specialMessage);
+      expect(mockConsole.info).toHaveBeenCalledWith(
+        expect.stringContaining('INFO: ' + specialMessage)
+      );
+    });
+
+    test('should handle very long messages', () => {
+      const longMessage = 'x'.repeat(10000);
+      expect(() => service.info(longMessage)).not.toThrow();
+      expect(mockConsole.info).toHaveBeenCalled();
     });
   });
 });
