@@ -63,9 +63,10 @@ export class VectorUtils {
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = (hash << HASH_CONSTANTS.BIT_SHIFT_LEFT) - hash + char;
-      hash = hash & hash;
+      hash = hash | 0; // force 32-bit int
     }
-    return hash.toString();
+    // normalize to positive integer string
+    return (hash >>> 0).toString();
   }
 
   static splitIntoChunks(content: string, chunkSize = EMBEDDING_CONFIG.CHUNK_SIZE_ALTERNATIVE, overlap = EMBEDDING_CONFIG.OVERLAP_ALTERNATIVE): string[] {

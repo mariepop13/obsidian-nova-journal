@@ -205,8 +205,11 @@ async function createChatConfig(params: {
 
 async function applyBackoffDelayIfNeeded(attempt: number, maxTries: number): Promise<void> {
   if (attempt < maxTries) {
-    const backoff = AI_LIMITS.BACKOFF_BASE_MS * Math.pow(2, attempt);
-    await new Promise(r => setTimeout(r, backoff));
+    const base = Math.max(1, Number(AI_LIMITS.BACKOFF_BASE_MS) || AI_LIMITS.BACKOFF_BASE_FALLBACK_MS);
+    const exponent = Math.max(0, Number(attempt));
+    const raw = base * Math.pow(2, exponent);
+    const backoff = Math.min(raw, AI_LIMITS.BACKOFF_MAX_DELAY_MS);
+    await new Promise((r) => setTimeout(r, backoff));
   }
 }
 

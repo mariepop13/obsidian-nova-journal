@@ -48,8 +48,8 @@ module.exports = {
     ],
 
     // Clean Code: Function and complexity rules
-    'max-lines-per-function': ['error', { max: 40, skipBlankLines: true, skipComments: true }],
-    'max-params': ['error', 4],
+    'max-lines-per-function': ['error', { max: 20, skipBlankLines: true, skipComments: true }],
+    'max-params': ['error', 3],
     'max-depth': ['error', 2],
     'complexity': ['error', 10],
     'max-nested-callbacks': ['error', 3],
@@ -60,7 +60,6 @@ module.exports = {
 
     // Clean Code: Control flow and error handling
     'no-else-return': 'error',
-    'prefer-early-return': 'off', // Custom rule would be needed
     'no-nested-ternary': 'error',
     'no-console': 'warn',
     'no-throw-literal': 'error',
@@ -72,10 +71,17 @@ module.exports = {
     'no-var': 'error',
     'prefer-const': 'error',
     'no-magic-numbers': ['error', { ignore: [-1, 0, 1, 2] }],
+    'prefer-template': 'error',
+    'object-shorthand': 'error',
 
     // Clean Code: Comments and documentation
     'no-commented-out-code': 'off', // Would need custom rule
     'spaced-comment': ['error', 'always'],
+    'no-warning-comments': ['error', { 
+      terms: ['todo', 'fixme', 'hack'], 
+      location: 'anywhere' 
+    }],
+    'no-inline-comments': 'error',
 
     // Clean Code: Formatting (Prettier will handle these, so we disable ESLint formatting rules)
     'indent': 'off',
