@@ -1,7 +1,7 @@
 import { ButtonComponent, Setting } from 'obsidian';
 import type NovaJournalPlugin from '../main';
 import { SettingsService } from '../services/SettingsService';
-import type { SettingsExportOptions, SettingsImportResult } from '../settings/PluginSettings';
+import type { SettingsExportOptions, SettingsImportResult, SettingsExportData } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 import { FILE_LIMITS, UI_CONSTANTS } from '../services/shared/Constants';
 
@@ -76,7 +76,7 @@ export class SettingsImportExportRenderer {
     }
   }
 
-  private async confirmApiKeyExportIfNeeded(exportData: any): Promise<boolean> {
+  private async confirmApiKeyExportIfNeeded(exportData: SettingsExportData): Promise<boolean> {
     if (this.includeApiKeyInExport && exportData.settings.aiApiKey) {
       const confirmed = confirm(
         'WARNING: You are about to copy sensitive API key data to clipboard.\\n\\nThis data will be accessible to other applications and may remain in clipboard history.\\n\\nContinue only if you trust your current environment.\\n\\nContinue?'
@@ -172,7 +172,7 @@ export class SettingsImportExportRenderer {
     }
   }
 
-  private async parseClipboardJson(clipboardText: string): Promise<any | null> {
+  private async parseClipboardJson(clipboardText: string): Promise<SettingsExportData | null> {
     try {
       return JSON.parse(clipboardText);
     } catch (_parseError) {

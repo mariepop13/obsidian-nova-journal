@@ -32,9 +32,11 @@ export function registerDeepenHandlers(
   });
 
   plugin.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-    const t = evt.target as HTMLElement;
-    const deepenBtn = t.closest('a.nova-deepen, button.nova-deepen');
-    const moodBtn = t.closest('button.nova-mood-analyze');
+    const target = evt.target as HTMLElement | null;
+    if (!target) return;
+    
+    const deepenBtn = target.closest('a.nova-deepen, button.nova-deepen');
+    const moodBtn = target.closest('button.nova-mood-analyze');
 
     if (deepenBtn) {
       evt.preventDefault();
