@@ -1,5 +1,5 @@
 import { App, Editor } from 'obsidian';
-import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import {
   CONTEXT_LIMITS,
@@ -126,10 +126,10 @@ export class RagContextService {
 
   private async expandContextSearch(
     embeddingService: EnhancedEmbeddingService,
-    contextChunks: any[],
+    contextChunks: EnhancedIndexedChunk[],
     searchText: string,
     searchOptions: SearchOptions
-  ): Promise<any[]> {
+  ): Promise<EnhancedIndexedChunk[]> {
     const allRecent = contextChunks.every(chunk => {
       if (!chunk.date) return false;
       const daysDiff = Math.floor((Date.now() - chunk.date) / TIME_CONSTANTS.MS_PER_DAY);
@@ -160,9 +160,9 @@ export class RagContextService {
     return contextChunks;
   }
 
-  private prioritizeRelevantContext(contextChunks: any[], searchText: string): any[] {
-    const recentChunks: any[] = [];
-    const historicalChunks: any[] = [];
+  private prioritizeRelevantContext(contextChunks: EnhancedIndexedChunk[], searchText: string): EnhancedIndexedChunk[] {
+    const recentChunks: EnhancedIndexedChunk[] = [];
+    const historicalChunks: EnhancedIndexedChunk[] = [];
     const now = Date.now();
 
     contextChunks.forEach(chunk => {
@@ -209,7 +209,7 @@ export class RagContextService {
     return contextChunks;
   }
 
-  private extractExpandedSearchTerms(originalSearch: string, contextChunks: any[]): string[] {
+  private extractExpandedSearchTerms(originalSearch: string, contextChunks: EnhancedIndexedChunk[]): string[] {
     const expandedTerms: Set<string> = new Set();
 
     const firstChunk = contextChunks[0];
@@ -270,11 +270,11 @@ export class RagContextService {
     return `${diffYears}y`;
   }
 
-  private filterSubstantialContent(chunks: any[]): any[] {
+  private filterSubstantialContent(chunks: EnhancedIndexedChunk[]): EnhancedIndexedChunk[] {
     return chunks.filter(chunk => this.hasSubstantialContent(chunk));
   }
 
-  private hasSubstantialContent(chunk: any): boolean {
+  private hasSubstantialContent(chunk: EnhancedIndexedChunk): boolean {
     if (!chunk.text) return false;
 
     const text = chunk.text.toLowerCase();
@@ -316,7 +316,7 @@ export class RagContextService {
     return isLongContent || isMediumContentWithoutPrompt;
   }
 
-  private async searchInAllHistory(embeddingService: EnhancedEmbeddingService, searchText: string): Promise<any[]> {
+  private async searchInAllHistory(embeddingService: EnhancedEmbeddingService, searchText: string): Promise<EnhancedIndexedChunk[]> {
     const broadSearchOptions: SearchOptions = {
       boostRecent: false,
       diversityThreshold: SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_RELAXED,
@@ -326,7 +326,7 @@ export class RagContextService {
     return this.filterSubstantialContent(chunks);
   }
 
-  private prioritizeBySubstance(chunks: any[]): any[] {
+  private prioritizeBySubstance(chunks: EnhancedIndexedChunk[]): EnhancedIndexedChunk[] {
     return chunks.sort((a, b) => {
       const aHasSubstance = this.hasUserContent(a.text);
       const bHasSubstance = this.hasUserContent(b.text);
@@ -403,7 +403,7 @@ export class RagContextService {
     }
   }
 
-  private filterRecentEntries(chunks: any[], daysLimit: number): any[] {
+  private filterRecentEntries(chunks: EnhancedIndexedChunk[], daysLimit: number): EnhancedIndexedChunk[] {
     const cutoffDate = Date.now() - daysLimit * TIME_CONSTANTS.MS_PER_DAY;
 
     return chunks.filter(chunk => {

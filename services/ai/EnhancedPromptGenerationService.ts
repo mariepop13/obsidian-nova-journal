@@ -2,7 +2,7 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
-import { EnhancedEmbeddingService, type SearchOptions } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 
 
 export interface ContextualPromptOptions {
@@ -13,76 +13,49 @@ export interface ContextualPromptOptions {
   diversityThreshold?: number;
 }
 
-export interface PromptWithRagConfig {
-  style: PromptStyle;
-  noteText: string;
-  mood?: Partial<MoodData>;
-  ragContext?: string;
-  options?: ContextualPromptOptions;
-}
-
-export interface ThematicPromptConfig {
-  style: PromptStyle;
-  noteText: string;
-  themes: string[];
-  timeFrame?: 'recent' | 'week' | 'month';
-}
-
-export interface ContextGatheringConfig {
-  noteText: string;
-  mood: Partial<MoodData> | undefined;
-  maxChunks: number;
-  options: {
-    prioritizeRecent: boolean;
-    includeEmotionalContext: boolean;
-    includeThematicContext: boolean;
-    diversityThreshold: number;
-  };
-}
-
-export interface SearchPerformanceConfig {
-  embeddingService: EnhancedEmbeddingService;
-  searchText: string;
-  maxChunks: number;
-  searchOptions: SearchOptions;
-}
-
-export interface UserPromptConfig {
-  style: PromptStyle;
-  noteText: string;
-  mood: Partial<MoodData> | undefined;
-  contextualInfo: string;
-}
-
 export class EnhancedPromptGenerationService {
   private embeddingService?: EnhancedEmbeddingService;
 
   constructor(private readonly settings: NovaJournalSettings) {}
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
+    console.log(
+      '[EnhancedPromptGenerationService] Debug - Getting embedding service, current instance:',
+      !!this.embeddingService
+    );
+
     if (!this.embeddingService) {
       const appRef = (window as any)?.app;
+      console.log('[EnhancedPromptGenerationService] Debug - App reference available:', !!appRef);
 
       if (appRef) {
         try {
           this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
+          console.log('[EnhancedPromptGenerationService] Debug - EnhancedEmbeddingService created successfully');
         } catch (error) {
+          console.error('[EnhancedPromptGenerationService] Debug - Failed to create EnhancedEmbeddingService:', error);
           return null;
         }
+      } else {
+        console.warn('[EnhancedPromptGenerationService] Debug - No app reference found for embedding service');
       }
     }
     return this.embeddingService || null;
   }
 
-  async generateContextualPromptWithRag(config: PromptWithRagConfig): Promise<string | null> {
-    const { style, noteText, mood, ragContext, options = {} } = config;
-    
+  async generateContextualPromptWithRag(
+    style: PromptStyle,
+    noteText: string,
+    mood?: Partial<MoodData>,
+    ragContext?: string,
+    options: ContextualPromptOptions = {}
+  ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
     const systemPrompt = this.buildSystemPrompt(style, true, true);
     const contextualInfo = ragContext || '';
 
-    const userPrompt = this.buildUserPrompt({ style, noteText, mood, contextualInfo });
+    const userPrompt = this.buildUserPrompt(style, noteText, mood, contextualInfo);
 
     try {
       const response = await chat({
@@ -123,21 +96,17 @@ export class EnhancedPromptGenerationService {
 
     let contextualInfo = '';
     try {
-      contextualInfo = await this.gatherContextualInformation({
-        noteText,
-        mood,
-        maxChunks: maxContextChunks,
-        options: {
-          prioritizeRecent,
-          includeEmotionalContext,
-          includeThematicContext,
-          diversityThreshold,
-        },
+      contextualInfo = await this.gatherContextualInformation(noteText, mood, maxContextChunks, {
+        prioritizeRecent,
+        includeEmotionalContext,
+        includeThematicContext,
+        diversityThreshold,
       });
     } catch (err) {
+      console.error('[EnhancedPromptGenerationService] Context gathering failed', err);
     }
 
-    const userPrompt = this.buildUserPrompt({ style, noteText, mood, contextualInfo });
+    const userPrompt = this.buildUserPrompt(style, noteText, mood, contextualInfo);
 
     try {
       const response = await chat({
@@ -212,13 +181,17 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
       const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
+      console.error('[EnhancedPromptGenerationService] Emotional prompt generation failed', error);
       return this.generateContextualPrompt(style, noteText, mood);
     }
   }
 
-  async generateThematicPrompt(config: ThematicPromptConfig): Promise<string | null> {
-    const { style, noteText, themes, timeFrame = 'week' } = config;
-    
+  async generateThematicPrompt(
+    style: PromptStyle,
+    noteText: string,
+    themes: string[],
+    timeFrame: 'recent' | 'week' | 'month' = 'week'
+  ): Promise<string | null> {
     const embeddingService = this.getEmbeddingService();
     if (!embeddingService) return this.generateContextualPrompt(style, noteText);
 
@@ -273,13 +246,22 @@ Generate a thematically focused question that explores patterns and development 
       const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
+      console.error('[EnhancedPromptGenerationService] Thematic prompt generation failed', error);
       return this.generateContextualPrompt(style, noteText);
     }
   }
 
-  private async gatherContextualInformation(config: ContextGatheringConfig): Promise<string> {
-    const { noteText, mood, maxChunks, options } = config;
-    
+  private async gatherContextualInformation(
+    noteText: string,
+    mood: Partial<MoodData> | undefined,
+    maxChunks: number,
+    options: {
+      prioritizeRecent: boolean;
+      includeEmotionalContext: boolean;
+      includeThematicContext: boolean;
+      diversityThreshold: number;
+    }
+  ): Promise<string> {
     const embeddingService = this.validateEmbeddingService();
     if (!embeddingService) return '';
 
@@ -287,23 +269,31 @@ Generate a thematically focused question that explores patterns and development 
     if (!searchText) return '';
 
     const searchOptions = this.buildSearchOptions(options, mood);
-    return this.performContextualSearch({ embeddingService, searchText, maxChunks, searchOptions });
+    return this.performContextualSearch(embeddingService, searchText, maxChunks, searchOptions);
   }
 
   private validateEmbeddingService(): EnhancedEmbeddingService | null {
+    console.log('[EnhancedPromptGenerationService] Debug - Getting embedding service...');
     const embeddingService = this.getEmbeddingService();
+    if (!embeddingService) {
+      console.log('[EnhancedPromptGenerationService] Debug - No embedding service available');
+    }
     return embeddingService;
   }
 
   private validateSearchText(noteText: string): string | null {
     const searchText = noteText?.trim();
     if (!searchText || searchText.length === 0) {
+      console.log('[EnhancedPromptGenerationService] Debug - No search text available');
       return null;
     }
+    console.log('[EnhancedPromptGenerationService] Debug - Search text length:', searchText.length);
     return searchText;
   }
 
-  private buildSearchOptions(options: Record<string, any>, mood: Partial<MoodData> | undefined): SearchOptions {
+  private buildSearchOptions(options: ContextualPromptOptions, mood: Partial<MoodData> | undefined): SearchOptions {
+    console.log('[EnhancedPromptGenerationService] Debug - Search options:', options);
+    
     const searchOptions: SearchOptions = {
       boostRecent: options.prioritizeRecent,
       diversityThreshold: options.diversityThreshold,
@@ -311,32 +301,37 @@ Generate a thematically focused question that explores patterns and development 
 
     if (options.includeEmotionalContext && mood?.dominant_emotions) {
       searchOptions.emotionalFilter = mood.dominant_emotions;
+      console.log('[EnhancedPromptGenerationService] Debug - Added emotional filter:', mood.dominant_emotions);
     }
 
     if (options.includeThematicContext && mood?.tags) {
       searchOptions.thematicFilter = mood.tags;
+      console.log('[EnhancedPromptGenerationService] Debug - Added thematic filter:', mood.tags);
     }
 
     return searchOptions;
   }
 
-  private async performContextualSearch(config: SearchPerformanceConfig): Promise<string> {
-    const { embeddingService, searchText, maxChunks, searchOptions } = config;
-    
+  private async performContextualSearch(embeddingService: EnhancedEmbeddingService, searchText: string, maxChunks: number, searchOptions: SearchOptions): Promise<string> {
     try {
+      console.log('[EnhancedPromptGenerationService] Debug - Performing contextual search...');
       const contextChunks = await embeddingService.contextualSearch(searchText, maxChunks, searchOptions);
 
+      console.log('[EnhancedPromptGenerationService] Debug - Found context chunks:', contextChunks.length);
+
       if (contextChunks.length === 0) {
+        console.log('[EnhancedPromptGenerationService] Debug - No context chunks found');
         return '';
       }
 
       return this.enrichContextChunks(contextChunks);
     } catch (error) {
+      console.error('[EnhancedPromptGenerationService] Failed to gather contextual information', error);
       return '';
     }
   }
 
-  private enrichContextChunks(contextChunks: any[]): string {
+  private enrichContextChunks(contextChunks: EnhancedIndexedChunk[]): string {
     const enrichedContext = contextChunks
       .map((chunk, i) => {
         const preview = chunk.text.substring(0, 350);
@@ -346,10 +341,14 @@ Generate a thematically focused question that explores patterns and development 
       })
       .join('\n');
 
+    console.log(
+      '[EnhancedPromptGenerationService] Debug - Enriched context preview:',
+      enrichedContext.substring(0, 300)
+    );
     return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
   }
 
-  private buildChunkMetadata(chunk: any): string[] {
+  private buildChunkMetadata(chunk: EnhancedIndexedChunk): string[] {
     const contextInfo = [];
 
     if (chunk.contextType !== 'general') {
@@ -398,9 +397,12 @@ CRITICAL RULES:
     return basePrompt + emotionalGuidance + thematicGuidance + styleGuidance;
   }
 
-  private buildUserPrompt(config: UserPromptConfig): string {
-    const { style, noteText, mood, contextualInfo } = config;
-    
+  private buildUserPrompt(
+    style: PromptStyle,
+    noteText: string,
+    mood: Partial<MoodData> | undefined,
+    contextualInfo: string
+  ): string {
     const moodFragment = mood ? `\n\nCurrent mood/emotional state:\n${JSON.stringify(mood)}` : '';
 
     return `Style: ${style}
