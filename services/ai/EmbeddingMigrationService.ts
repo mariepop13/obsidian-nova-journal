@@ -51,11 +51,12 @@ export class EmbeddingMigrationService {
       if (legacyData) {
         try {
           localStorage.setItem(backupKey, legacyData);
-
         } catch (storageError) {
+          throw storageError;
         }
       }
     } catch (error) {
+      throw error;
     }
   }
 
