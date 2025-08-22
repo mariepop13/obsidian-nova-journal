@@ -28,7 +28,7 @@ export class SettingsService {
     if (!includeApiKey) {
       settings.aiApiKey = '';
     } else {
-      settings.aiApiKey = this.plugin.settings.aiApiKey || '';
+      settings.aiApiKey = this.plugin.settings.aiApiKey ?? '';
     }
 
     const exportData: SettingsExportData = {
