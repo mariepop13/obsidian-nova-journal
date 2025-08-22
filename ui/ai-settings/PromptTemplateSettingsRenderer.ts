@@ -29,7 +29,7 @@ export class PromptTemplateSettingsRenderer {
           try {
             this.plugin.settings.promptStyle = value as 'reflective' | 'gratitude' | 'planning' | 'dreams';
             await this.plugin.saveSettings();
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save prompt style');
           }
         });
@@ -43,12 +43,12 @@ export class PromptTemplateSettingsRenderer {
       .addTextArea((textArea: TextAreaComponent) => {
         textArea
           .setPlaceholder('{{prompt}}')
-          .setValue(this.plugin.settings.promptTemplate || '')
+          .setValue(this.plugin.settings.promptTemplate ?? '')
           .onChange(async value => {
             try {
               this.plugin.settings.promptTemplate = value;
               await this.plugin.saveSettings();
-            } catch (error) {
+            } catch {
               ToastSpinnerService.error('Failed to save template');
             }
           });
@@ -62,7 +62,7 @@ export class PromptTemplateSettingsRenderer {
     this.renderTemplatePresetSection(containerEl);
     SettingsUtils.renderTemplatePreview(
       containerEl,
-      this.plugin.settings.promptTemplate || '',
+      this.plugin.settings.promptTemplate ?? '',
       this.plugin.settings.userName
     );
   }
@@ -79,7 +79,7 @@ export class PromptTemplateSettingsRenderer {
           custom: 'Custom',
         });
 
-        const currentPreset = SettingsUtils.getCurrentTemplatePreset(this.plugin.settings.promptTemplate || '');
+        const currentPreset = SettingsUtils.getCurrentTemplatePreset(this.plugin.settings.promptTemplate ?? '');
         dropdown.setValue(currentPreset);
 
         if (currentPreset === 'custom') {
@@ -95,7 +95,7 @@ export class PromptTemplateSettingsRenderer {
               await this.plugin.saveSettings();
               this.refreshCallback();
             }
-          } catch (error) {
+          } catch {
             ToastSpinnerService.error('Failed to save preset');
           }
         });

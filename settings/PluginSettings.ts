@@ -173,7 +173,7 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
   const s: NovaJournalSettings = { ...DEFAULT_SETTINGS, ...input };
 
   const cleanString = (value: string, fallback = ''): string => {
-    return (value || '').toString().trim() || fallback;
+    return (value ?? '').toString().trim() || fallback;
   };
 
   const sanitizeTemplate = (template: string): string => {
@@ -189,7 +189,7 @@ export function normalizeSettings(input: Partial<NovaJournalSettings>): NovaJour
 
   return {
     ...s,
-    promptTemplate: sanitizeTemplate(s.promptTemplate || DEFAULT_SETTINGS.promptTemplate),
+    promptTemplate: sanitizeTemplate(s.promptTemplate ?? DEFAULT_SETTINGS.promptTemplate),
     aiSystemPrompt: cleanString(s.aiSystemPrompt, DEFAULT_SETTINGS.aiSystemPrompt)
       .replace(/javascript:/gi, '')
       .replace(/data:/gi, '')

@@ -13,7 +13,7 @@ export function ensureUserPromptLine(editor: Editor, userName: string): void {
 }
 
 function createUserNamePrefix(userName: string): string {
-  return `**${userName || 'You'}** (you):`;
+  return `**${userName ?? 'You'}** (you):`;
 }
 
 function findButtonsLine(editor: Editor): number | null {

@@ -12,8 +12,8 @@ export function registerDeepenHandlers(
       btn.addEventListener('click', evt => {
         evt.preventDefault();
         const lineAttr = btn.getAttribute('data-line');
-        const scope = btn.getAttribute('data-scope') || '';
-        const label = btn.textContent || getLabel();
+        const scope = btn.getAttribute('data-scope') ?? '';
+        const label = btn.textContent ?? getLabel();
         const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
         const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
         if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
@@ -38,8 +38,8 @@ export function registerDeepenHandlers(
 
     if (deepenBtn) {
       evt.preventDefault();
-      const scope = deepenBtn.getAttribute('data-scope') || '';
-      const label = deepenBtn.textContent || getLabel();
+      const scope = deepenBtn.getAttribute('data-scope') ?? '';
+      const label = deepenBtn.textContent ?? getLabel();
       const lineAttr = deepenBtn.getAttribute('data-line');
       const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
       const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);

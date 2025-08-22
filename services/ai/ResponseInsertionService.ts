@@ -95,7 +95,7 @@ export class ResponseInsertionService {
   }
 
   private prepareUserLine(editor: Editor, anchorLine: number | null): void {
-    const namePrefix = `**${this.userName || 'You'}** (you):`;
+    const namePrefix = `**${this.userName ?? 'You'}** (you):`;
     let userLineIdx = anchorLine !== null ? anchorLine - 1 : editor.lastLine();
 
     while (userLineIdx >= 0 && editor.getLine(userLineIdx).trim().length === 0) {
@@ -131,7 +131,7 @@ export class ResponseInsertionService {
 
     await typewriterInsert(editor, anchorLine, '**Nova**: ', response, this.typewriterSpeed);
     removeAnchorsInBlock(editor, anchorLine);
-    ensureBottomButtons(editor, label || this.deepenButtonLabel, this.buttonSettings);
+    ensureBottomButtons(editor, label ?? this.deepenButtonLabel, this.buttonSettings);
     ensureUserPromptLine(editor, this.userName);
   }
 

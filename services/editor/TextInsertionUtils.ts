@@ -59,7 +59,7 @@ function insertBelowHeading(editor: Editor, block: string, belowHeadingName?: st
 }
 
 function findHeadingInsertionLine(editor: Editor, headingName?: string): number {
-  const target = (headingName || '').trim();
+  const target = (headingName ?? '').trim();
   const headingRegex = RegexHelpers.createHeadingRegex(target);
   const lastLine = editor.lastLine();
   let insertLine = -1;

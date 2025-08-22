@@ -47,7 +47,7 @@ export class PromptService {
   ): PromptStyle {
     const text = (noteText ?? '').toLowerCase();
 
-    const indicatesDream = /\b(dream|rêve|reves|rêves|nightmare|cauchemar)\b/i.test(text);
+    const indicatesDream = /(dream|rêve|reves|rêves|nightmare|cauchemar)/i.test(text);
     if (indicatesDream) {
       return 'dreams';
     }

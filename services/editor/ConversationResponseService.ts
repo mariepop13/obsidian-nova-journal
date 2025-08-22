@@ -72,7 +72,7 @@ export class ConversationResponseService {
   }
 
   private static finalizeConversation(config: ResponseInsertionConfig, label?: string): void {
-    const actualLabel = label || config.deepenButtonLabel;
+    const actualLabel = label ?? config.deepenButtonLabel;
 
     removeAnchorsInBlock(config.editor, config.editor.getCursor().line);
     ensureBottomButtons(config.editor, actualLabel, config.buttonSettings);

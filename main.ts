@@ -93,7 +93,7 @@ export default class NovaJournalPlugin extends Plugin {
         return;
       }
 
-      await embeddingService.forceFullRebuild(this.settings.dailyNoteFolder);
+      await (embeddingService as any).forceFullRebuild(this.settings.dailyNoteFolder);
       ToastSpinnerService.notice('Nova Journal: Embeddings index rebuilt successfully.');
     } catch (error) {
       console.error('[Nova Journal] Failed to rebuild embeddings:', error);
@@ -109,7 +109,7 @@ export default class NovaJournalPlugin extends Plugin {
     return true;
   }
 
-  private async createEmbeddingService(): Promise<any | null> {
+  private async createEmbeddingService(): Promise<unknown | null> {
     const mod = await import('./services/ai/EnhancedEmbeddingService');
     const enhancedEmbeddingService = mod.EnhancedEmbeddingService;
     

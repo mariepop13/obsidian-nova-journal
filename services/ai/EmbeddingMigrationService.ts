@@ -19,7 +19,7 @@ export class EmbeddingMigrationService {
 
       await this.backupLegacyIndex();
 
-      const folder = this.settings.dailyNoteFolder || 'Journal';
+      const folder = this.settings.dailyNoteFolder ?? 'Journal';
       await enhancedService.incrementalUpdateIndex(folder);
 
       console.log('[EmbeddingMigrationService] Migration completed successfully');

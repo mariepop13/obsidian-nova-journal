@@ -125,7 +125,7 @@ export class ConversationService {
   }
 
   private async handleGeneralLineDeepen(editor: Editor, line: number, text: string): Promise<void> {
-    const userHeader = `**${this.context.userName || 'You'}** (you): ${text}`;
+    const userHeader = `**${this.context.userName ?? 'You'}** (you): ${text}`;
     this.replaceLineWithHeader(editor, line, userHeader);
 
     const aiResponse = await this.callAI(text, undefined, editor);
@@ -152,7 +152,7 @@ export class ConversationService {
       toast.updateState('generating');
       toast.updateMessage('Generating response...');
 
-      let enhancedSystemPrompt = customSystemPrompt || this.context.systemPrompt;
+      let enhancedSystemPrompt = customSystemPrompt ?? this.context.systemPrompt;
       let enhancedUserText = userText;
 
       if (ragContext) {

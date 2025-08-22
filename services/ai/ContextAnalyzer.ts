@@ -15,9 +15,9 @@ export class ContextAnalyzer {
       thematic: 0,
     };
 
-    const emotionalMatches = text.match(new RegExp(emotionalKeywords.source, 'gi')) || [];
-    const temporalMatches = text.match(new RegExp(temporalKeywords.source, 'gi')) || [];
-    const thematicMatches = text.match(new RegExp(thematicKeywords.source, 'gi')) || [];
+    const emotionalMatches = text.match(new RegExp(emotionalKeywords.source, 'gi')) ?? [];
+    const temporalMatches = text.match(new RegExp(temporalKeywords.source, 'gi')) ?? [];
+    const thematicMatches = text.match(new RegExp(thematicKeywords.source, 'gi')) ?? [];
 
     scores.emotional = emotionalMatches.length;
     scores.temporal = temporalMatches.length;

@@ -176,7 +176,7 @@ export async function chat({
 
   const config = await createChatConfig({
     apiKey,
-    model: model || 'gpt-5-mini',
+    model: model ?? 'gpt-5-mini',
     systemPrompt,
     userText,
     maxTokens,
@@ -214,7 +214,7 @@ async function createChatConfig(params: {
 
 async function applyBackoffDelayIfNeeded(attempt: number, maxTries: number): Promise<void> {
   if (attempt < maxTries) {
-    const base = Math.max(1, Number(AI_LIMITS.BACKOFF_BASE_MS) || AI_LIMITS.BACKOFF_BASE_FALLBACK_MS);
+    const base = Math.max(1, Number(AI_LIMITS.BACKOFF_BASE_MS) ?? AI_LIMITS.BACKOFF_BASE_FALLBACK_MS);
     const exponent = Math.max(0, Number(attempt));
     const raw = base * Math.pow(2, exponent);
     const backoff = Math.min(raw, AI_LIMITS.BACKOFF_MAX_DELAY_MS);

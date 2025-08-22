@@ -62,10 +62,10 @@ export class EnhancedPromptGenerationService {
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
+        maxTokens: Math.min(80, this.settings.aiMaxTokens ?? 80),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || '',
+        fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
       const cleaned = response.trim().replace(/^"|"$/g, '').trim();
@@ -113,10 +113,10 @@ export class EnhancedPromptGenerationService {
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
+        maxTokens: Math.min(80, this.settings.aiMaxTokens ?? 80),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || '',
+        fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
       const raw = response;
@@ -141,8 +141,8 @@ export class EnhancedPromptGenerationService {
       const systemPrompt = `Generate ONE emotionally sensitive journaling question based on the current note content and emotional context. 
 
 EMOTIONAL AWARENESS RULES:
-- Consider the user's current emotional state: ${mood.sentiment || 'unknown'}
-- Be empathetic to emotions: ${mood.dominant_emotions?.join(', ') || 'none specified'}
+- Consider the user's current emotional state: ${mood.sentiment ?? 'unknown'}
+- Be empathetic to emotions: ${mood.dominant_emotions?.join(', ') ?? 'none specified'}
 - Adjust tone accordingly: supportive for negative emotions, celebratory for positive ones
 - Reference emotional patterns from past entries when relevant
 
@@ -161,7 +161,7 @@ Style guidance:
 
       const userPrompt = `Style: ${style}
 Current emotional state: ${JSON.stringify(mood)}
-Current note: ${noteText || '(empty)'}${contextText}
+Current note: ${noteText ?? '(empty)'}${contextText}
 
 Generate an emotionally aware question that acknowledges the user's feelings while encouraging healthy reflection.`;
 
@@ -170,10 +170,10 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(80, this.settings.aiMaxTokens || 80),
+        maxTokens: Math.min(80, this.settings.aiMaxTokens ?? 80),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || '',
+        fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
       const raw = response;
@@ -226,7 +226,7 @@ Style guidance:
       const userPrompt = `Style: ${style}
 Target themes: ${themes.join(', ')}
 Time frame: ${timeFrame}
-Current note: ${noteText || '(empty)'}${contextText}
+Current note: ${noteText ?? '(empty)'}${contextText}
 
 Generate a thematically focused question that explores patterns and development in these life areas.`;
 
@@ -235,10 +235,10 @@ Generate a thematically focused question that explores patterns and development 
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(90, this.settings.aiMaxTokens || 90),
+        maxTokens: Math.min(90, this.settings.aiMaxTokens ?? 90),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || '',
+        fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
       const raw = response;
@@ -271,7 +271,7 @@ Generate a thematically focused question that explores patterns and development 
     return this.performContextualSearch(embeddingService, searchText, maxChunks, searchOptions);
   }
 
-  private validateEmbeddingService() {
+  private validateEmbeddingService(): EnhancedEmbeddingService | null {
     console.log('[EnhancedPromptGenerationService] Debug - Getting embedding service...');
     const embeddingService = this.getEmbeddingService();
     if (!embeddingService) {
@@ -407,7 +407,7 @@ CRITICAL RULES:
     return `Style: ${style}
 
 Current note content:
-${noteText || '(empty)'}${moodFragment}${contextualInfo}
+${noteText ?? '(empty)'}${moodFragment}${contextualInfo}
 
 Generate a contextually informed question that:
 1. References specific facts, people, or patterns from the contextual information

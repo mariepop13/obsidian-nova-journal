@@ -31,17 +31,17 @@ Never add any text before or after the JSON.`;
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(200, this.settings.aiMaxTokens || 200),
+        maxTokens: Math.min(200, this.settings.aiMaxTokens ?? 200),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
-        fallbackModel: this.settings.aiFallbackModel || '',
+        fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
       const jsonText = response;
       try {
         const { validateAndParseJSON } = await import('../../utils/Sanitizer');
         const parsed = validateAndParseJSON<{ recommended_style?: string }>(jsonText, {});
-        const style = String(parsed?.recommended_style || '').toLowerCase();
+        const style = String(parsed?.recommended_style ?? '').toLowerCase();
         if (style === 'reflective' || style === 'gratitude' || style === 'planning' || style === 'dreams') {
           return style as PromptStyle;
         }

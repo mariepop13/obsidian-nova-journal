@@ -7,8 +7,8 @@ export class TemporalUtils {
     if (!dateMatch) return null;
 
     const datePart = dateMatch[1];
-    const hourPart = dateMatch[2] || TIME_CONSTANTS.DEFAULT_HOUR;
-    const minutePart = dateMatch[3] || TIME_CONSTANTS.DEFAULT_MINUTE;
+    const hourPart = dateMatch[2] ?? TIME_CONSTANTS.DEFAULT_HOUR;
+    const minutePart = dateMatch[3] ?? TIME_CONSTANTS.DEFAULT_MINUTE;
 
     const date = new Date(`${datePart}T${hourPart}:${minutePart}:${TIME_CONSTANTS.DEFAULT_SECOND}`);
     return isNaN(date.getTime()) ? null : date.getTime();

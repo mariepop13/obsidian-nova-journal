@@ -22,7 +22,7 @@ export class PromptRenderingService {
   static renderFinalPrompt(config: RenderConfig): string {
     const heading = config.addSectionHeading && config.sectionHeading ? `${config.sectionHeading}\n\n` : '';
 
-    const template = (config.promptTemplate || '').trim();
+    const template = (config.promptTemplate ?? '').trim();
     if (template.length > 0) {
       const rendered = this.renderTemplate(template, {
         prompt: config.basePrompt,
@@ -53,7 +53,7 @@ export class PromptRenderingService {
     });
 
     if (context.aiEnabled) {
-      const userLine = `**${context.userName || 'You'}** (you): `;
+      const userLine = `**${context.userName ?? 'You'}** (you): `;
       output = output.replace(TEMPLATE_PATTERNS.USER_LINE, userLine);
     } else {
       output = this.cleanNonAIContent(output);
