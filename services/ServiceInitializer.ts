@@ -48,20 +48,27 @@ export class ServiceInitializer {
 
     setTimeout(async () => {
       try {
-        const needsMigration = await migration.checkMigrationNeeded();
-        if (needsMigration) {
-          console.log('[NovaJournal] Migrating to enhanced embedding system...');
-          const success = await migration.migrateToEnhancedSystem();
-          if (success) {
-            await migration.cleanupLegacyIndex();
-          }
-        } else {
-          await enhancedEmb.incrementalUpdateIndex(this.settings.dailyNoteFolder);
-        }
+        await this.performEmbeddingMigrationOrUpdate(migration, enhancedEmb);
       } catch (error) {
         console.error('[NovaJournal] Embedding migration failed:', error);
       }
     }, 3000);
+  }
+
+  private async performEmbeddingMigrationOrUpdate(
+    migration: EmbeddingMigrationService,
+    enhancedEmb: EnhancedEmbeddingService
+  ): Promise<void> {
+    const needsMigration = await migration.checkMigrationNeeded();
+    if (needsMigration) {
+      console.log('[NovaJournal] Migrating to enhanced embedding system...');
+      const success = await migration.migrateToEnhancedSystem();
+      if (success) {
+        await migration.cleanupLegacyIndex();
+      }
+    } else {
+      await enhancedEmb.incrementalUpdateIndex(this.settings.dailyNoteFolder);
+    }
   }
 
   recreateServicesAfterSettingsChange(services: ServiceCollection): ServiceCollection {

@@ -203,6 +203,13 @@ async function createChatConfig(params: {
   };
 }
 
+async function applyBackoffDelayIfNeeded(attempt: number, maxTries: number): Promise<void> {
+  if (attempt < maxTries) {
+    const backoff = AI_LIMITS.BACKOFF_BASE_MS * Math.pow(2, attempt);
+    await new Promise(r => setTimeout(r, backoff));
+  }
+}
+
 async function executeChatWithRetry(
   config: APICallConfig,
   retryCount: number,
@@ -217,10 +224,7 @@ async function executeChatWithRetry(
       return await callOnce(config);
     } catch (e) {
       lastError = e as Error;
-      if (i < tries) {
-        const backoff = AI_LIMITS.BACKOFF_BASE_MS * Math.pow(2, i);
-        await new Promise(r => setTimeout(r, backoff));
-      }
+      await applyBackoffDelayIfNeeded(i, tries);
     }
   }
 
