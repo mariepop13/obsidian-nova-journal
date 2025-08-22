@@ -42,8 +42,7 @@ export class SettingsImportExportRenderer {
           .onClick(async () => {
             try {
               await this.settingsService.saveSettingsWithFilePicker(this.includeApiKeyInExport);
-            } catch (error) {
-              console.error('Export failed:', error);
+            } catch (_error) {
               ToastSpinnerService.error('Failed to export settings. Please try again.');
             }
           });
@@ -72,8 +71,7 @@ export class SettingsImportExportRenderer {
       }
       
       await this.attemptClipboardWrite(content);
-    } catch (error) {
-      console.error('Copy to clipboard failed:', error);
+    } catch (_error) {
       ToastSpinnerService.error('Failed to copy settings. Please try again.');
     }
   }
@@ -92,9 +90,8 @@ export class SettingsImportExportRenderer {
     try {
       await navigator.clipboard.writeText(content);
       ToastSpinnerService.notice('Settings copied to clipboard');
-    } catch (clipboardError) {
+    } catch (_clipboardError) {
       // Fallback for clipboard permission issues
-      console.warn('Clipboard write failed, showing fallback:', clipboardError);
       this.showCopyFallbackDialog(content);
     }
   }
@@ -136,8 +133,7 @@ export class SettingsImportExportRenderer {
     try {
       const result = await this.settingsService.loadSettingsFromFile();
       await this.processImportResult(result);
-    } catch (error) {
-      console.error('File import failed:', error);
+    } catch (_error) {
       ToastSpinnerService.error('Failed to import settings. Please try again.');
     }
   }
@@ -161,8 +157,7 @@ export class SettingsImportExportRenderer {
       
       const result = await this.settingsService.importSettings(data);
       await this.processImportResult(result);
-    } catch (error) {
-      console.error('Clipboard import failed:', error);
+    } catch (_error) {
       ToastSpinnerService.error('Failed to import from clipboard. Please check the format.');
     }
   }
@@ -170,7 +165,7 @@ export class SettingsImportExportRenderer {
   private async getClipboardText(): Promise<string | null> {
     try {
       return await navigator.clipboard.readText();
-    } catch (permissionError) {
+    } catch (_permissionError) {
       // Fallback for clipboard permission issues
       const fallbackText = await this.showClipboardFallbackDialog();
       return fallbackText;
@@ -180,7 +175,7 @@ export class SettingsImportExportRenderer {
   private async parseClipboardJson(clipboardText: string): Promise<any | null> {
     try {
       return JSON.parse(clipboardText);
-    } catch (parseError) {
+    } catch (_parseError) {
       ToastSpinnerService.error('Invalid JSON format in clipboard.');
       return null;
     }
@@ -352,8 +347,7 @@ export class SettingsImportExportRenderer {
               try {
                 await this.settingsService.resetToDefaults();
                 this.refreshCallback();
-              } catch (error) {
-                console.error('Settings reset failed:', error);
+              } catch (_error) {
                 ToastSpinnerService.error('Failed to reset settings. Please try again.');
               }
             }

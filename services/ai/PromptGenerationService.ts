@@ -19,11 +19,6 @@ export class PromptGenerationService {
     try {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.warn(
-        '[PromptGenerationService] Enhanced service initialization failed, using legacy mode:',
-        errorMessage
-      );
       this.enhancedService = null;
     }
   }
@@ -43,15 +38,21 @@ export class PromptGenerationService {
         }
 
         if (mood?.tags && mood.tags.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-          return await this.enhancedService.generateThematicPrompt(style, noteText, mood.tags);
+          return await this.enhancedService.generateThematicPrompt({ style, noteText, themes: mood.tags });
         }
 
         if (ragContext && ragContext.trim().length > SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-          return await this.enhancedService.generateContextualPromptWithRag(style, noteText, mood, ragContext, {
-            prioritizeRecent: true,
-            includeEmotionalContext: true,
-            includeThematicContext: true,
-            maxContextChunks: EMBEDDING_CONFIG.TOP_K_DEFAULT,
+          return await this.enhancedService.generateContextualPromptWithRag({
+            style,
+            noteText,
+            mood,
+            ragContext,
+            options: {
+              prioritizeRecent: true,
+              includeEmotionalContext: true,
+              includeThematicContext: true,
+              maxContextChunks: EMBEDDING_CONFIG.TOP_K_DEFAULT,
+            },
           });
         }
         return await this.enhancedService.generateContextualPrompt(style, noteText, mood, {
@@ -63,8 +64,6 @@ export class PromptGenerationService {
       }
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[PromptGenerationService] Enhanced generation failed, falling back to legacy:', errorMessage);
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
     }
   }
@@ -152,11 +151,6 @@ Styles:
 
       return this.buildRagContextFromResults(top);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('[PromptGenerationService] RAG fetch failed:', errorMessage);
-      if (this.settings.aiDebug) {
-
-      }
       return '';
     }
   }
@@ -201,17 +195,12 @@ Generate a question that:
 
       const text = (response ?? '').trim();
       if (!text) {
-        if (this.settings.aiDebug) {
-
-        }
         return null;
       }
 
       const cleaned = text.replace(/^"|"$/g, '').trim();
       return cleaned ?? null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[PromptGenerationService] AI generation failed:', errorMessage);
       return null;
     }
   }

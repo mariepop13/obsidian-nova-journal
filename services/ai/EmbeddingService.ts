@@ -172,7 +172,6 @@ export class EmbeddingService {
       });
       return Array.isArray(resp?.embeddings) ? resp.embeddings : [];
     } catch (err) {
-      console.error('[EmbeddingService] embed() failed', err);
       return [];
     }
   }

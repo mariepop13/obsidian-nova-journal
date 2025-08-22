@@ -51,8 +51,7 @@ export class PromptInsertionService {
       }
 
       return this.performPromptInsertion(editor, basePrompt, contextData.date, location);
-    } catch (error) {
-      console.error('Nova Journal: prompt insertion error', error);
+    } catch (_error) {
       ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
@@ -104,8 +103,7 @@ export class PromptInsertionService {
         : this.ragContextService.getRecentContext(style);
 
       return await Promise.race([ragPromise, new Promise<string>(res => setTimeout(() => res(''), 2000))]);
-    } catch (err) {
-      console.warn('[PromptInsertionService] RAG retrieval failed, proceeding without context');
+    } catch (_err) {
       return '';
     }
   }

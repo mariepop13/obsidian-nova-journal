@@ -24,8 +24,6 @@ export class RagContextService {
       const appRef = this.app ?? (window as any)?.app;
       if (appRef) {
         this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
-      } else {
-        console.warn('[RagContextService] No app reference available for embedding service');
       }
     }
     return this.embeddingService;
@@ -34,12 +32,8 @@ export class RagContextService {
   async getRagContext(userText: string, editor?: Editor, targetLine?: number): Promise<string> {
     const embeddingService = this.getEmbeddingService();
 
-    if (this.debug) {
-
-    }
 
     if (!embeddingService) {
-      console.warn('[RagContextService] Embedding service not available, returning empty context');
       return '';
     }
 
@@ -91,12 +85,6 @@ export class RagContextService {
 
       return contextText;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[RagContextService] Failed to get RAG context:', errorMessage, error);
-
-      if (this.debug) {
-        console.log('[RagContextService] Debug - Error occurred during RAG retrieval, context will be empty');
-      }
 
       return '';
     }
@@ -148,9 +136,6 @@ export class RagContextService {
       return daysDiff <= TIME_CONSTANTS.VERY_RECENT_DAYS_LIMIT;
     });
 
-    if (allRecent && this.debug) {
-      console.log('[RagContextService] Debug - All results are very recent, trying broader search');
-    }
 
     const expandedSearchTerms = this.extractExpandedSearchTerms(searchText, contextChunks);
     if (expandedSearchTerms.length > 0 || allRecent) {
@@ -170,10 +155,6 @@ export class RagContextService {
 
       contextChunks = combinedChunks.slice(0, CONTEXT_LIMITS.COMBINED_CHUNKS_MAX);
 
-      if (this.debug) {
-        console.log('[RagContextService] Debug - expanded search with terms:', expandedSearchTerms);
-        console.log('[RagContextService] Debug - total contextChunks after expansion:', contextChunks.length);
-      }
     }
 
     return contextChunks;
@@ -216,20 +197,6 @@ export class RagContextService {
       return text.includes(searchLower) && text.length > CONTEXT_LIMITS.MIN_CONTENT_LENGTH_RAG;
     });
 
-    if (this.debug) {
-      console.log(
-        '[RagContextService] Debug - Recent chunks:',
-        recentChunks.length,
-        'with substance:',
-        recentHasSubstance
-      );
-      console.log(
-        '[RagContextService] Debug - Historical chunks:',
-        historicalChunks.length,
-        'with substance:',
-        historicalHasSubstance
-      );
-    }
 
     if (historicalHasSubstance && !recentHasSubstance) {
       return [...historicalChunks, ...recentChunks];
@@ -386,12 +353,8 @@ export class RagContextService {
   async getRecentContext(style: string): Promise<string> {
     const embeddingService = this.getEmbeddingService();
 
-    if (this.debug) {
-      console.log('[RagContextService] Getting recent context for style:', style);
-    }
 
     if (!embeddingService) {
-      console.warn('[RagContextService] Embedding service not available for recent context');
       return '';
     }
 
@@ -416,9 +379,6 @@ export class RagContextService {
 
       contextChunks = this.prioritizeBySubstance(contextChunks);
 
-      if (this.debug) {
-        console.log('[RagContextService] Final context chunks:', contextChunks.length);
-      }
 
       if (contextChunks.length === 0) return '';
 
@@ -439,8 +399,6 @@ export class RagContextService {
 
       return contextText;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[RagContextService] Failed to get recent context:', errorMessage);
       return '';
     }
   }

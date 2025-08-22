@@ -10,6 +10,7 @@ import {
 } from '../settings/PluginSettings';
 import { ToastSpinnerService } from './editor/ToastSpinnerService';
 import { FILE_LIMITS, TIMING_CONFIG } from './shared/Constants';
+import { logger } from './shared/LoggingService';
 
 export class SettingsService {
   constructor(
@@ -160,7 +161,7 @@ export class SettingsService {
 
       return await this.parseFileContent(content);
     } catch (error) {
-      console.error('Settings import failed:', error);
+      logger.error(`Failed to read settings file: ${error.message}`, 'SettingsService');
       return {
         success: false,
         errors: ['Failed to read file. Please try again.'],
@@ -187,7 +188,8 @@ export class SettingsService {
       await this.plugin.saveSettings();
 
       return { success: true };
-    } catch {
+    } catch (error) {
+      logger.error(`Failed to parse settings file content: ${error.message}`, 'SettingsService');
       return {
         success: false,
         errors: ['Invalid JSON format. Please check your file.'],

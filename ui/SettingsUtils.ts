@@ -16,8 +16,7 @@ export class SettingsUtils {
       if (shouldRefresh && refreshCallback) {
         refreshCallback();
       }
-    } catch (error) {
-      console.error('Nova Journal settings error:', error);
+    } catch (_error) {
       ToastSpinnerService.error(errorMessage);
     }
   }

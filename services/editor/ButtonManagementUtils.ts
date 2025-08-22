@@ -65,7 +65,7 @@ function createButtonMarkup(label: string, settings?: any): string {
       config.scope = 'note';
       const markup = ButtonCustomizationService.generateButtonMarkup(config);
       if (typeof markup === 'string' && markup.length) return markup;
-    } catch (e) {
+    } catch (_e) {
       // Fallback to default markup
     }
   }

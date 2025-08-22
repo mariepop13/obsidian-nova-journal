@@ -16,8 +16,8 @@ export function registerDeepenHandlers(
         const label = btn.textContent ?? getLabel();
         const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
         const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-        if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
-        else deepenLine(parsed as number).catch(console.error);
+        if (scope === 'note' || !hasValidLine) deepenNote(label).catch(() => {});
+        else deepenLine(parsed as number).catch(() => {});
       });
     });
 
@@ -25,7 +25,7 @@ export function registerDeepenHandlers(
       el.querySelectorAll('button.nova-mood-analyze').forEach(btn => {
         btn.addEventListener('click', evt => {
           evt.preventDefault();
-          analyzeMood().catch(console.error);
+          analyzeMood().catch(() => {});
         });
       });
     }
@@ -43,11 +43,11 @@ export function registerDeepenHandlers(
       const lineAttr = deepenBtn.getAttribute('data-line');
       const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
       const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-      if (scope === 'note' || !hasValidLine) deepenNote(label).catch(console.error);
-      else deepenLine(parsed as number).catch(console.error);
+      if (scope === 'note' || !hasValidLine) deepenNote(label).catch(() => {});
+      else deepenLine(parsed as number).catch(() => {});
     } else if (moodBtn && analyzeMood) {
       evt.preventDefault();
-      analyzeMood().catch(console.error);
+      analyzeMood().catch(() => {});
     }
   });
 }

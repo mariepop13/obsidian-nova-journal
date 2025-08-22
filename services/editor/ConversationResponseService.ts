@@ -68,7 +68,7 @@ export class ConversationResponseService {
   }
 
   private static async insertResponseWithTypewriter(config: ResponseInsertionConfig, line: number): Promise<void> {
-    await typewriterInsert(config.editor, line, this.NOVA_PREFIX, config.response, config.typewriterSpeed);
+    await typewriterInsert({ editor: config.editor, line, prefix: this.NOVA_PREFIX, text: config.response, speed: config.typewriterSpeed });
   }
 
   private static finalizeConversation(config: ResponseInsertionConfig, label?: string): void {
