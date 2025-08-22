@@ -10,7 +10,7 @@ export interface MoodData {
 }
 
 export class FrontmatterService {
-  static normalizeMoodProps(input: Record<string, any>, userName: string): MoodData {
+  static normalizeMoodProps(input: Record<string, unknown>, userName: string): MoodData {
     const moodEmoji = this.extractMoodEmoji(input);
     const sentiment = this.extractSentiment(input);
     const dominantEmotions = this.extractStringArray(input.dominant_emotions).slice(0, MOOD_LIMITS.DOMINANT_EMOTIONS);
@@ -32,7 +32,7 @@ export class FrontmatterService {
     const bounds = this.findFrontmatterBounds(lines);
     if (!this.hasFrontmatter(bounds)) return undefined;
 
-    const data: Partial<MoodData> = {};
+    const data: Partial<MoodData> & Record<string, string[]> = {};
     for (let i = bounds.start + 1; i < bounds.end; i += 1) {
       const line = lines[i];
       const match = /^([\w_]+)\s*:\s*\[(.*)\]\s*$/.exec(line.trim());
@@ -48,19 +48,19 @@ export class FrontmatterService {
       if (items.length === 0) continue;
       switch (key) {
         case 'mood_emoji':
-          (data as any).mood_emoji = items;
+          data.mood_emoji = items;
           break;
         case 'sentiment':
-          (data as any).sentiment = items;
+          data.sentiment = items;
           break;
         case 'dominant_emotions':
-          (data as any).dominant_emotions = items;
+          data.dominant_emotions = items;
           break;
         case 'tags':
-          (data as any).tags = items;
+          data.tags = items;
           break;
         case 'people_present':
-          (data as any).people_present = items;
+          data.people_present = items;
           break;
         default:
           break;
@@ -83,13 +83,14 @@ export class FrontmatterService {
     }
   }
 
-  private static extractMoodEmoji(input: Record<string, any>): string {
+  private static extractMoodEmoji(input: Record<string, unknown>): string {
     const emoji = input?.mood_emoji;
     return typeof emoji === 'string' && emoji.trim().length > 0 ? emoji.trim() : '😐';
   }
 
-  private static extractSentiment(input: Record<string, any>): string {
-    const sentiment = (input?.sentiment ?? '').toLowerCase();
+  private static extractSentiment(input: Record<string, unknown>): string {
+    const sentimentValue = input?.sentiment;
+    const sentiment = (typeof sentimentValue === 'string' ? sentimentValue : '').toLowerCase();
     return VALID_SENTIMENTS.includes(sentiment as (typeof VALID_SENTIMENTS)[number]) ? sentiment : 'neutral';
   }
 
@@ -100,7 +101,7 @@ export class FrontmatterService {
       .map((item: string) => item.toLowerCase());
   }
 
-  private static extractPeoplePresent(input: Record<string, any>, userName: string): string[] {
+  private static extractPeoplePresent(input: Record<string, unknown>, userName: string): string[] {
     const peopleRaw = this.extractStringArray(input.people_present);
     const excludeNames = new Set([...EXCLUDED_NAMES, (userName ?? 'you').toLowerCase()]);
     return peopleRaw.filter(person => !excludeNames.has(person));
