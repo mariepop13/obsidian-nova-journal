@@ -1,4 +1,5 @@
 import { sanitizeForLogging } from '../utils/Sanitizer';
+import { API_CONFIG } from '../services/shared/Constants';
 
 type EmbedArgs = {
   apiKey: string;
@@ -9,6 +10,26 @@ type EmbedArgs = {
 type EmbeddingResponse = {
   embeddings: number[][];
 };
+
+interface EmbeddingPayload {
+  model: string;
+  input: string[];
+  encoding_format: string;
+}
+
+interface EmbeddingData {
+  embedding?: number[];
+  index?: number;
+}
+
+interface OpenAIEmbeddingResponse {
+  data?: EmbeddingData[];
+  model?: string;
+  usage?: {
+    prompt_tokens?: number;
+    total_tokens?: number;
+  };
+}
 
 export async function embed({
   apiKey,
@@ -27,7 +48,7 @@ export async function embed({
 }
 
 function validateApiKey(apiKey: string): void {
-  if (!apiKey || !apiKey.startsWith('sk-')) {
+  if (!apiKey?.startsWith('sk-')) {
     throw new Error('Invalid OpenAI API key');
   }
 }
@@ -45,7 +66,7 @@ function validateAndFilterInputs(inputs: string[]): string[] | null {
   return filteredInputs;
 }
 
-function createEmbeddingPayload(model: string, filteredInputs: string[]) {
+function createEmbeddingPayload(model: string, filteredInputs: string[]): EmbeddingPayload {
   const payload = {
     model,
     input: filteredInputs,
@@ -62,15 +83,15 @@ function createEmbeddingPayload(model: string, filteredInputs: string[]) {
   return payload;
 }
 
-function validateRequestSize(payload: any): void {
+function validateRequestSize(payload: EmbeddingPayload): void {
   const requestSize = JSON.stringify(payload).length;
-  if (requestSize > 2000000) {
+  if (requestSize > API_CONFIG.MAX_REQUEST_SIZE_BYTES) {
     throw new Error(`Request too large: ${requestSize} bytes (max ~2MB). Reduce chunk count or size.`);
   }
 }
 
-async function makeEmbeddingRequest(apiKey: string, payload: any): Promise<Response> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
+async function makeEmbeddingRequest(apiKey: string, payload: EmbeddingPayload): Promise<Response> {
+  const response = await fetch(API_CONFIG.OPENAI_EMBEDDINGS_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -86,16 +107,16 @@ async function makeEmbeddingRequest(apiKey: string, payload: any): Promise<Respo
   return response;
 }
 
-async function handleApiError(res: Response, payload: any): Promise<never> {
+async function handleApiError(res: Response, payload: EmbeddingPayload): Promise<never> {
   const errorText = await res.text().catch(() => '');
   console.error(`[Embedding Debug] API Error ${res.status}:`, sanitizeForLogging(errorText));
   console.error(`[Embedding Debug] Request payload size: ${JSON.stringify(payload).length} bytes`);
 
-  if (res.status === 401) {
+  if (res.status === API_CONFIG.HTTP_UNAUTHORIZED) {
     throw new Error('Embedding API authentication failed');
-  } else if (res.status === 429) {
+  } else if (res.status === API_CONFIG.HTTP_RATE_LIMIT) {
     throw new Error('Embedding API rate limit exceeded');
-  } else if (res.status >= 500) {
+  } else if (res.status >= API_CONFIG.HTTP_SERVER_ERROR) {
     throw new Error('Embedding API server error');
   } else {
     throw new Error(`Embedding API error ${res.status}`);
@@ -103,7 +124,7 @@ async function handleApiError(res: Response, payload: any): Promise<never> {
 }
 
 async function parseEmbeddingResponse(response: Response): Promise<EmbeddingResponse> {
-  let json: any;
+  let json: OpenAIEmbeddingResponse;
   try {
     json = await response.json();
   } catch (e) {
@@ -112,8 +133,8 @@ async function parseEmbeddingResponse(response: Response): Promise<EmbeddingResp
   
   const data = Array.isArray(json?.data) ? json.data : [];
   const vectors = data
-    .map((d: any) => (Array.isArray(d?.embedding) ? (d.embedding as number[]) : undefined))
-    .filter((v: any): v is number[] => Array.isArray(v));
+    .map((d: EmbeddingData) => (Array.isArray(d?.embedding) ? d.embedding : undefined))
+    .filter((v: number[] | undefined): v is number[] => Array.isArray(v));
   console.log(`[Embedding Debug] Success: ${vectors.length} embeddings received`);
   return { embeddings: vectors };
 }

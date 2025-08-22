@@ -1,4 +1,4 @@
-import { App, Editor } from 'obsidian';
+import { Editor } from 'obsidian';
 import { chat } from '../../ai/AiClient';
 import type { ButtonPosition, ButtonStyle, NovaJournalSettings } from '../../settings/PluginSettings';
 import { getDeepenSource } from '../editor/NoteEditor';
@@ -117,7 +117,7 @@ export class ConversationService {
     let buttonLine = this.responseInsertionService.findExistingButton(editor, line);
 
     if (buttonLine === null) {
-      buttonLine = this.responseInsertionService.createNewButton(editor, line);
+      buttonLine = this.responseInsertionService.createNewButton(editor);
     }
 
     const aiResponse = await this.callAI(text, undefined, editor, line);
