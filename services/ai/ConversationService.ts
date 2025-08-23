@@ -188,7 +188,7 @@ Respond by first acknowledging the specific context above, then continue with yo
         model: this.context.model,
         systemPrompt: enhancedSystemPrompt,
         userText: enhancedUserText,
-        maxTokens: maxTokens,
+        maxTokens,
         debug: this.context.debug,
         retryCount: this.context.retryCount,
         fallbackModel: this.context.fallbackModel,

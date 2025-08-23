@@ -26,7 +26,7 @@ export function insertAtLocation(
 }
 
 function ensureTrailingNewline(text: string): string {
-  return text.endsWith('\n') ? text : text + '\n';
+  return text.endsWith('\n') ? text : `${text  }\n`;
 }
 
 function insertAtTop(editor: Editor, block: string): void {

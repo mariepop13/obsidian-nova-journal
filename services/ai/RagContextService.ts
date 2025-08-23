@@ -1,5 +1,5 @@
 import { App, Editor } from 'obsidian';
-import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type EnhancedIndexedChunk, type SearchOptions } from './EnhancedEmbeddingService';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import {
   CONTEXT_LIMITS,

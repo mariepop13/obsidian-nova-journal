@@ -4,10 +4,10 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { App } from 'obsidian';
 import { ToastSpinnerService } from '../editor/ToastSpinnerService';
 import {
-  TIME_CONSTANTS,
   CONTENT_LIMITS,
   MOOD_LIMITS,
   PARSING_CONSTANTS,
+  TIME_CONSTANTS,
 } from '../shared/Constants';
 export interface FrontmatterData {
   [key: string]: string | number | string[] | undefined;
@@ -203,7 +203,7 @@ ${meaningfulContent}`;
       .replace(/\n+/g, ' ')
       .trim();
 
-    return cleanContent.length > maxLength ? cleanContent.substring(0, maxLength) + '...' : cleanContent;
+    return cleanContent.length > maxLength ? `${cleanContent.substring(0, maxLength)  }...` : cleanContent;
   }
 
   private async generateMoodInsights(history: MoodHistoryEntry[]): Promise<string> {

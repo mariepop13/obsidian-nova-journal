@@ -3,7 +3,7 @@ import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
-import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type EnhancedIndexedChunk, type SearchOptions } from './EnhancedEmbeddingService';
 
 interface WindowWithObsidianApp extends Window {
   app?: App;

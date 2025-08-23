@@ -102,7 +102,7 @@ export class EmbeddingService {
   private getMarkdownFilesInFolder(folder: string): TFile[] {
     const files: TFile[] = [];
     const targetFolder = folder ?? 'Journal';
-    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
+    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : `${targetFolder  }/`;
 
     const all = this.app.vault.getFiles();
     for (const f of all) {

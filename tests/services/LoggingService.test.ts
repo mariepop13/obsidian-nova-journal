@@ -1,4 +1,4 @@
-import { LoggingService, LogLevel } from '../../services/shared/LoggingService';
+import { LogLevel, LoggingService } from '../../services/shared/LoggingService';
 
 // Mock console methods to capture logs
 const mockConsole = {
@@ -222,7 +222,7 @@ describe('LoggingService', () => {
       const specialMessage = 'Message with 🚀 emoji and \n newlines';
       service.info(specialMessage);
       expect(mockConsole.info).toHaveBeenCalledWith(
-        expect.stringContaining('INFO: ' + specialMessage)
+        expect.stringContaining(`INFO: ${  specialMessage}`)
       );
     });
 

@@ -8,8 +8,8 @@ import { VectorUtils } from './VectorUtils';
 import { ContextualSearchEngine } from './ContextualSearchEngine';
 import {
   EMBEDDING_CONFIG,
-  TIME_CONSTANTS,
   SEARCH_CONSTANTS,
+  TIME_CONSTANTS,
 } from '../shared/Constants';
 
 export type ContextType = 'emotional' | 'temporal' | 'thematic' | 'general';
@@ -292,7 +292,7 @@ export class EnhancedEmbeddingService {
   private getMarkdownFilesInFolder(folder: string): TFile[] {
     const files: TFile[] = [];
     const targetFolder = folder ?? 'Journal';
-    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
+    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : `${targetFolder  }/`;
 
     const all = this.app.vault.getFiles();
     for (const f of all) {

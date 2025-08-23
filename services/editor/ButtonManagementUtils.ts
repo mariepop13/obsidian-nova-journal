@@ -1,6 +1,6 @@
 import { Editor, EditorPosition } from 'obsidian';
 import { ButtonCustomizationService } from './ButtonCustomizationService';
-import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
+import type { ButtonPosition, ButtonStyle, NovaJournalSettings } from '../../settings/PluginSettings';
 import { isDeepenButtonMarkup, isMoodAnalyzeButtonMarkup } from './ContentDetectionUtils';
 import { deleteRangesInReverse } from './ContentCleanupUtils';
 

@@ -1,5 +1,5 @@
 import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
-import { HASH_CONSTANTS, EMBEDDING_CONFIG } from '../shared/Constants';
+import { EMBEDDING_CONFIG, HASH_CONSTANTS } from '../shared/Constants';
 
 export class VectorUtils {
   static cosineSimilarity(a: number[], b: number[]): number {

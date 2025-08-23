@@ -1,7 +1,7 @@
 import { Editor } from 'obsidian';
 import { PromptService } from '../../prompt/PromptService';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
-import type { EnhancedInsertionLocation, NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
+import type { ButtonPosition, ButtonStyle, EnhancedInsertionLocation, NovaJournalSettings } from '../../settings/PluginSettings';
 import { ensureBottomButtons, insertAtLocation, removeDateHeadingInEditor } from './NoteEditor';
 import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
 import { FrontmatterService, type MoodData } from '../rendering/FrontmatterService';

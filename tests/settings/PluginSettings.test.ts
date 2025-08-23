@@ -268,7 +268,7 @@ describe('PluginSettings', () => {
     test('normalizeSettings with complex invalid input', () => {
       const maliciousInput = {
         promptTemplate: '<script>window.location="http://evil.com"</script>{{prompt}}',
-        aiSystemPrompt: 'javascript:void(0)' + 'a'.repeat(3000),
+        aiSystemPrompt: `javascript:void(0)${  'a'.repeat(3000)}`,
         aiMaxTokens: -999999,
         aiRetryCount: 999999,
         typewriterSpeed: 'ultra-fast' as any,

@@ -122,7 +122,7 @@ export class ToastSpinnerService {
 
   private static updateState(id: string, state: LoadingState): void {
     const toast = this.activeToasts.get(id);
-    if (toast && toast.spinner) {
+    if (toast?.spinner) {
       LoadingSpinnerService.updateState(toast.spinner.id, state);
       toast.config.state = state;
     }

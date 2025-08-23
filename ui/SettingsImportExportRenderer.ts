@@ -1,7 +1,7 @@
 import { ButtonComponent, Setting } from 'obsidian';
 import type NovaJournalPlugin from '../main';
 import { SettingsService } from '../services/SettingsService';
-import type { SettingsExportOptions, SettingsImportResult, SettingsExportData } from '../settings/PluginSettings';
+import type { SettingsExportData, SettingsExportOptions, SettingsImportResult } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 import { FILE_LIMITS, UI_CONSTANTS } from '../services/shared/Constants';
 
@@ -321,7 +321,7 @@ export class SettingsImportExportRenderer {
     };
     
     closeBtn.onclick = cleanup;
-    modal.onclick = (e) => {
+    modal.onclick = (e: MouseEvent): void => {
       if (e.target === modal) {
         cleanup();
       }
