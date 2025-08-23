@@ -97,12 +97,6 @@ function buildPayload(config: APICallConfig): ChatCompletionPayload {
   return payload;
 }
 
-interface ObsidianRequestResponse {
-  status: number;
-  text?: string;
-  json?: unknown;
-}
-
 interface ResponseLike {
   ok: boolean;
   status: number;
@@ -154,30 +148,35 @@ function createTextMethod(res: unknown): () => Promise<string> {
   };
 }
 
+function createRequestHeaders(apiKey: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'User-Agent': API_CONFIG.USER_AGENT,
+  };
+}
+
+function createResponseLike(res: ObsidianRequestResponse): ResponseLike {
+  return {
+    ok: (typeof res.status === 'number') && res.status >= HTTP_STATUS.OK_MIN && res.status < HTTP_STATUS.OK_MAX,
+    status: typeof res.status === 'number' ? res.status : 0,
+    statusText: String(res.status ?? ''),
+    json: createJsonMethod(res),
+    text: createTextMethod(res),
+  };
+}
+
 async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Promise<ResponseLike> {
   try {
     const res = await requestUrl({
       url: API_CONFIG.OPENAI_CHAT_URL,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'User-Agent': API_CONFIG.USER_AGENT,
-      },
+      headers: createRequestHeaders(apiKey),
       body: JSON.stringify(payload),
     });
 
-    const responseLike: ResponseLike = {
-      ok: (typeof res.status === 'number') && res.status >= HTTP_STATUS.OK_MIN && res.status < HTTP_STATUS.OK_MAX,
-      status: typeof res.status === 'number' ? res.status : 0,
-      statusText: String(res.status ?? ''),
-      json: createJsonMethod(res),
-      text: createTextMethod(res),
-    };
-
-    return responseLike;
+    return createResponseLike(res);
   } catch (err) {
-    // Normalize network-level failures into a ResponseLike-like error to be handled upstream
     throw new Error(`Network request failed: ${String(err)}`);
   }
 }
@@ -254,32 +253,27 @@ class RateLimiter {
   }
 }
 
-export async function chat({
-  apiKey,
-  model,
-  systemPrompt,
-  userText,
-  maxTokens = AI_LIMITS.DEFAULT_TOKENS,
-  debug = false,
-  retryCount = 0,
-  fallbackModel = '',
-}: ChatArgs): Promise<string> {
+function validateChatRequest(apiKey: string): void {
   validateApiKey(apiKey);
   
   if (!RateLimiter.checkRateLimit(apiKey)) {
     throw new Error('Rate limit exceeded. Please wait before making more requests');
   }
+}
+
+export async function chat(args: ChatArgs): Promise<string> {
+  validateChatRequest(args.apiKey);
 
   const config = await createChatConfig({
-    apiKey,
-    model: model ?? 'gpt-5-mini',
-    systemPrompt,
-    userText,
-    maxTokens,
-    debug,
+    apiKey: args.apiKey,
+    model: args.model ?? 'gpt-5-mini',
+    systemPrompt: args.systemPrompt,
+    userText: args.userText,
+    maxTokens: args.maxTokens ?? AI_LIMITS.DEFAULT_TOKENS,
+    debug: args.debug ?? false,
   });
 
-  return await executeChatWithRetry(config, retryCount, fallbackModel);
+  return await executeChatWithRetry(config, args.retryCount ?? 0, args.fallbackModel ?? '');
 }
 
 function validateApiKey(apiKey: string): void {
