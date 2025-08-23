@@ -2,8 +2,6 @@ import {
   ALLOWED_DATE_FORMATS,
   DEFAULT_SETTINGS,
   DateFormatter,
-  type NovaJournalSettings,
-  type PromptPreset,
   RETRY_LIMITS,
   SettingsValidator,
   TOKEN_LIMITS,

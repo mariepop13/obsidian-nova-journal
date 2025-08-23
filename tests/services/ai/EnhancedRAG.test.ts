@@ -1,4 +1,4 @@
-import { type ContextType, EnhancedEmbeddingService } from '../../../services/ai/EnhancedEmbeddingService';
+import { type ContextType } from '../../../services/ai/EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPromptGenerationService';
 import { ContextAnalyzer } from '../../../services/ai/ContextAnalyzer';
 import { VectorUtils } from '../../../services/ai/VectorUtils';
@@ -44,16 +44,10 @@ const createMockSettings = (): MockSettings => ({
 });
 
 describe('EnhancedEmbeddingService', () => {
-  let service: EnhancedEmbeddingService;
-  let mockApp: MockApp;
-  let mockSettings: MockSettings;
   let contextAnalyzer: ContextAnalyzer;
 
   beforeEach(() => {
     contextAnalyzer = new ContextAnalyzer();
-    mockApp = createMockApp();
-    mockSettings = createMockSettings();
-    service = new EnhancedEmbeddingService(mockApp as any, mockSettings as any);
 
     Object.defineProperty(global, 'localStorage', {
       value: {
@@ -183,10 +177,8 @@ describe('EnhancedPromptGenerationService', () => {
 });
 
 describe('Context Type Classification', () => {
-  let service: EnhancedEmbeddingService;
-
   beforeEach(() => {
-    service = new EnhancedEmbeddingService(createMockApp() as any, createMockSettings() as any);
+    // Setup is not needed for these classification tests
   });
 
   const testCases: Array<{ text: string; expected: ContextType }> = [
