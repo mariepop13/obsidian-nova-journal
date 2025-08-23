@@ -79,7 +79,7 @@ export class EnhancedEmbeddingService {
         return;
       }
 
-      await this.processUpdates(changeResult);
+      await this.handleChanges(changeResult);
       await this.finalizeIndexUpdate();
     } catch {
       await this.fullRebuild(folder);
@@ -154,67 +154,81 @@ export class EnhancedEmbeddingService {
     try {
       this.removeChunksForFiles([file.path]);
 
-      const content = await this.app.vault.read(file);
-      const fileHash = await this.computeFileHash(file);
+      const { content, fileHash } = await this.prepareFileData(file);
+      const embeddings = await this.generateEmbeddings(content, file);
 
-      const chunks = this.createEnhancedChunks(content, file);
-      const texts = chunks.map(c => c.text);
-
-      if (texts.length === 0) {
+      if (!embeddings) {
         this.index!.fileHashes[file.path] = fileHash;
         return;
       }
 
-      const { embeddings } = await embed({
-        apiKey: this.settings.aiApiKey,
-        inputs: texts.slice(0, this.maxChunksPerBatch),
-      });
-
-      if (!embeddings || embeddings.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
-        this.index!.fileHashes[file.path] = fileHash;
-        return;
-      }
-
-      for (let i = 0; i < Math.min(chunks.length, embeddings.length); i++) {
-        const vector = embeddings[i];
-        if (!Array.isArray(vector) || vector.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) continue;
-
-        this.index!.items.push({
-          ...chunks[i],
-          vector,
-        });
-      }
-
+      this.addEmbeddingsToIndex(content, file, embeddings);
       this.index!.fileHashes[file.path] = fileHash;
     } catch {
+    }
+  }
+
+  private async prepareFileData(file: TFile): Promise<{ content: string; fileHash: string }> {
+    const content = await this.app.vault.read(file);
+    const fileHash = await this.computeFileHash(file);
+    return { content, fileHash };
+  }
+
+  private async generateEmbeddings(content: string, file: TFile): Promise<number[][] | null> {
+    const chunks = this.createEnhancedChunks(content, file);
+    const texts = chunks.map(c => c.text);
+
+    if (texts.length === 0) return null;
+
+    const { embeddings } = await embed({
+      apiKey: this.settings.aiApiKey,
+      inputs: texts.slice(0, this.maxChunksPerBatch),
+    });
+
+    return embeddings && embeddings.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX ? embeddings : null;
+  }
+
+  private addEmbeddingsToIndex(content: string, file: TFile, embeddings: number[][]): void {
+    const chunks = this.createEnhancedChunks(content, file);
+
+    for (let i = 0; i < Math.min(chunks.length, embeddings.length); i++) {
+      const vector = embeddings[i];
+      if (!Array.isArray(vector) || vector.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) continue;
+
+      this.index!.items.push({
+        ...chunks[i],
+        vector,
+      });
     }
   }
 
   private createEnhancedChunks(content: string, file: TFile): Omit<EnhancedIndexedChunk, 'vector'>[] {
     const fileDate = TemporalUtils.extractDateFromFilename(file.name) ?? Date.now();
     const chunks: Omit<EnhancedIndexedChunk, 'vector'>[] = [];
-
     const textChunks = VectorUtils.splitIntoChunks(content);
 
     for (const text of textChunks) {
       if (text.trim().length < EMBEDDING_CONFIG.DEFAULT_OVERLAP) continue;
 
-      const chunk: Omit<EnhancedIndexedChunk, 'vector'> = {
-        path: file.path,
-        date: fileDate,
-        lastModified: fileDate,
-        text: text.trim(),
-        contextType: this.contextAnalyzer.determineContextType(text),
-        emotionalTags: this.contextAnalyzer.extractEmotionalTags(text),
-        thematicTags: this.contextAnalyzer.extractThematicTags(text),
-        temporalMarkers: this.contextAnalyzer.extractTemporalMarkers(text),
-        hash: VectorUtils.hashString(text),
-      };
-
+      const chunk = this.createEnhancedChunk(text, file, fileDate);
       chunks.push(chunk);
     }
 
     return chunks;
+  }
+
+  private createEnhancedChunk(text: string, file: TFile, fileDate: number): Omit<EnhancedIndexedChunk, 'vector'> {
+    return {
+      path: file.path,
+      date: fileDate,
+      lastModified: fileDate,
+      text: text.trim(),
+      contextType: this.contextAnalyzer.determineContextType(text),
+      emotionalTags: this.contextAnalyzer.extractEmotionalTags(text),
+      thematicTags: this.contextAnalyzer.extractThematicTags(text),
+      temporalMarkers: this.contextAnalyzer.extractTemporalMarkers(text),
+      hash: VectorUtils.hashString(text),
+    };
   }
 
   private removeChunksForFiles(filePaths: string[]): void {
@@ -233,21 +247,26 @@ export class EnhancedEmbeddingService {
     filesToRemove: string[];
   }> {
     const files = this.getMarkdownFilesInFolder(folder);
-
     const cutoff = Date.now() - this.maxDays * TIME_CONSTANTS.MS_PER_DAY;
 
+    const filesToUpdate = await this.findFilesToUpdate(files, cutoff);
+    const filesToRemove = this.findFilesToRemove(files);
+
+    return {
+      hasChanges: filesToUpdate.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX || filesToRemove.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX,
+      filesToUpdate,
+      filesToRemove,
+    };
+  }
+
+  private async findFilesToUpdate(files: TFile[], cutoff: number): Promise<TFile[]> {
     const filesToUpdate: TFile[] = [];
-    const filesToRemove: string[] = [];
-    const currentFilePaths = new Set(files.map(f => f.path));
 
     for (const f of files) {
-      // File stat not needed for processing, just ensure path exists
       this.app.vault.getAbstractFileByPath(f.path) as TFile;
       const fileDate = TemporalUtils.extractDateFromFilename(f.name) ?? Date.now();
 
-      if (fileDate < cutoff) {
-        continue;
-      }
+      if (fileDate < cutoff) continue;
 
       const currentHash = await this.computeFileHash(f);
       const storedHash = this.index!.fileHashes[f.path];
@@ -257,20 +276,23 @@ export class EnhancedEmbeddingService {
       }
     }
 
+    return filesToUpdate;
+  }
+
+  private findFilesToRemove(files: TFile[]): string[] {
+    const currentFilePaths = new Set(files.map(f => f.path));
+    const filesToRemove: string[] = [];
+
     for (const path of Object.keys(this.index!.fileHashes)) {
       if (!currentFilePaths.has(path)) {
         filesToRemove.push(path);
       }
     }
 
-    return {
-      hasChanges: filesToUpdate.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX || filesToRemove.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX,
-      filesToUpdate,
-      filesToRemove,
-    };
+    return filesToRemove;
   }
 
-  private async processUpdates(changeResult: { filesToUpdate: TFile[]; filesToRemove: string[] }): Promise<void> {
+  private async handleChanges(changeResult: { filesToUpdate: TFile[]; filesToRemove: string[] }): Promise<void> {
     this.removeChunksForFiles(changeResult.filesToRemove);
 
     for (const file of changeResult.filesToUpdate) {
@@ -308,30 +330,42 @@ export class EnhancedEmbeddingService {
   }
 
   private async ensureIndexLoaded(): Promise<void> {
-    if (this.index) {
-      return;
-    }
+    if (this.index) return;
 
     try {
-      const vaultName = this.app.vault.getName();
-      const storageKey = `nova-journal-enhanced-index-${vaultName}`;
-
-      const json = localStorage.getItem(storageKey);
-
-      if (json) {
-        const { validateAndParseJSON } = await import('../../utils/Sanitizer');
-        const loaded = validateAndParseJSON<EnhancedIndexData>(json);
-
-        if (loaded && loaded.version === this.version) {
-          this.index = loaded;
-        }
+      const loadedIndex = await this.loadIndexFromStorage();
+      if (loadedIndex) {
+        this.index = loadedIndex;
+        return;
       }
     } catch {
       this.index = null;
     }
 
-    if (!this.index) {
-    }
+    this.initializeEmptyIndex();
+  }
+
+  private async loadIndexFromStorage(): Promise<EnhancedIndexData | null> {
+    const vaultName = this.app.vault.getName();
+    const storageKey = `nova-journal-enhanced-index-${vaultName}`;
+    const json = localStorage.getItem(storageKey);
+
+    if (!json) return null;
+
+    const { validateAndParseJSON } = await import('../../utils/Sanitizer');
+    const loaded = validateAndParseJSON<EnhancedIndexData>(json);
+
+    return loaded && loaded.version === this.version ? loaded : null;
+  }
+
+  private initializeEmptyIndex(): void {
+    this.index = {
+      model: this.settings.aiModel,
+      updatedAt: Date.now(),
+      version: this.version,
+      items: [],
+      fileHashes: {},
+    };
   }
 
   private async saveIndex(): Promise<void> {

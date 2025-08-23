@@ -58,30 +58,38 @@ export class EmbeddingService {
       await this.ensureIndexLoaded();
       if (!this.index || this.index.items.length === 0) return [];
 
-      const { embeddings } = await embed({
-        apiKey: this.settings.aiApiKey,
-        inputs: [query.trim()],
-      });
+      const queryVector = await this.getQueryEmbedding(query);
+      if (!queryVector) return [];
 
-      if (!embeddings || embeddings.length === 0) return [];
-
-      const q = embeddings[0];
-      const scored = this.index.items
-        .filter(item => item.vector && item.vector.length > 0)
-        .map(item => ({
-          item: {
-            ...item,
-            text: `[${this.formatDate(item.date)}] ${item.text}`,
-          },
-          score: this.cosineSimilarity(q, item.vector),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, Math.max(0, k))
-        .map(s => s.item);
-      return scored;
+      const results = this.rankAndSelectResults(queryVector, k);
+      return results;
     } catch {
       return [];
     }
+  }
+
+  private async getQueryEmbedding(query: string): Promise<number[] | null> {
+    const { embeddings } = await embed({
+      apiKey: this.settings.aiApiKey,
+      inputs: [query.trim()],
+    });
+
+    return embeddings && embeddings.length > 0 ? embeddings[0] : null;
+  }
+
+  private rankAndSelectResults(queryVector: number[], k: number): IndexedChunk[] {
+    return this.index!.items
+      .filter(item => item.vector && item.vector.length > 0)
+      .map(item => ({
+        item: {
+          ...item,
+          text: `[${this.formatDate(item.date)}] ${item.text}`,
+        },
+        score: this.cosineSimilarity(queryVector, item.vector),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, Math.max(0, k))
+      .map(s => s.item);
   }
 
   private formatDate(timestamp: number): string {

@@ -66,11 +66,8 @@ export class ContextAnalyzer {
     const lowerText = text.toLowerCase();
 
     for (const [category, emotions] of Object.entries(emotionMap)) {
-      for (const emotion of emotions) {
-        if (lowerText.includes(emotion)) {
-          found.push(category);
-          break;
-        }
+      if (emotions.some(emotion => lowerText.includes(emotion))) {
+        found.push(category);
       }
     }
 
