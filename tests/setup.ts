@@ -31,12 +31,13 @@ const mockApp = {
   },
 };
 
-const mockPlugin = {
-  app: mockApp,
-  manifest: { id: 'nova-journal' },
-  loadData: async () => ({}),
-  saveData: async () => {},
-};
+// mockPlugin is available if needed for specific tests
+// const mockPlugin = {
+//   app: mockApp,
+//   manifest: { id: 'nova-journal' },
+//   loadData: async () => ({}),
+//   saveData: async () => {},
+// };
 
 Object.defineProperty(global, 'window', {
   value: {
@@ -71,7 +72,7 @@ Object.defineProperty(global, 'Storage', {
   writable: true,
 });
 
-global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+global.fetch = jest.fn((_input: URL | RequestInfo, _init?: RequestInit) =>
   Promise.resolve({
     ok: true,
     status: 200,
