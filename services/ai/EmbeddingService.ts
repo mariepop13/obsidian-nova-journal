@@ -48,7 +48,7 @@ export class EmbeddingService {
         items,
       };
       await this.saveIndex();
-    } catch (error) {
+    } catch (_error) {
       await this.createEmptyIndex();
     }
   }
@@ -171,7 +171,7 @@ export class EmbeddingService {
         inputs: limitedInputs,
       });
       return Array.isArray(resp?.embeddings) ? resp.embeddings : [];
-    } catch (err) {
+    } catch (_err) {
       return [];
     }
   }

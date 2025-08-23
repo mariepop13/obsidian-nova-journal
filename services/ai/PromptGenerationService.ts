@@ -5,7 +5,6 @@ import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
 import type { IndexedChunk } from './EmbeddingService';
-import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
 
 interface WindowWithObsidianApp extends Window {
@@ -151,7 +150,7 @@ Styles:
       }
 
       return this.buildRagContextFromResults(top);
-    } catch (err) {
+    } catch (_err) {
       return '';
     }
   }
@@ -201,7 +200,7 @@ Generate a question that:
 
       const cleaned = text.replace(/^"|"$/g, '').trim();
       return cleaned ?? null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

@@ -81,7 +81,7 @@ export class EnhancedEmbeddingService {
 
       await this.processUpdates(changeResult);
       await this.finalizeIndexUpdate();
-    } catch (error) {
+    } catch (_error) {
       await this.fullRebuild(folder);
     }
   }
@@ -144,7 +144,7 @@ export class EnhancedEmbeddingService {
 
       try {
         await this.updateFileChunks(file);
-      } catch (error) {
+      } catch (_error) {
       }
     }
 
@@ -187,7 +187,7 @@ export class EnhancedEmbeddingService {
       }
 
       this.index!.fileHashes[file.path] = fileHash;
-    } catch (error) {
+    } catch (_error) {
     }
   }
 
@@ -326,7 +326,7 @@ export class EnhancedEmbeddingService {
           this.index = loaded;
         }
       }
-    } catch (error) {
+    } catch (_error) {
       this.index = null;
     }
 

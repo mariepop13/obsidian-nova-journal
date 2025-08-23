@@ -85,12 +85,6 @@ export class SettingsService {
 
   async saveSettingsWithFilePicker(includeApiKey = false): Promise<void> {
     return new Promise((resolve, reject) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      // @ts-ignore - webkitdirectory for folder selection
-      input.webkitdirectory = false;
-      // Use save dialog instead of open
       const a = document.createElement('a');
       
       this.exportSettings({ includeApiKey }).then(data => {
