@@ -25,7 +25,7 @@ export class RagContextService {
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
     if (!this.embeddingService) {
-      const appRef = this.app ?? (window as WindowWithObsidianApp)?.app;
+      const appRef = this.app ?? (typeof window !== 'undefined' ? (window as WindowWithObsidianApp).app : undefined);
       if (appRef) {
         this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
       }

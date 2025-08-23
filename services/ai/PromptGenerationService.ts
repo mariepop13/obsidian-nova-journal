@@ -24,7 +24,12 @@ export class PromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {
     try {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
-    } catch {
+    } catch (err) {
+      // preserve silent fallback but keep a minimal diagnostic for debugging
+      if (this.settings?.aiDebug) {
+        // eslint-disable-next-line no-console
+        console.warn('[PromptGenerationService] Enhanced service initialization failed, falling back to legacy mode:', err instanceof Error ? err.message : err);
+      }
       this.enhancedService = null;
     }
   }

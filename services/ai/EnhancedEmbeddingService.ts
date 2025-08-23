@@ -160,7 +160,7 @@ export class EnhancedEmbeddingService {
       const chunks = this.createEnhancedChunks(content, file);
       const texts = chunks.map(c => c.text);
 
-      if (texts.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) {
+      if (texts.length === 0) {
         this.index!.fileHashes[file.path] = fileHash;
         return;
       }
