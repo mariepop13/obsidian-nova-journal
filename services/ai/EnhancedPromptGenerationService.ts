@@ -125,8 +125,7 @@ export class EnhancedPromptGenerationService {
         fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const raw = response;
-      const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch {
       return null;
@@ -182,8 +181,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
         fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const raw = response;
-      const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Emotional prompt generation failed', error);
@@ -247,8 +245,7 @@ Generate a thematically focused question that explores patterns and development 
         fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const raw = response;
-      const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Thematic prompt generation failed', error);

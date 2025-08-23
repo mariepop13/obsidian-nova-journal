@@ -137,7 +137,6 @@ export class EnhancedEmbeddingService {
     };
 
     for (const file of files) {
-      const stat = this.app.vault.getAbstractFileByPath(file.path) as TFile;
       const fileDate = TemporalUtils.extractDateFromFilename(file.name) ?? Date.now();
 
       if (fileDate < cutoff) continue;

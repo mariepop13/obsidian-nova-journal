@@ -10,10 +10,6 @@ export class EmbeddingMigrationService {
 
   async migrateToEnhancedSystem(): Promise<boolean> {
     try {
-
-
-      const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
-
       const enhancedService = new EnhancedEmbeddingService(this.app, this.settings);
 
       await this.backupLegacyIndex();

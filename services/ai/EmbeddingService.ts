@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { embed } from '../../ai/EmbeddingClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
-import { EMBEDDING_CONFIG, TIME_CONSTANTS, CONTENT_LIMITS } from '../shared/Constants';
+import { EMBEDDING_CONFIG } from '../shared/Constants';
 
 export type IndexedChunk = {
   path: string;
