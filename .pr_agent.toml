@@ -61,3 +61,6 @@ summarize = true
 
 [pr_update_changelog]
 push_changelog_changes = true
+
+[github_action_config]
+pr_actions = ["opened", "reopened", "ready_for_review", "synchronize"]
