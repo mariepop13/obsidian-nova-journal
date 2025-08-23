@@ -1,4 +1,4 @@
-import { Notice, requestUrl } from 'obsidian';
+import { requestUrl } from 'obsidian';
 import { OPENAI_API_KEY_REGEX, sanitizeForLogging } from './Sanitizer';
 import { API_CONFIG } from '../services/shared/Constants';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
@@ -8,6 +8,23 @@ interface ObsidianRequestResponse {
   text?: string;
   json?: () => Promise<unknown>;
 }
+
+interface OpenAIApiResponse {
+  data?: unknown[];
+  error?: {
+    message?: string;
+  };
+}
+
+interface ApiError {
+  name?: string;
+  message?: string;
+}
+
+const HTTP_STATUS = {
+  OK_MIN: 200,
+  OK_MAX: 300,
+} as const;
 
 export class ApiTester {
   private static readonly TIMEOUT_MS = API_CONFIG.TIMEOUT_MS;
@@ -40,19 +57,22 @@ export class ApiTester {
 
       const data = response.json ? await response.json() : (response.text ? JSON.parse(response.text) : {});
 
-      if (response.status >= 200 && response.status < 300) {
-        const modelCount = Array.isArray((data as any)?.data) ? (data as any).data.length : undefined;
+      if (response.status >= HTTP_STATUS.OK_MIN && response.status < HTTP_STATUS.OK_MAX) {
+        const apiResponse = data as OpenAIApiResponse;
+        const modelCount = Array.isArray(apiResponse.data) ? apiResponse.data.length : undefined;
         const message = `OpenAI test: OK${modelCount ? ` (${modelCount} models accessible)` : ''}`;
         ToastSpinnerService.notice(message);
       } else {
-        const errorMessage = sanitizeForLogging((data as any)?.error?.message || `HTTP ${response.status}`);
+        const apiResponse = data as OpenAIApiResponse;
+        const errorMessage = sanitizeForLogging(apiResponse.error?.message ?? `HTTP ${response.status}`);
         ToastSpinnerService.error(`OpenAI test failed: ${errorMessage}`);
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError' || error.message === 'Timeout') {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      if (apiError.name === 'AbortError' || apiError.message === 'Timeout') {
         ToastSpinnerService.error('OpenAI test timed out. Check your connection.');
       } else {
-        const errorMessage = sanitizeForLogging(error?.message || 'Unknown error');
+        const errorMessage = sanitizeForLogging(apiError.message ?? 'Unknown error');
         ToastSpinnerService.error(`OpenAI test error: ${errorMessage}`);
       }
     }

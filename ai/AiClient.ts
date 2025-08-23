@@ -41,10 +41,26 @@ export interface OpenAIResponse {
   choices?: OpenAIChoice[];
 }
 
+interface GenericResponse {
+  json?: () => Promise<unknown>;
+  text?: () => Promise<string>;
+}
+
+interface ObsidianRequestResponse {
+  status: number;
+  text?: string;
+  json?: unknown;
+}
+
 import { sanitizeForLogging } from '../utils/Sanitizer';
 import { AI_LIMITS, API_CONFIG, REGEX_PATTERNS } from '../services/shared/Constants';
 import { logger } from '../services/shared/LoggingService';
 import { requestUrl } from 'obsidian';
+
+const HTTP_STATUS = {
+  OK_MIN: 200,
+  OK_MAX: 300,
+} as const;
 
 async function callOnce(config: APICallConfig): Promise<string> {
   const payload = buildPayload(config);
@@ -83,7 +99,7 @@ function buildPayload(config: APICallConfig): ChatCompletionPayload {
 
 interface ObsidianRequestResponse {
   status: number;
-  text: string;
+  text?: string;
   json?: unknown;
 }
 
@@ -93,6 +109,49 @@ interface ResponseLike {
   statusText: string;
   json: () => Promise<OpenAIResponse | Record<string, unknown>>;
   text: () => Promise<string>;
+}
+
+async function parseResponseJson(res: unknown): Promise<OpenAIResponse | Record<string, unknown>> {
+  const genericRes = res as unknown as GenericResponse;
+  
+  if (typeof genericRes.json === 'function') {
+    const result = await genericRes.json();
+    return (result ?? {}) as OpenAIResponse | Record<string, unknown>;
+  }
+  
+  if (typeof genericRes.text === 'function') {
+    return JSON.parse(await genericRes.text()) as Record<string, unknown>;
+  }
+  
+  // Obsidian provides a parsed json field in many cases
+  const obsidianRes = res as ObsidianRequestResponse;
+  if (typeof obsidianRes.json !== 'undefined' && obsidianRes.json !== null) {
+    return obsidianRes.json as OpenAIResponse | Record<string, unknown>;
+  }
+  
+  return JSON.parse((res as { text?: string }).text || '{}') as Record<string, unknown>;
+}
+
+function createJsonMethod(res: unknown): () => Promise<OpenAIResponse | Record<string, unknown>> {
+  return async (): Promise<OpenAIResponse | Record<string, unknown>> => {
+    try {
+      return await parseResponseJson(res);
+    } catch {
+      return {};
+    }
+  };
+}
+
+function createTextMethod(res: unknown): () => Promise<string> {
+  return async (): Promise<string> => {
+    try {
+      const genericRes = res as unknown as GenericResponse;
+      if (typeof genericRes.text === 'function') return await genericRes.text();
+      return String((res as unknown as { text?: string }).text ?? '');
+    } catch {
+      return '';
+    }
+  };
 }
 
 async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Promise<ResponseLike> {
@@ -109,29 +168,11 @@ async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Prom
     });
 
     const responseLike: ResponseLike = {
-      ok: (typeof res.status === 'number') && res.status >= 200 && res.status < 300,
+      ok: (typeof res.status === 'number') && res.status >= HTTP_STATUS.OK_MIN && res.status < HTTP_STATUS.OK_MAX,
       status: typeof res.status === 'number' ? res.status : 0,
       statusText: String(res.status ?? ''),
-      json: async () => {
-        try {
-          if (typeof (res as any).json === 'function') return await (res as any).json();
-          if (typeof (res as any).text === 'function') return JSON.parse(await (res as any).text());
-          // Obsidian provides a parsed json field in many cases
-          const obsidianRes = res as ObsidianRequestResponse;
-          if (typeof obsidianRes.json !== 'undefined') return obsidianRes.json;
-          return JSON.parse(res.text || '{}');
-        } catch {
-          return {};
-        }
-      },
-      text: async () => {
-        try {
-          if (typeof (res as any).text === 'function') return await (res as any).text();
-          return String((res as any).text ?? '');
-        } catch {
-          return '';
-        }
-      },
+      json: createJsonMethod(res),
+      text: createTextMethod(res),
     };
 
     return responseLike;

@@ -2,12 +2,25 @@ import type { ContextType } from './EnhancedEmbeddingService';
 
 export class ContextAnalyzer {
   determineContextType(text: string): ContextType {
-    const emotionalKeywords =
-      /\b(feel|felt|emotion|mood|happy|sad|angry|frustrated|excited|anxious|calm|stressed|peaceful|worried|hopeful|disappointed|grateful|proud|embarrassed|confused|overwhelmed|content|joy|fear|love|hate|surprise|disgust|trust|anticipation)\b/i;
-    const temporalKeywords =
-      /\b(today|yesterday|tomorrow|this week|last week|next week|this month|last month|recently|soon|now|then|when|during|after|before|while|since|until|ago|later)\b/i;
-    const thematicKeywords =
-      /\b(work|job|career|family|friends|health|fitness|travel|hobby|project|goal|plan|study|learn|relationship|love|home|money|finance|food|exercise|book|movie|music|art|creative)\b/i;
+    const emotionalWords = [
+      'feel', 'felt', 'emotion', 'mood', 'happy', 'sad', 'angry', 'frustrated', 
+      'excited', 'anxious', 'calm', 'stressed', 'peaceful', 'worried', 'hopeful', 
+      'disappointed', 'grateful', 'proud', 'embarrassed', 'confused', 'overwhelmed',
+      'content', 'joy', 'fear', 'love', 'hate', 'surprise', 'disgust', 'trust', 'anticipation'
+    ];
+    const emotionalKeywords = new RegExp(`\\b(${emotionalWords.join('|')})\\b`, 'i');
+    const temporalWords = [
+      'today', 'yesterday', 'tomorrow', 'this week', 'last week', 'next week', 
+      'this month', 'last month', 'recently', 'soon', 'now', 'then', 'when', 
+      'during', 'after', 'before', 'while', 'since', 'until', 'ago', 'later'
+    ];
+    const temporalKeywords = new RegExp(`\\b(${temporalWords.join('|')})\\b`, 'i');
+    const thematicWords = [
+      'work', 'job', 'career', 'family', 'friends', 'health', 'fitness', 'travel',
+      'hobby', 'project', 'goal', 'plan', 'study', 'learn', 'relationship', 'love',
+      'home', 'money', 'finance', 'food', 'exercise', 'book', 'movie', 'music', 'art', 'creative'
+    ];
+    const thematicKeywords = new RegExp(`\\b(${thematicWords.join('|')})\\b`, 'i');
 
     const scores = {
       emotional: 0,
