@@ -81,11 +81,17 @@ function buildPayload(config: APICallConfig): ChatCompletionPayload {
   return payload;
 }
 
+interface ObsidianRequestResponse {
+  status: number;
+  text: string;
+  json?: unknown;
+}
+
 interface ResponseLike {
   ok: boolean;
   status: number;
   statusText: string;
-  json: () => Promise<any>;
+  json: () => Promise<OpenAIResponse | Record<string, unknown>>;
   text: () => Promise<string>;
 }
 
@@ -108,8 +114,8 @@ async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Prom
     json: async () => {
       try {
         // Obsidian provides a parsed json field in many cases
-        const anyRes: any = res as any;
-        if (typeof anyRes.json !== 'undefined') return anyRes.json;
+        const obsidianRes = res as ObsidianRequestResponse;
+        if (typeof obsidianRes.json !== 'undefined') return obsidianRes.json;
         return JSON.parse(res.text || '{}');
       } catch {
         return {};

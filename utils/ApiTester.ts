@@ -3,6 +3,17 @@ import { OPENAI_API_KEY_REGEX, sanitizeForLogging } from './Sanitizer';
 import { API_CONFIG } from '../services/shared/Constants';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 
+interface ObsidianRequestResponse {
+  status: number;
+  text: string;
+  json?: unknown;
+}
+
+interface ErrorWithProperties {
+  name?: string;
+  message?: string;
+}
+
 export class ApiTester {
   private static readonly TIMEOUT_MS = API_CONFIG.TIMEOUT_MS;
   private static readonly OPENAI_API_KEY_REGEX = OPENAI_API_KEY_REGEX;
@@ -30,7 +41,7 @@ export class ApiTester {
           },
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), this.TIMEOUT_MS)),
-      ]) as any;
+      ]) as ObsidianRequestResponse;
 
       const data = (typeof response.json !== 'undefined')
         ? response.json
@@ -47,11 +58,12 @@ export class ApiTester {
         new Notice(`OpenAI test failed: ${errorMessage}`);
       }
     } catch (error) {
-      if ((error as any).name === 'AbortError') {
+      const errorProps = error as ErrorWithProperties;
+      if (errorProps.name === 'AbortError') {
         new Notice('OpenAI test timed out. Check your connection.');
       } else {
         const errorMessage = sanitizeForLogging(
-          (error as any)?.message || 'Unknown error'
+          errorProps.message || 'Unknown error'
         );
         new Notice(`OpenAI test error: ${errorMessage}`);
       }

@@ -7,6 +7,10 @@ import {
   TIME_CONSTANTS,
 } from '../shared/Constants';
 
+interface WindowWithObsidianApp extends Window {
+  app?: App;
+}
+
 export class RagContextService {
   private embeddingService: EnhancedEmbeddingService | null = null;
   private readonly settings: NovaJournalSettings;
@@ -21,7 +25,7 @@ export class RagContextService {
 
   private getEmbeddingService(): EnhancedEmbeddingService | null {
     if (!this.embeddingService) {
-      const appRef = this.app ?? (window as any)?.app;
+      const appRef = this.app ?? (window as WindowWithObsidianApp)?.app;
       if (appRef) {
         this.embeddingService = new EnhancedEmbeddingService(appRef, this.settings);
       }

@@ -1,3 +1,4 @@
+import { App } from 'obsidian';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
@@ -6,6 +7,10 @@ import { EmbeddingService } from './EmbeddingService';
 import type { IndexedChunk } from './EmbeddingService';
 import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
+
+interface WindowWithObsidianApp extends Window {
+  app?: App;
+}
 
 import {
   SEARCH_CONSTANTS,
@@ -130,7 +135,7 @@ Styles:
         return '';
       }
 
-      const appRef = (window as any)?.app;
+      const appRef = (window as WindowWithObsidianApp)?.app;
       if (!appRef) {
 
         return '';

@@ -1,8 +1,13 @@
+import { App } from 'obsidian';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
+
+interface WindowWithObsidianApp extends Window {
+  app?: App;
+}
 
 
 export interface ContextualPromptOptions {
@@ -25,7 +30,7 @@ export class EnhancedPromptGenerationService {
     );
 
     if (!this.embeddingService) {
-      const appRef = (window as any)?.app;
+      const appRef = (window as WindowWithObsidianApp)?.app;
       console.log('[EnhancedPromptGenerationService] Debug - App reference available:', !!appRef);
 
       if (appRef) {
