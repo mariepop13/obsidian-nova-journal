@@ -81,7 +81,7 @@ export class EnhancedEmbeddingService {
 
       await this.processUpdates(changeResult);
       await this.finalizeIndexUpdate();
-    } catch (_error) {
+    } catch {
       await this.fullRebuild(folder);
     }
   }
@@ -143,7 +143,7 @@ export class EnhancedEmbeddingService {
 
       try {
         await this.updateFileChunks(file);
-      } catch (_error) {
+      } catch {
       }
     }
 
@@ -186,7 +186,7 @@ export class EnhancedEmbeddingService {
       }
 
       this.index!.fileHashes[file.path] = fileHash;
-    } catch (_error) {
+    } catch {
     }
   }
 
@@ -241,7 +241,8 @@ export class EnhancedEmbeddingService {
     const currentFilePaths = new Set(files.map(f => f.path));
 
     for (const f of files) {
-      const stat = this.app.vault.getAbstractFileByPath(f.path) as TFile;
+      // File stat not needed for processing, just ensure path exists
+      this.app.vault.getAbstractFileByPath(f.path) as TFile;
       const fileDate = TemporalUtils.extractDateFromFilename(f.name) || Date.now();
 
       if (fileDate < cutoff) {
@@ -325,7 +326,7 @@ export class EnhancedEmbeddingService {
           this.index = loaded;
         }
       }
-    } catch (_error) {
+    } catch {
       this.index = null;
     }
 

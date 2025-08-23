@@ -1,33 +1,33 @@
 const mockApp = {
   vault: {
-    getName: () => 'test-vault',
-    getFiles: () => [
+    getName: (): string => 'test-vault',
+    getFiles: (): any[] => [
       { path: 'Journal/test-file.md', name: 'test-file.md', extension: 'md' },
       { path: 'test-file2.md', name: 'test-file2.md', extension: 'md' },
     ],
-    read: jest.fn(async () => 'Mock file content'),
-    getAbstractFileByPath: jest.fn(() => null),
-    getMarkdownFiles: () => [
+    read: jest.fn(async (): Promise<string> => 'Mock file content'),
+    getAbstractFileByPath: jest.fn((): null => null),
+    getMarkdownFiles: (): any[] => [
       { path: 'Journal/test-file.md', name: 'test-file.md', extension: 'md' },
       { path: 'test-file2.md', name: 'test-file2.md', extension: 'md' },
     ],
     adapter: {
-      exists: jest.fn(() => Promise.resolve(true)),
-      read: jest.fn(() => Promise.resolve('Mock file content')),
-      write: jest.fn(() => Promise.resolve()),
-      list: jest.fn(() => Promise.resolve({ files: [], folders: [] })),
+      exists: jest.fn((): Promise<boolean> => Promise.resolve(true)),
+      read: jest.fn((): Promise<string> => Promise.resolve('Mock file content')),
+      write: jest.fn((): Promise<void> => Promise.resolve()),
+      list: jest.fn((): Promise<{files: any[], folders: any[]}> => Promise.resolve({ files: [], folders: [] })),
     },
   },
   workspace: {
-    getActiveViewOfType: () => null,
-    getActiveFile: () => null,
-    getLeaf: () => ({
+    getActiveViewOfType: (): null => null,
+    getActiveFile: (): null => null,
+    getLeaf: (): {openFile: jest.Mock} => ({
       openFile: jest.fn(),
     }),
   },
   metadataCache: {
-    getFileCache: jest.fn(() => null),
-    getCache: jest.fn(() => null),
+    getFileCache: jest.fn((): null => null),
+    getCache: jest.fn((): null => null),
   },
 };
 
@@ -47,12 +47,12 @@ Object.defineProperty(global, 'window', {
 });
 
 const mockLocalStorage = {
-  getItem: jest.fn((key: string) => {
+  getItem: jest.fn((key: string): string | null => {
     if (key === 'nova-journal-embeddings') return JSON.stringify({});
     return null;
   }),
   setItem: jest.fn(),
-  removeItem: jest.fn((key: string) => {
+  removeItem: jest.fn((key: string): void => {
     if (key.includes('error')) {
       throw new Error('localStorage error');
     }
@@ -68,7 +68,7 @@ Object.defineProperty(global, 'localStorage', {
 });
 
 Object.defineProperty(global, 'Storage', {
-  value: jest.fn(() => mockLocalStorage),
+  value: jest.fn((): typeof mockLocalStorage => mockLocalStorage),
   writable: true,
 });
 
@@ -100,7 +100,7 @@ global.fetch = jest.fn((_input: URL | RequestInfo, _init?: RequestInit) =>
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-console.error = (...args: any[]) => {
+console.error = (...args: any[]): void => {
   const message = String(args[0] || '');
 
   if (
@@ -120,7 +120,7 @@ console.error = (...args: any[]) => {
   originalConsoleError(...args);
 };
 
-console.warn = (...args: any[]) => {
+console.warn = (...args: any[]): void => {
   const message = String(args[0] || '');
 
   if (message.includes('test') || message.includes('Enhanced service initialization failed, will use legacy mode')) {

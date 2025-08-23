@@ -19,7 +19,7 @@ export class EmbeddingMigrationService {
 
 
       return true;
-    } catch (_error) {
+    } catch {
       return false;
     }
   }
@@ -61,7 +61,7 @@ export class EmbeddingMigrationService {
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
       localStorage.removeItem(legacyIndexKey);
 
-    } catch (_error) {
+    } catch {
     }
   }
 }

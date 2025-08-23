@@ -53,7 +53,7 @@ export class EnhancedPromptGenerationService {
     noteText: string,
     mood?: Partial<MoodData>,
     ragContext?: string,
-    options: ContextualPromptOptions = {}
+    _options: ContextualPromptOptions = {}
   ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 

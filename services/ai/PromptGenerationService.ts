@@ -24,7 +24,7 @@ export class PromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {
     try {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
-    } catch (error) {
+    } catch {
       this.enhancedService = null;
     }
   }
@@ -63,7 +63,7 @@ export class PromptGenerationService {
         });
       }
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
-    } catch (error) {
+    } catch {
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
     }
   }
@@ -150,7 +150,7 @@ Styles:
       }
 
       return this.buildRagContextFromResults(top);
-    } catch (_err) {
+    } catch {
       return '';
     }
   }
@@ -200,7 +200,7 @@ Generate a question that:
 
       const cleaned = text.replace(/^"|"$/g, '').trim();
       return cleaned ?? null;
-    } catch (_error) {
+    } catch {
       return null;
     }
   }

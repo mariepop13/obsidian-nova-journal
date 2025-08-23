@@ -88,7 +88,7 @@ export class RagContextService {
         .join('\n\n');
 
       return contextText;
-    } catch (_error) {
+    } catch {
 
       return '';
     }
@@ -402,7 +402,7 @@ export class RagContextService {
         .join('\n\n');
 
       return contextText;
-    } catch (_error) {
+    } catch {
       return '';
     }
   }

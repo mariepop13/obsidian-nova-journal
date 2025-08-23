@@ -160,7 +160,11 @@ export default [
       // Clean Code: Code quality
       'no-duplicate-imports': 'error',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_'
+      }],
       'no-var': 'error',
       'prefer-const': 'error',
       'no-magic-numbers': ['error', { ignore: [-1, 0, 1, 2] }],

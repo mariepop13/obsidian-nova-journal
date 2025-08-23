@@ -125,7 +125,7 @@ export class ResponseInsertionService {
   }
 
   private async insertAtExistingAnchor(config: AnchorInsertionConfig): Promise<void> {
-    const { editor, anchorLine, response, scopeAttr, label } = config;
+    const { editor, anchorLine, response, label } = config;
     
     editor.replaceRange(
       '**Nova**: \n',
@@ -139,7 +139,7 @@ export class ResponseInsertionService {
     ensureUserPromptLine(editor, this.userName);
   }
 
-  private async insertAfterLine(editor: Editor, line: number, response: string, scopeAttr: string): Promise<void> {
+  private async insertAfterLine(editor: Editor, line: number, response: string, _scopeAttr: string): Promise<void> {
     editor.replaceRange('**Nova**: \n', { line: line + 1, ch: 0 });
     await typewriterInsert({ editor, line: line + 1, prefix: '**Nova**: ', text: response, speed: this.typewriterSpeed });
     removeAnchorsInBlock(editor, line);

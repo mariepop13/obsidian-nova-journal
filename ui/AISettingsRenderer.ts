@@ -43,7 +43,7 @@ export class AISettingsRenderer {
             true,
             this.refreshCallback
           );
-        } catch (_error) {
+        } catch {
           // Reset toggle to previous state on failure
           toggle.setValue(previousValue);
           this.refreshCallback();
