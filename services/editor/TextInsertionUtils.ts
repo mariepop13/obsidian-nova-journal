@@ -82,6 +82,6 @@ function insertAtHeadingPosition(editor: Editor, block: string, insertLine: numb
   editor.replaceRange(insertText, insertPos);
 }
 
-function handleHeadingRegexError(editor: Editor, block: string, regexError: Error): void {
+function handleHeadingRegexError(editor: Editor, block: string, _regexError: Error): void {
   editor.replaceSelection(block);
 }

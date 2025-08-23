@@ -162,7 +162,4 @@ export class PromptInsertionService {
     };
   }
 
-  private generateSearchTermsForStyle(style: PromptStyle): string {
-    return `${style} personal experience thoughts feelings`;
-  }
 }
