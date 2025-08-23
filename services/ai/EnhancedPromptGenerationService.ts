@@ -45,7 +45,7 @@ export class EnhancedPromptGenerationService {
         console.warn('[EnhancedPromptGenerationService] Debug - No app reference found for embedding service');
       }
     }
-    return this.embeddingService || null;
+    return this.embeddingService ?? null;
   }
 
   async generateContextualPromptWithRag(
@@ -58,7 +58,7 @@ export class EnhancedPromptGenerationService {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
     const systemPrompt = this.buildSystemPrompt(style, true, true);
-    const contextualInfo = ragContext || '';
+    const contextualInfo = ragContext ?? '';
 
     const userPrompt = this.buildUserPrompt(style, noteText, mood, contextualInfo);
 

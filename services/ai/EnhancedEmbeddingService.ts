@@ -243,7 +243,7 @@ export class EnhancedEmbeddingService {
     for (const f of files) {
       // File stat not needed for processing, just ensure path exists
       this.app.vault.getAbstractFileByPath(f.path) as TFile;
-      const fileDate = TemporalUtils.extractDateFromFilename(f.name) || Date.now();
+      const fileDate = TemporalUtils.extractDateFromFilename(f.name) ?? Date.now();
 
       if (fileDate < cutoff) {
         continue;

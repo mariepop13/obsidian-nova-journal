@@ -222,7 +222,7 @@ export class ToastSpinnerService {
     });
 
     const noticeEl = (instance.notice as NoticeWithElement).noticeEl;
-    if (noticeEl && noticeEl.classList) {
+    if (noticeEl?.classList) {
       noticeEl.classList.add('nova-toast-warn');
     }
 
@@ -238,7 +238,7 @@ export class ToastSpinnerService {
     });
 
     const noticeEl = (instance.notice as NoticeWithElement).noticeEl;
-    if (noticeEl && noticeEl.classList) {
+    if (noticeEl?.classList) {
       noticeEl.classList.add('nova-toast-error');
     }
 
@@ -254,7 +254,7 @@ export class ToastSpinnerService {
     });
 
     const noticeEl = (instance.notice as NoticeWithElement).noticeEl;
-    if (noticeEl && noticeEl.classList) {
+    if (noticeEl?.classList) {
       noticeEl.classList.add('nova-toast-info');
     }
 

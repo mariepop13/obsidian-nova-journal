@@ -128,10 +128,14 @@ describe('LoggingService', () => {
       service.warn('Warning message');
       service.error('Error message');
       
-      expect(mockConsole.log).not.toHaveBeenCalled(); // debug
-      expect(mockConsole.info).not.toHaveBeenCalled(); // info
-      expect(mockConsole.warn).not.toHaveBeenCalled(); // warn
-      expect(mockConsole.error).toHaveBeenCalled(); // error
+      // debug
+      expect(mockConsole.log).not.toHaveBeenCalled();
+      // info
+      expect(mockConsole.info).not.toHaveBeenCalled();
+      // warn
+      expect(mockConsole.warn).not.toHaveBeenCalled();
+      // error
+      expect(mockConsole.error).toHaveBeenCalled();
     });
 
     test('should handle debug mode toggle', () => {
@@ -153,7 +157,8 @@ describe('LoggingService', () => {
 
     beforeEach(() => {
       service = LoggingService.getInstance();
-      service.setLogLevel(LogLevel.DEBUG); // Enable all log levels for testing
+      // Enable all log levels for testing
+      service.setLogLevel(LogLevel.DEBUG);
     });
 
     test('should log error messages', () => {
@@ -178,7 +183,8 @@ describe('LoggingService', () => {
     });
 
     test('should log debug messages', () => {
-      service.setDebugMode(true); // Enable debug mode for this test
+      // Enable debug mode for this test
+      service.setDebugMode(true);
       service.debug('Test debug message');
       expect(mockConsole.log).toHaveBeenCalledWith(
         expect.stringContaining('DEBUG: Test debug message')

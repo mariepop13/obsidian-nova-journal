@@ -101,7 +101,7 @@ const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
 console.error = (...args: any[]): void => {
-  const message = String(args[0] || '');
+  const message = String(args[0] ?? '');
 
   if (
     message.includes('test') ||
@@ -121,7 +121,7 @@ console.error = (...args: any[]): void => {
 };
 
 console.warn = (...args: any[]): void => {
-  const message = String(args[0] || '');
+  const message = String(args[0] ?? '');
 
   if (message.includes('test') || message.includes('Enhanced service initialization failed, will use legacy mode')) {
     return;

@@ -129,7 +129,7 @@ async function parseResponseJson(res: unknown): Promise<OpenAIResponse | Record<
     return obsidianRes.json as OpenAIResponse | Record<string, unknown>;
   }
   
-  return JSON.parse((res as { text?: string }).text || '{}') as Record<string, unknown>;
+  return JSON.parse((res as { text?: string }).text ?? '{}') as Record<string, unknown>;
 }
 
 function createJsonMethod(res: unknown): () => Promise<OpenAIResponse | Record<string, unknown>> {

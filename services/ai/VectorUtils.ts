@@ -63,7 +63,8 @@ export class VectorUtils {
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = (hash << HASH_CONSTANTS.BIT_SHIFT_LEFT) - hash + char;
-      hash = hash | 0; // force 32-bit int
+      // force 32-bit int
+      hash = hash | 0;
     }
     // normalize to positive integer string
     return (hash >>> 0).toString();

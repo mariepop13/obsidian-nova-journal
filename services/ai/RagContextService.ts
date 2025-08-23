@@ -217,7 +217,7 @@ export class RagContextService {
     const expandedTerms: Set<string> = new Set();
 
     const firstChunk = contextChunks[0];
-    if (firstChunk && firstChunk.text) {
+    if (firstChunk?.text) {
       const text = firstChunk.text;
 
       const words = text

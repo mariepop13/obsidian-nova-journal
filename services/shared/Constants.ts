@@ -26,9 +26,12 @@ export const TYPEWRITER_DELAYS = {
   FAST: 25,
   MAX_DURATION_MS: 4000,
   PAUSE_MULTIPLIERS: {
-    COMMA: 3, // virgules, points-virgules, deux-points (150ms pour normal)
-    SENTENCE: 6, // points, points d'exclamation, points d'interrogation (300ms)
-    NEWLINE: 10, // nouvelles lignes (500ms)
+    // virgules, points-virgules, deux-points (150ms pour normal)
+    COMMA: 3,
+    // points, points d'exclamation, points d'interrogation (300ms)
+    SENTENCE: 6,
+    // nouvelles lignes (500ms)
+    NEWLINE: 10,
   },
 } as const;
 
@@ -51,7 +54,8 @@ export const API_CONFIG = {
   OPENAI_MODELS_URL: 'https://api.openai.com/v1/models',
   TIMEOUT_MS: 10000,
   USER_AGENT: 'Nova-Journal-Plugin/1.0',
-  MAX_REQUEST_SIZE_BYTES: 2000000, // ~2MB
+  // ~2MB
+  MAX_REQUEST_SIZE_BYTES: 2000000,
   HTTP_UNAUTHORIZED: 401,
   HTTP_RATE_LIMIT: 429,
   HTTP_SERVER_ERROR: 500,
@@ -66,9 +70,12 @@ export const TEMPLATE_PATTERNS = {
 
 // File and Content Limits
 export const FILE_LIMITS = {
-  MAX_FILE_SIZE_BYTES: 1024 * 1024, // 1MB
-  MAX_CLIPBOARD_SIZE_BYTES: 1024 * 1024, // 1MB
-  MAX_IMPORT_CONTENT_LENGTH: 1024 * 1024, // 1MB
+  // 1MB
+  MAX_FILE_SIZE_BYTES: 1024 * 1024,
+  // 1MB
+  MAX_CLIPBOARD_SIZE_BYTES: 1024 * 1024,
+  // 1MB
+  MAX_IMPORT_CONTENT_LENGTH: 1024 * 1024,
 } as const;
 
 // Content Analysis and Processing

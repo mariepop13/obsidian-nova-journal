@@ -35,8 +35,10 @@ describe('EmbeddingMigrationService', () => {
   describe('checkMigrationNeeded', () => {
     test('should return true when legacy index exists but enhanced does not', async () => {
       (localStorage.getItem as jest.Mock)
-        .mockReturnValueOnce('{"items": []}') // legacy index
-        .mockReturnValueOnce(null); // enhanced index
+        // legacy index
+        .mockReturnValueOnce('{"items": []}')
+        // enhanced index
+        .mockReturnValueOnce(null);
 
       const result = await service.checkMigrationNeeded();
 
@@ -47,8 +49,10 @@ describe('EmbeddingMigrationService', () => {
 
     test('should return false when enhanced index already exists', async () => {
       (localStorage.getItem as jest.Mock)
-        .mockReturnValueOnce('{"items": []}') // legacy index
-        .mockReturnValueOnce('{"version": "2.0.0"}'); // enhanced index
+        // legacy index
+        .mockReturnValueOnce('{"items": []}')
+        // enhanced index
+        .mockReturnValueOnce('{"version": "2.0.0"}');
 
       const result = await service.checkMigrationNeeded();
 
@@ -57,8 +61,10 @@ describe('EmbeddingMigrationService', () => {
 
     test('should return false when no legacy index exists', async () => {
       (localStorage.getItem as jest.Mock)
-        .mockReturnValueOnce(null) // no legacy index
-        .mockReturnValueOnce(null); // no enhanced index
+        // no legacy index
+        .mockReturnValueOnce(null)
+        // no enhanced index
+        .mockReturnValueOnce(null);
 
       const result = await service.checkMigrationNeeded();
 

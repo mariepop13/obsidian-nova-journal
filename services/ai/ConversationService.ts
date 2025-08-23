@@ -116,9 +116,7 @@ export class ConversationService {
   private async handleTargetLineDeepen(editor: Editor, line: number, text: string): Promise<void> {
     let buttonLine = this.responseInsertionService.findExistingButton(editor, line);
 
-    if (buttonLine === null) {
-      buttonLine = this.responseInsertionService.createNewButton(editor);
-    }
+    buttonLine ??= this.responseInsertionService.createNewButton(editor);
 
     const aiResponse = await this.callAI(text, undefined, editor, line);
     await this.responseInsertionService.insertTargetLineResponse(editor, buttonLine, aiResponse);

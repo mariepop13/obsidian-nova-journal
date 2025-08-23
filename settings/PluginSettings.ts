@@ -34,8 +34,10 @@ export interface NovaJournalSettings {
   addSectionHeading: boolean;
   sectionHeading: string;
   dailyNoteFolder: string;
-  dailyNoteFormat: string; // Limited support: YYYY-MM-DD
-  promptTemplate: string; // If provided, used to render the inserted block
+  // Limited support: YYYY-MM-DD
+  dailyNoteFormat: string;
+  // If provided, used to render the inserted block
+  promptTemplate: string;
   preventDuplicateForDay: boolean;
   insertHeadingName: string;
   organizeByYearMonth: boolean;

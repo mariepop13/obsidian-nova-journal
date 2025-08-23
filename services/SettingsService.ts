@@ -175,11 +175,12 @@ export class SettingsService {
       };
     }
 
-    return null; // No error, file is valid
+    // No error, file is valid
+    return null;
   }
 
   private async handleFileSelection(e: Event): Promise<SettingsImportResult> {
-    const file = (e.target as HTMLInputElement).files?.[0] || null;
+    const file = (e.target as HTMLInputElement).files?.[0] ?? null;
     
     const validationError = this.validateFileForImport(file);
     if (validationError) {
@@ -265,11 +266,11 @@ export class SettingsService {
 
     const structureValidation = this.validateDataStructure(data);
     if (!structureValidation.valid) {
-      return { success: false, errors: [structureValidation.error || 'Validation failed'] };
+      return { success: false, errors: [structureValidation.error ?? 'Validation failed'] };
     }
 
     const dataObj = structureValidation.dataObj;
-    if (!dataObj || !dataObj.version) {
+    if (!dataObj?.version) {
       errors.push('Missing version information');
     }
 
