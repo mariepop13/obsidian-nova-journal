@@ -198,14 +198,6 @@ export class SettingsService {
     }
   }
 
-  private async applyImportedSettings(settingsObj: NovaJournalSettings): Promise<void> {
-    this.plugin.settings = {
-      ...this.plugin.settings,
-      ...settingsObj,
-    };
-    await this.plugin.saveSettings();
-  }
-
   private async parseFileContent(content: string): Promise<SettingsImportResult> {
     try {
       const data = JSON.parse(content);
@@ -230,7 +222,6 @@ export class SettingsService {
   }
 
   async applyImportedSettings(settings: NovaJournalSettings): Promise<void> {
-
     this.plugin.settings = settings;
     await this.plugin.saveSettings();
     ToastSpinnerService.notice('Settings imported successfully');
@@ -274,15 +265,15 @@ export class SettingsService {
 
     const structureValidation = this.validateDataStructure(data);
     if (!structureValidation.valid) {
-      return { success: false, errors: [structureValidation.error] };
+      return { success: false, errors: [structureValidation.error || 'Validation failed'] };
     }
 
     const dataObj = structureValidation.dataObj;
-    if (!dataObj.version) {
+    if (!dataObj || !dataObj.version) {
       errors.push('Missing version information');
     }
 
-    const settingsObj = dataObj.settings as Record<string, unknown>;
+    const settingsObj = dataObj?.settings as Record<string, unknown>;
     const fieldErrors = this.validateRequiredFields(settingsObj);
     errors.push(...fieldErrors);
 

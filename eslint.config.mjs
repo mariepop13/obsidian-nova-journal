@@ -1,16 +1,19 @@
 import eslint from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
+import globals from 'globals';
 
 export default [
   // Base JS rules for all files
   eslint.configs.recommended,
   
-  // Global Node.js/ESM compatibility
+  // Global runtime environments - ESLint v9 standard
   {
     languageOptions: {
       globals: {
-        URL: 'readonly',
+        ...globals.browser,
+        ...globals.node,
+        ...globals.jest,
       },
     },
   },
@@ -99,6 +102,7 @@ export default [
         __dirname: 'readonly',
         __filename: 'readonly',
         global: 'readonly',
+        NodeJS: 'readonly',
         require: 'readonly',
         module: 'readonly',
         exports: 'readonly',
