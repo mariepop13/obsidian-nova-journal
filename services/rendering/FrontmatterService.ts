@@ -21,7 +21,7 @@ export class FrontmatterService {
       mood_emoji: [moodEmoji],
       sentiment: [sentiment],
       dominant_emotions: dominantEmotions,
-      tags: tags,
+      tags,
       people_present: people,
     };
   }

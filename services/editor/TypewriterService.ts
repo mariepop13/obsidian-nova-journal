@@ -101,7 +101,7 @@ export class TypewriterService {
   private static finalizeText(editor: Editor, line: number, prefix: string, tokens: string[]): void {
     if (line <= editor.lastLine()) {
       const finalContent = this.buildFinalContent(prefix, tokens);
-      this.updateEditorLine(editor, line, finalContent + '\n');
+      this.updateEditorLine(editor, line, `${finalContent  }\n`);
     }
   }
 

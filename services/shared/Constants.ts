@@ -26,9 +26,12 @@ export const TYPEWRITER_DELAYS = {
   FAST: 25,
   MAX_DURATION_MS: 4000,
   PAUSE_MULTIPLIERS: {
-    COMMA: 3, // virgules, points-virgules, deux-points (150ms pour normal)
-    SENTENCE: 6, // points, points d'exclamation, points d'interrogation (300ms)
-    NEWLINE: 10, // nouvelles lignes (500ms)
+    // virgules, points-virgules, deux-points (150ms pour normal)
+    COMMA: 3,
+    // points, points d'exclamation, points d'interrogation (300ms)
+    SENTENCE: 6,
+    // nouvelles lignes (500ms)
+    NEWLINE: 10,
   },
 } as const;
 
@@ -51,7 +54,8 @@ export const API_CONFIG = {
   OPENAI_MODELS_URL: 'https://api.openai.com/v1/models',
   TIMEOUT_MS: 10000,
   USER_AGENT: 'Nova-Journal-Plugin/1.0',
-  MAX_REQUEST_SIZE_BYTES: 2000000, // ~2MB
+  // ~2MB
+  MAX_REQUEST_SIZE_BYTES: 2000000,
   HTTP_UNAUTHORIZED: 401,
   HTTP_RATE_LIMIT: 429,
   HTTP_SERVER_ERROR: 500,
@@ -65,10 +69,16 @@ export const TEMPLATE_PATTERNS = {
 } as const;
 
 // File and Content Limits
+const KB = 1024;
+const MB = KB * 1024;
+
 export const FILE_LIMITS = {
-  MAX_FILE_SIZE_BYTES: 1024 * 1024, // 1MB
-  MAX_CLIPBOARD_SIZE_BYTES: 1024 * 1024, // 1MB
-  MAX_IMPORT_CONTENT_LENGTH: 1024 * 1024, // 1MB
+  // 1MB
+  MAX_FILE_SIZE_BYTES: MB,
+  // 1MB
+  MAX_CLIPBOARD_SIZE_BYTES: MB,
+  // 1MB
+  MAX_IMPORT_CONTENT_LENGTH: MB,
 } as const;
 
 // Content Analysis and Processing
@@ -83,6 +93,7 @@ export const CONTENT_LIMITS = {
   USER_SECTION_MIN_LENGTH: 20,
   CONTENT_EXCERPT_MAX: 200,
   TRIMMED_CONTENT_MAX: 5000,
+  CHUNK_PREVIEW_MAX: 350,
   // Mood analysis specific
   NOTE_EXCERPT_MAX_LENGTH: 200,
   MIN_MEANINGFUL_CONTENT: 10,
@@ -148,6 +159,7 @@ export const HASH_CONSTANTS = {
   HASH_SEED_BASE: 0,
   RANDOM_STRING_LENGTH: 8,
   RANDOM_STRING_START: 2,
+  BASE_36: 36,
 } as const;
 
 // Embedding and Vector Processing
@@ -225,6 +237,8 @@ export const TIMING_CONFIG = {
 // Token and AI Limits
 export const TOKEN_LIMITS = {
   PROMPT_MAX_TOKENS: 60,
+  CONTEXTUAL_PROMPT_MAX_TOKENS: 80,
+  THEMATIC_PROMPT_MAX_TOKENS: 90,
   STYLE_SELECTOR_MAX_TOKENS: 200,
   PROMPT_MAX_WORDS: 25,
   ENHANCED_PROMPT_MAX_WORDS: 30,
@@ -252,6 +266,9 @@ export const PARSING_CONSTANTS = {
   ARRAY_BRACKET_TRIM_START: 1,
   ARRAY_BRACKET_TRIM_END: -1,
   STRING_NEXT_CHAR_OFFSET: 1,
+  REGEX_MATCH_DATE_INDEX: 1,
+  REGEX_MATCH_HOUR_INDEX: 2,
+  REGEX_MATCH_MINUTE_INDEX: 3,
 } as const;
 
 export const EXCLUDED_NAMES = new Set(['nova', 'ai', 'assistant', 'you', 'me']);

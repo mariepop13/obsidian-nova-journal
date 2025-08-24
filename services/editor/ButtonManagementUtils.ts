@@ -1,6 +1,6 @@
 import { Editor, EditorPosition } from 'obsidian';
 import { ButtonCustomizationService } from './ButtonCustomizationService';
-import type { NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
+import type { ButtonPosition, ButtonStyle, NovaJournalSettings } from '../../settings/PluginSettings';
 import { isDeepenButtonMarkup, isMoodAnalyzeButtonMarkup } from './ContentDetectionUtils';
 import { deleteRangesInReverse } from './ContentCleanupUtils';
 
@@ -71,11 +71,11 @@ function createButtonMarkup(label: string, settings?: ButtonSettings): string {
   if (settings) {
     try {
       const fullSettings = {
-        deepenButtonLabel: settings.deepenButtonLabel || 'Deepen',
-        moodButtonLabel: settings.moodButtonLabel || 'Mood',
-        buttonStyle: settings.buttonStyle || 'default',
-        buttonPosition: settings.buttonPosition || 'bottom',
-        buttonTheme: settings.buttonTheme || 'primary',
+        deepenButtonLabel: settings.deepenButtonLabel ?? 'Deepen',
+        moodButtonLabel: settings.moodButtonLabel ?? 'Mood',
+        buttonStyle: settings.buttonStyle ?? 'default',
+        buttonPosition: settings.buttonPosition ?? 'bottom',
+        buttonTheme: settings.buttonTheme ?? 'primary',
         showMoodButton: settings.showMoodButton ?? true,
       } as Partial<NovaJournalSettings>;
       const config = ButtonCustomizationService.createFromSettings(fullSettings as NovaJournalSettings);

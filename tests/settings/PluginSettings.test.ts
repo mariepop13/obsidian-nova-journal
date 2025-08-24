@@ -7,6 +7,10 @@ import {
   TOKEN_LIMITS,
   TemplateFactory,
   normalizeSettings,
+  type TypewriterSpeed,
+  type DeepenScope,
+  type ButtonStyle,
+  type ButtonPosition
 } from '../../settings/PluginSettings';
 
 describe('PluginSettings', () => {
@@ -51,10 +55,10 @@ describe('PluginSettings', () => {
 
     test('validates and corrects invalid enum values', () => {
       const input = {
-        typewriterSpeed: 'invalid' as any,
-        defaultDeepenScope: 'invalid' as any,
-        buttonStyle: 'invalid' as any,
-        buttonPosition: 'invalid' as any,
+        typewriterSpeed: 'invalid' as unknown as TypewriterSpeed,
+        defaultDeepenScope: 'invalid' as unknown as DeepenScope,
+        buttonStyle: 'invalid' as unknown as ButtonStyle,
+        buttonPosition: 'invalid' as unknown as ButtonPosition,
         dailyNoteFormat: 'invalid',
       };
       const result = normalizeSettings(input);
@@ -268,11 +272,11 @@ describe('PluginSettings', () => {
     test('normalizeSettings with complex invalid input', () => {
       const maliciousInput = {
         promptTemplate: '<script>window.location="http://evil.com"</script>{{prompt}}',
-        aiSystemPrompt: 'javascript:void(0)' + 'a'.repeat(3000),
+        aiSystemPrompt: `javascript:void(0)${  'a'.repeat(3000)}`,
         aiMaxTokens: -999999,
         aiRetryCount: 999999,
-        typewriterSpeed: 'ultra-fast' as any,
-        buttonStyle: 'rainbow' as any,
+        typewriterSpeed: 'ultra-fast' as unknown as TypewriterSpeed,
+        buttonStyle: 'rainbow' as unknown as ButtonStyle,
         dailyNoteFormat: 'MM/DD/YYYY',
         userName: undefined,
       };

@@ -1,8 +1,9 @@
 import { RegexHelpers } from '../utils/RegexHelpers';
+import { HASH_CONSTANTS } from '../shared/Constants';
 
 export function generateAnchorId(): string {
-  const rnd = Math.random().toString(36).slice(2, 8);
-  return `conv-${Date.now().toString(36)}-${rnd}`;
+  const rnd = Math.random().toString(HASH_CONSTANTS.BASE_36).slice(HASH_CONSTANTS.RANDOM_STRING_START, HASH_CONSTANTS.RANDOM_STRING_START + HASH_CONSTANTS.RANDOM_STRING_LENGTH);
+  return `conv-${Date.now().toString(HASH_CONSTANTS.BASE_36)}-${rnd}`;
 }
 
 export function isDeepenButtonMarkup(line: string): boolean {

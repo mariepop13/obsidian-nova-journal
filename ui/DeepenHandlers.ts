@@ -1,5 +1,24 @@
 import type { Plugin } from 'obsidian';
 
+const handleDeepenClick = (
+  btn: Element,
+  getLabel: () => string,
+  deepenLine: (line: number) => Promise<void>,
+  deepenNote: (label: string) => Promise<void>
+): void => {
+  const lineAttr = btn.getAttribute('data-line');
+  const scope = btn.getAttribute('data-scope') ?? '';
+  const label = btn.textContent ?? getLabel();
+  const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
+  const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
+  if (scope === 'note' || !hasValidLine) deepenNote(label).catch((): void => {});
+  else deepenLine(parsed as number).catch((): void => {});
+};
+
+const handleMoodClick = (analyzeMood: () => Promise<void>): void => {
+  analyzeMood().catch((): void => {});
+};
+
 export function registerDeepenHandlers(
   plugin: Plugin,
   getLabel: () => string,
@@ -11,13 +30,7 @@ export function registerDeepenHandlers(
     el.querySelectorAll('a.nova-deepen, button.nova-deepen').forEach((btn): void => {
       btn.addEventListener('click', (evt): void => {
         evt.preventDefault();
-        const lineAttr = btn.getAttribute('data-line');
-        const scope = btn.getAttribute('data-scope') ?? '';
-        const label = btn.textContent ?? getLabel();
-        const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
-        const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-        if (scope === 'note' || !hasValidLine) deepenNote(label).catch((): void => {});
-        else deepenLine(parsed as number).catch((): void => {});
+        handleDeepenClick(btn, getLabel, deepenLine, deepenNote);
       });
     });
 
@@ -25,7 +38,7 @@ export function registerDeepenHandlers(
       el.querySelectorAll('button.nova-mood-analyze').forEach((btn): void => {
         btn.addEventListener('click', (evt): void => {
           evt.preventDefault();
-          analyzeMood().catch((): void => {});
+          handleMoodClick(analyzeMood);
         });
       });
     }
@@ -40,16 +53,10 @@ export function registerDeepenHandlers(
 
     if (deepenBtn) {
       evt.preventDefault();
-      const scope = deepenBtn.getAttribute('data-scope') ?? '';
-      const label = deepenBtn.textContent ?? getLabel();
-      const lineAttr = deepenBtn.getAttribute('data-line');
-      const parsed = lineAttr !== null ? Number(lineAttr) : undefined;
-      const hasValidLine = typeof parsed === 'number' && Number.isFinite(parsed);
-      if (scope === 'note' || !hasValidLine) deepenNote(label).catch((): void => {});
-      else deepenLine(parsed as number).catch((): void => {});
+      handleDeepenClick(deepenBtn, getLabel, deepenLine, deepenNote);
     } else if (moodBtn && analyzeMood) {
       evt.preventDefault();
-      analyzeMood().catch((): void => {});
+      handleMoodClick(analyzeMood);
     }
   });
 }

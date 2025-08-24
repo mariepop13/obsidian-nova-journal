@@ -9,23 +9,83 @@ jest.mock('../../../services/ai/EnhancedEmbeddingService', () => ({
 
 describe('EmbeddingMigrationService', () => {
   let service: EmbeddingMigrationService;
-  let mockApp: any;
-  let mockSettings: any;
+  interface MockApp {
+    vault: {
+      getName(): string;
+    };
+  }
+
+  interface MockSettings {
+    promptStyle: 'reflective';
+    insertLocation: 'cursor';
+    addSectionHeading: boolean;
+    sectionHeading: string;
+    dailyNoteFolder: string;
+    dailyNoteFormat: string;
+    promptTemplate: string;
+    preventDuplicateForDay: boolean;
+    insertHeadingName: string;
+    organizeByYearMonth: boolean;
+    aiEnabled: boolean;
+    aiApiKey: string;
+    aiModel: string;
+    aiSystemPrompt: string;
+    deepenButtonLabel: string;
+    userName: string;
+    aiDebug: boolean;
+    defaultDeepenScope: 'line';
+    aiMaxTokens: number;
+    aiRetryCount: number;
+    aiFallbackModel: string;
+    typewriterSpeed: 'normal';
+    buttonStyle: 'button';
+    buttonPosition: 'bottom';
+    moodButtonLabel: string;
+    showMoodButton: boolean;
+    buttonTheme: string;
+  }
+
+  let mockApp: MockApp;
+  let mockSettings: MockSettings;
 
   beforeEach((): void => {
     mockApp = {
       vault: {
-        getName: () => 'test-vault',
+        getName: (): string => 'test-vault',
       },
     };
 
     mockSettings = {
+      promptStyle: 'reflective',
+      insertLocation: 'cursor',
+      addSectionHeading: true,
+      sectionHeading: '## Journal Prompt',
+      dailyNoteFolder: 'Journal',
+      dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
+      promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}',
+      preventDuplicateForDay: true,
+      insertHeadingName: '',
+      organizeByYearMonth: false,
       aiEnabled: true,
       aiApiKey: 'sk-test-key',
-      dailyNoteFolder: 'Journal',
+      aiModel: 'gpt-4o-mini',
+      aiSystemPrompt: 'You are Nova, a reflective journaling companion.',
+      deepenButtonLabel: 'Explore more',
+      userName: 'You',
+      aiDebug: false,
+      defaultDeepenScope: 'line',
+      aiMaxTokens: 800,
+      aiRetryCount: 2,
+      aiFallbackModel: '',
+      typewriterSpeed: 'normal',
+      buttonStyle: 'button',
+      buttonPosition: 'bottom',
+      moodButtonLabel: 'Analyze mood',
+      showMoodButton: true,
+      buttonTheme: 'default',
     };
 
-    service = new EmbeddingMigrationService(mockApp, mockSettings);
+    service = new EmbeddingMigrationService(mockApp as any, mockSettings);
 
     (localStorage.getItem as jest.Mock).mockClear();
     (localStorage.setItem as jest.Mock).mockClear();
@@ -35,8 +95,10 @@ describe('EmbeddingMigrationService', () => {
   describe('checkMigrationNeeded', () => {
     test('should return true when legacy index exists but enhanced does not', async () => {
       (localStorage.getItem as jest.Mock)
-        .mockReturnValueOnce('{"items": []}') // legacy index
-        .mockReturnValueOnce(null); // enhanced index
+        // legacy index
+        .mockReturnValueOnce('{"items": []}')
+        // enhanced index
+        .mockReturnValueOnce(null);
 
       const result = await service.checkMigrationNeeded();
 
@@ -47,8 +109,10 @@ describe('EmbeddingMigrationService', () => {
 
     test('should return false when enhanced index already exists', async () => {
       (localStorage.getItem as jest.Mock)
-        .mockReturnValueOnce('{"items": []}') // legacy index
-        .mockReturnValueOnce('{"version": "2.0.0"}'); // enhanced index
+        // legacy index
+        .mockReturnValueOnce('{"items": []}')
+        // enhanced index
+        .mockReturnValueOnce('{"version": "2.0.0"}');
 
       const result = await service.checkMigrationNeeded();
 
@@ -57,8 +121,10 @@ describe('EmbeddingMigrationService', () => {
 
     test('should return false when no legacy index exists', async () => {
       (localStorage.getItem as jest.Mock)
-        .mockReturnValueOnce(null) // no legacy index
-        .mockReturnValueOnce(null); // no enhanced index
+        // no legacy index
+        .mockReturnValueOnce(null)
+        // no enhanced index
+        .mockReturnValueOnce(null);
 
       const result = await service.checkMigrationNeeded();
 

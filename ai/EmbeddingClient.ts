@@ -48,7 +48,7 @@ export async function embed({
 }
 
 function validateApiKey(apiKey: unknown): void {
-  if (typeof apiKey !== 'string' || !apiKey || !apiKey.startsWith('sk-')) {
+  if (typeof apiKey !== 'string' || !apiKey?.startsWith('sk-')) {
     throw new Error('Invalid OpenAI API key');
   }
 }

@@ -2,6 +2,7 @@ import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
+import { TOKEN_LIMITS } from '../shared/Constants';
 
 export class PromptStyleSelectorService {
   constructor(private readonly settings: NovaJournalSettings) {}
@@ -31,7 +32,7 @@ Never add any text before or after the JSON.`;
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(200, this.settings.aiMaxTokens ?? 200),
+        maxTokens: Math.min(TOKEN_LIMITS.STYLE_SELECTOR_MAX_TOKENS, this.settings.aiMaxTokens ?? TOKEN_LIMITS.STYLE_SELECTOR_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
         fallbackModel: this.settings.aiFallbackModel ?? '',

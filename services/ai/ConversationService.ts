@@ -38,7 +38,13 @@ export class ConversationService {
 
   constructor(settings: NovaJournalSettings) {
     this.settings = settings;
-    this.context = {
+    this.context = this.createConversationContext(settings);
+    this.ragContextService = new RagContextService(settings);
+    this.responseInsertionService = this.createResponseInsertionService(settings);
+  }
+
+  private createConversationContext(settings: NovaJournalSettings): ConversationContext {
+    return {
       apiKey: settings.aiApiKey,
       model: settings.aiModel,
       systemPrompt: settings.aiSystemPrompt,
@@ -49,18 +55,23 @@ export class ConversationService {
       userName: settings.userName,
       deepenButtonLabel: settings.deepenButtonLabel,
       typewriterSpeed: settings.typewriterSpeed,
-      buttonSettings: {
-        buttonStyle: settings.buttonStyle,
-        buttonPosition: settings.buttonPosition,
-        moodButtonLabel: settings.moodButtonLabel,
-        showMoodButton: settings.showMoodButton,
-        buttonTheme: settings.buttonTheme,
-        deepenButtonLabel: settings.deepenButtonLabel,
-      },
+      buttonSettings: this.createButtonSettings(settings),
     };
+  }
 
-    this.ragContextService = new RagContextService(settings);
-    this.responseInsertionService = new ResponseInsertionService(
+  private createButtonSettings(settings: NovaJournalSettings): ButtonSettings {
+    return {
+      buttonStyle: settings.buttonStyle,
+      buttonPosition: settings.buttonPosition,
+      moodButtonLabel: settings.moodButtonLabel,
+      showMoodButton: settings.showMoodButton,
+      buttonTheme: settings.buttonTheme,
+      deepenButtonLabel: settings.deepenButtonLabel,
+    };
+  }
+
+  private createResponseInsertionService(settings: NovaJournalSettings): ResponseInsertionService {
+    return new ResponseInsertionService(
       settings.userName,
       settings.deepenButtonLabel,
       settings.typewriterSpeed,
@@ -99,7 +110,7 @@ export class ConversationService {
       }
 
       const enhancedSystemPrompt = `${this.context.systemPrompt}\nYou see the entire note context.`;
-      const aiResponse = await this.callAI(content, enhancedSystemPrompt, editor);
+      const aiResponse = await this.callAI(content, { customSystemPrompt: enhancedSystemPrompt, editor });
 
       await this.responseInsertionService.insertWholeNoteResponse(editor, aiResponse, label);
     } catch (error) {
@@ -116,11 +127,9 @@ export class ConversationService {
   private async handleTargetLineDeepen(editor: Editor, line: number, text: string): Promise<void> {
     let buttonLine = this.responseInsertionService.findExistingButton(editor, line);
 
-    if (buttonLine === null) {
-      buttonLine = this.responseInsertionService.createNewButton(editor);
-    }
+    buttonLine ??= this.responseInsertionService.createNewButton(editor);
 
-    const aiResponse = await this.callAI(text, undefined, editor, line);
+    const aiResponse = await this.callAI(text, { editor, targetLine: line });
     await this.responseInsertionService.insertTargetLineResponse(editor, buttonLine, aiResponse);
   }
 
@@ -128,7 +137,7 @@ export class ConversationService {
     const userHeader = `**${this.context.userName ?? 'You'}** (you): ${text}`;
     this.replaceLineWithHeader(editor, line, userHeader);
 
-    const aiResponse = await this.callAI(text, undefined, editor);
+    const aiResponse = await this.callAI(text, { editor });
     await this.responseInsertionService.insertGeneralLineResponse(editor, line, aiResponse);
   }
 
@@ -138,25 +147,8 @@ export class ConversationService {
     editor.replaceRange(header, from, to);
   }
 
-  private async callAI(
-    userText: string,
-    customSystemPrompt?: string,
-    editor?: Editor,
-    targetLine?: number
-  ): Promise<string> {
-    const toast = ToastSpinnerService.showThinking('Thinking...');
-
-    try {
-      const ragContext = await this.ragContextService.getRagContext(userText, editor, targetLine);
-
-      toast.updateState('generating');
-      toast.updateMessage('Generating response...');
-
-      let enhancedSystemPrompt = customSystemPrompt ?? this.context.systemPrompt;
-      let enhancedUserText = userText;
-
-      if (ragContext) {
-        enhancedSystemPrompt = `You are Nova, a journaling assistant. You have access to context from the user's previous journal entries.
+  private createRagEnhancedSystemPrompt(): string {
+    return `You are Nova, a journaling assistant. You have access to context from the user's previous journal entries.
 
 MANDATORY RESPONSE FORMAT: You must begin your response by explicitly referencing the context provided. Start by acknowledging the specific situation, timeframe, emotion, and reason from the context.
 
@@ -172,27 +164,36 @@ You must demonstrate you read and understood the specific context by mentioning:
 - Specific circumstances described
 
 Respond in the same language as the user's current entry.`;
+  }
 
-        enhancedUserText = `Current entry: ${userText}
+  private createRagEnhancedUserText(userText: string, ragContext: string): string {
+    return `Current entry: ${userText}
 
 CONTEXT YOU MUST REFERENCE:
 ${ragContext}
 
 Respond by first acknowledging the specific context above, then continue with your insight.`;
-      }
+  }
 
-      const maxTokens = ragContext ? Math.min(120, this.context.maxTokens) : this.context.maxTokens;
+  private async callAI(
+    userText: string,
+    options: {
+      customSystemPrompt?: string;
+      editor?: Editor;
+      targetLine?: number;
+    } = {}
+  ): Promise<string> {
+    const toast = ToastSpinnerService.showThinking('Thinking...');
 
-      const response = await chat({
-        apiKey: this.context.apiKey,
-        model: this.context.model,
-        systemPrompt: enhancedSystemPrompt,
-        userText: enhancedUserText,
-        maxTokens: maxTokens,
-        debug: this.context.debug,
-        retryCount: this.context.retryCount,
-        fallbackModel: this.context.fallbackModel,
-      });
+    try {
+      const ragContext = await this.ragContextService.getRagContext(userText, options.editor, options.targetLine);
+      
+      toast.updateState('generating');
+      toast.updateMessage('Generating response...');
+
+      const { enhancedSystemPrompt, enhancedUserText, maxTokens } = this.prepareAIRequest(userText, ragContext, options);
+
+      const response = await this.makeAIRequest(enhancedSystemPrompt, enhancedUserText, maxTokens);
 
       toast.hide();
       return response;
@@ -200,6 +201,37 @@ Respond by first acknowledging the specific context above, then continue with yo
       toast.hide();
       throw new AIServiceError('AI request failed', error);
     }
+  }
+
+  private prepareAIRequest(
+    userText: string, 
+    ragContext: string | null, 
+    options: { customSystemPrompt?: string }
+  ): { enhancedSystemPrompt: string; enhancedUserText: string; maxTokens: number } {
+    const enhancedSystemPrompt = ragContext 
+      ? this.createRagEnhancedSystemPrompt()
+      : options.customSystemPrompt ?? this.context.systemPrompt;
+    
+    const enhancedUserText = ragContext
+      ? this.createRagEnhancedUserText(userText, ragContext)
+      : userText;
+
+    const maxTokens = ragContext ? Math.min(120, this.context.maxTokens) : this.context.maxTokens;
+
+    return { enhancedSystemPrompt, enhancedUserText, maxTokens };
+  }
+
+  private async makeAIRequest(systemPrompt: string, userText: string, maxTokens: number): Promise<string> {
+    return await chat({
+      apiKey: this.context.apiKey,
+      model: this.context.model,
+      systemPrompt,
+      userText,
+      maxTokens,
+      debug: this.context.debug,
+      retryCount: this.context.retryCount,
+      fallbackModel: this.context.fallbackModel,
+    });
   }
 
   private handleError(error: unknown): void {

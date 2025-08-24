@@ -1,5 +1,6 @@
 import { ToastSpinnerService } from '../../../services/editor/ToastSpinnerService';
 import { Notice } from 'obsidian';
+import { TIMING_CONFIG } from '../../../services/shared/Constants';
 
 // Mock Notice since it's an Obsidian class
 jest.mock('obsidian', () => {
@@ -28,13 +29,13 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Test notice';
       ToastSpinnerService.notice(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 5000);
+      expect(MockNotice).toHaveBeenCalledWith('', TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
     it('should create a Notice with custom timeout', () => {
       const message = 'Test notice';
-      const timeout = 5000;
+      const timeout = TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT;
       ToastSpinnerService.notice(message, timeout);
 
       expect(MockNotice).toHaveBeenCalledWith('', timeout);
@@ -47,7 +48,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Warning message';
       ToastSpinnerService.warn(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 5000);
+      expect(MockNotice).toHaveBeenCalledWith('', TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -66,7 +67,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Error message';
       ToastSpinnerService.error(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 5000);
+      expect(MockNotice).toHaveBeenCalledWith('', TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 
@@ -85,7 +86,7 @@ describe('ToastSpinnerService Simple Methods', () => {
       const message = 'Info message';
       ToastSpinnerService.info(message);
 
-      expect(MockNotice).toHaveBeenCalledWith('', 5000);
+      expect(MockNotice).toHaveBeenCalledWith('', TIMING_CONFIG.TOAST_TIMEOUT_DEFAULT);
       expect(MockNotice).toHaveBeenCalledTimes(1);
     });
 

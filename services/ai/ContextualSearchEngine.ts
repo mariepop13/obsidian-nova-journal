@@ -21,36 +21,56 @@ export class ContextualSearchEngine {
     try {
       if (index.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
 
-      const embedResp = await embed({
-        apiKey: this.settings.aiApiKey,
-        inputs: [query.trim()],
-      });
+      const queryVector = await this.getQueryVector(query);
+      if (!queryVector) return [];
 
-      const embeddings = embedResp.embeddings;
-      if (!Array.isArray(embeddings) || embeddings.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
+      const candidates = this.filterCandidates(index, options);
+      const results = this.rankAndSelectResults(queryVector, candidates, query, options, k);
 
-      const queryVector = embeddings[0];
-      if (!Array.isArray(queryVector) || queryVector.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return [];
-      let candidates = index.filter(item => item.vector && item.vector.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX);
-
-      candidates = this.applyContextFilters(candidates, options);
-
-      const scored = candidates
-        .map(item => ({
-          item,
-          score: this.calculateEnhancedScore(queryVector, item, query, options),
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      const results = VectorUtils.applyDiversityFilter(scored, options.diversityThreshold ?? SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT);
-
-      return results.slice(SEARCH_CONSTANTS.MIN_RESULT_INDEX, Math.max(SEARCH_CONSTANTS.MIN_RESULT_INDEX, k)).map(s => ({
-        ...s.item,
-        text: `[${TemporalUtils.formatDate(s.item.date)}] ${s.item.text}`,
-      }));
+      return results;
     } catch {
       return [];
     }
+  }
+
+  private async getQueryVector(query: string): Promise<number[] | null> {
+    const embedResp = await embed({
+      apiKey: this.settings.aiApiKey,
+      inputs: [query.trim()],
+    });
+
+    const embeddings = embedResp.embeddings;
+    if (!Array.isArray(embeddings) || embeddings.length === SEARCH_CONSTANTS.MIN_RESULT_INDEX) return null;
+
+    const queryVector = embeddings[0];
+    return Array.isArray(queryVector) && queryVector.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX ? queryVector : null;
+  }
+
+  private filterCandidates(index: EnhancedIndexedChunk[], options: SearchOptions): EnhancedIndexedChunk[] {
+    let candidates = index.filter(item => item.vector && item.vector.length > SEARCH_CONSTANTS.MIN_RESULT_INDEX);
+    return this.applyContextFilters(candidates, options);
+  }
+
+  private rankAndSelectResults(
+    queryVector: number[],
+    candidates: EnhancedIndexedChunk[],
+    query: string,
+    options: SearchOptions,
+    k: number
+  ): EnhancedIndexedChunk[] {
+    const scored = candidates
+      .map(item => ({
+        item,
+        score: this.calculateEnhancedScore(queryVector, item, query, options),
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const results = VectorUtils.applyDiversityFilter(scored, options.diversityThreshold ?? SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT);
+
+    return results.slice(SEARCH_CONSTANTS.MIN_RESULT_INDEX, Math.max(SEARCH_CONSTANTS.MIN_RESULT_INDEX, k)).map(s => ({
+      ...s.item,
+      text: `[${TemporalUtils.formatDate(s.item.date)}] ${s.item.text}`,
+    }));
   }
 
   async emotionalSearch(
@@ -129,23 +149,28 @@ export class ContextualSearchEngine {
   ): number {
     let baseScore = VectorUtils.cosineSimilarity(queryVector, chunk.vector);
 
-    if (options.boostRecent) {
-      const ageInDays = (Date.now() - chunk.date) / TIME_CONSTANTS.MS_PER_DAY;
-      const recencyBoost = Math.exp(-ageInDays / SEARCH_CONSTANTS.RECENCY_BOOST_DIVISOR);
-      baseScore *= SEARCH_CONSTANTS.BASE_SCORE_MULTIPLIER + recencyBoost * SEARCH_CONSTANTS.RECENCY_BOOST_MULTIPLIER;
-    }
-
-    const queryLower = query.toLowerCase();
-    const textLower = chunk.text.toLowerCase();
-
-    if (textLower.includes(queryLower)) {
-      baseScore *= SEARCH_CONSTANTS.EXACT_MATCH_BOOST;
-    }
-
-    if (chunk.contextType !== 'general') {
-      baseScore *= SEARCH_CONSTANTS.CONTEXT_TYPE_BOOST;
-    }
+    baseScore = this.applyRecencyBoost(baseScore, chunk, options);
+    baseScore = this.applyTextMatching(baseScore, chunk, query);
+    baseScore = this.applyContextBoost(baseScore, chunk);
 
     return baseScore;
+  }
+
+  private applyRecencyBoost(score: number, chunk: EnhancedIndexedChunk, options: SearchOptions): number {
+    if (!options.boostRecent) return score;
+
+    const ageInDays = (Date.now() - chunk.date) / TIME_CONSTANTS.MS_PER_DAY;
+    const recencyBoost = Math.exp(-ageInDays / SEARCH_CONSTANTS.RECENCY_BOOST_DIVISOR);
+    return score * (SEARCH_CONSTANTS.BASE_SCORE_MULTIPLIER + recencyBoost * SEARCH_CONSTANTS.RECENCY_BOOST_MULTIPLIER);
+  }
+
+  private applyTextMatching(score: number, chunk: EnhancedIndexedChunk, query: string): number {
+    const queryLower = query.toLowerCase();
+    const textLower = chunk.text.toLowerCase();
+    return textLower.includes(queryLower) ? score * SEARCH_CONSTANTS.EXACT_MATCH_BOOST : score;
+  }
+
+  private applyContextBoost(score: number, chunk: EnhancedIndexedChunk): number {
+    return chunk.contextType !== 'general' ? score * SEARCH_CONSTANTS.CONTEXT_TYPE_BOOST : score;
   }
 }

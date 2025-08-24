@@ -48,11 +48,11 @@ export class ConversationResponseService {
 
   private static replaceAnchorWithNovaHeader(editor: Editor, anchorLine: number): void {
     const lineLength = editor.getLine(anchorLine).length;
-    editor.replaceRange(this.NOVA_PREFIX + '\n', { line: anchorLine, ch: 0 }, { line: anchorLine, ch: lineLength });
+    editor.replaceRange(`${this.NOVA_PREFIX  }\n`, { line: anchorLine, ch: 0 }, { line: anchorLine, ch: lineLength });
   }
 
   private static insertNovaHeaderAfterLine(editor: Editor, line: number): void {
-    editor.replaceRange(this.NOVA_PREFIX + '\n', { line: line + 1, ch: 0 });
+    editor.replaceRange(`${this.NOVA_PREFIX  }\n`, { line: line + 1, ch: 0 });
   }
 
   private static prepareEndOfNoteInsertion(editor: Editor): number {

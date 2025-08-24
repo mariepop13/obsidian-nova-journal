@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { embed } from '../../ai/EmbeddingClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
-import { EMBEDDING_CONFIG } from '../shared/Constants';
+import { EMBEDDING_CONFIG, TIME_CONSTANTS, CONTENT_LIMITS } from '../shared/Constants';
 
 export type IndexedChunk = {
   path: string;
@@ -18,7 +18,7 @@ type IndexData = {
 
 export class EmbeddingService {
   private readonly indexPath = 'nova-journal-index.json';
-  private readonly maxDays = 90;
+  private readonly maxDays = EMBEDDING_CONFIG.MAX_DAYS_INDEX;
   private readonly chunkSize = EMBEDDING_CONFIG.DEFAULT_CHUNK_SIZE;
   private readonly overlap = EMBEDDING_CONFIG.DEFAULT_OVERLAP;
   private readonly maxChunksPerBatch = EMBEDDING_CONFIG.MAX_CHUNKS_LARGE_BATCH;
@@ -58,41 +58,49 @@ export class EmbeddingService {
       await this.ensureIndexLoaded();
       if (!this.index || this.index.items.length === 0) return [];
 
-      const { embeddings } = await embed({
-        apiKey: this.settings.aiApiKey,
-        inputs: [query.trim()],
-      });
+      const queryVector = await this.getQueryEmbedding(query);
+      if (!queryVector) return [];
 
-      if (!embeddings || embeddings.length === 0) return [];
-
-      const q = embeddings[0];
-      const scored = this.index.items
-        .filter(item => item.vector && item.vector.length > 0)
-        .map(item => ({
-          item: {
-            ...item,
-            text: `[${this.formatDate(item.date)}] ${item.text}`,
-          },
-          score: this.cosineSimilarity(q, item.vector),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, Math.max(0, k))
-        .map(s => s.item);
-      return scored;
+      const results = this.rankAndSelectResults(queryVector, k);
+      return results;
     } catch {
       return [];
     }
   }
 
+  private async getQueryEmbedding(query: string): Promise<number[] | null> {
+    const { embeddings } = await embed({
+      apiKey: this.settings.aiApiKey,
+      inputs: [query.trim()],
+    });
+
+    return embeddings && embeddings.length > 0 ? embeddings[0] : null;
+  }
+
+  private rankAndSelectResults(queryVector: number[], k: number): IndexedChunk[] {
+    return this.index!.items
+      .filter(item => item.vector && item.vector.length > 0)
+      .map(item => ({
+        item: {
+          ...item,
+          text: `[${this.formatDate(item.date)}] ${item.text}`,
+        },
+        score: this.cosineSimilarity(queryVector, item.vector),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, Math.max(0, k))
+      .map(s => s.item);
+  }
+
   private formatDate(timestamp: number): string {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / TIME_CONSTANTS.MS_PER_DAY);
 
     if (diffDays === 0) return "aujourd'hui";
     if (diffDays === 1) return 'hier';
-    if (diffDays < 7) return `il y a ${diffDays} jours`;
-    if (diffDays < 30) return `il y a ${Math.floor(diffDays / 7)} semaines`;
+    if (diffDays < TIME_CONSTANTS.DAYS_IN_WEEK) return `il y a ${diffDays} jours`;
+    if (diffDays < TIME_CONSTANTS.DAYS_IN_MONTH) return `il y a ${Math.floor(diffDays / TIME_CONSTANTS.DAYS_IN_WEEK)} semaines`;
     return date.toLocaleDateString('fr-FR', {
       month: 'long',
       day: 'numeric',
@@ -102,7 +110,7 @@ export class EmbeddingService {
   private getMarkdownFilesInFolder(folder: string): TFile[] {
     const files: TFile[] = [];
     const targetFolder = folder ?? 'Journal';
-    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : targetFolder + '/';
+    const normalizedFolder = targetFolder.endsWith('/') ? targetFolder : `${targetFolder  }/`;
 
     const all = this.app.vault.getFiles();
     for (const f of all) {
@@ -136,7 +144,7 @@ export class EmbeddingService {
 
   private async collectFileChunks(folder: string): Promise<{ path: string; date: number; text: string }[]> {
     const files = this.getMarkdownFilesInFolder(folder);
-    const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - this.maxDays * TIME_CONSTANTS.MS_PER_DAY;
     const chunks: { path: string; date: number; text: string }[] = [];
 
     for (const f of files) {
@@ -149,7 +157,7 @@ export class EmbeddingService {
         const pieces = this.splitIntoChunks(content);
         for (const p of pieces) {
           const cleaned = p.trim();
-          if (cleaned.length < 50) continue;
+          if (cleaned.length < CONTENT_LIMITS.MIN_CONTENT_LENGTH) continue;
           chunks.push({ path: f.path, date: mtime, text: cleaned });
         }
       } catch {

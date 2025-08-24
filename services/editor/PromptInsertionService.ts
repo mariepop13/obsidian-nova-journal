@@ -1,7 +1,7 @@
 import { Editor } from 'obsidian';
 import { PromptService } from '../../prompt/PromptService';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
-import type { EnhancedInsertionLocation, NovaJournalSettings, ButtonStyle, ButtonPosition } from '../../settings/PluginSettings';
+import type { ButtonPosition, ButtonStyle, EnhancedInsertionLocation, NovaJournalSettings } from '../../settings/PluginSettings';
 import { ensureBottomButtons, insertAtLocation, removeDateHeadingInEditor } from './NoteEditor';
 import { PromptRenderingService, type RenderConfig } from '../rendering/PromptRenderingService';
 import { FrontmatterService, type MoodData } from '../rendering/FrontmatterService';
@@ -81,7 +81,7 @@ export class PromptInsertionService {
       return null;
     }
 
-    return { ...contextAwareResult, date, mood: mood || null };
+    return { ...contextAwareResult, date, mood: mood ?? null };
   }
 
   private async generatePromptWithContext(editor: Editor, contextData: ContextData): Promise<string> {
@@ -89,7 +89,7 @@ export class PromptInsertionService {
     
     const ragContext = await this.retrieveRagContext(editor, style);
     const generator = new PromptGenerationService(this.settings);
-    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood || undefined, ragContext);
+    const aiPrompt = await generator.generateOpeningPrompt(style, editor.getValue(), mood ?? undefined, ragContext);
 
     if (aiPrompt && aiPrompt.length > 0) {
       return aiPrompt;

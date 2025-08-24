@@ -1,4 +1,4 @@
-import { DateFormatter, TemplateFactory, type PromptPreset } from '../settings/PluginSettings';
+import { DateFormatter, type PromptPreset, TemplateFactory } from '../settings/PluginSettings';
 import { ToastSpinnerService } from '../services/editor/ToastSpinnerService';
 import type NovaJournalPlugin from '../main';
 

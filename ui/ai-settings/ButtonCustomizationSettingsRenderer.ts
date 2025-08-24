@@ -32,14 +32,16 @@ export class ButtonCustomizationSettingsRenderer {
 
         dropdown.addOptions(options);
         dropdown.setValue(this.plugin.settings.buttonStyle);
-        dropdown.onChange(async value => {
+        const handleStyleChange = async (value: string): Promise<void> => {
           try {
             this.plugin.settings.buttonStyle = SettingsValidator.validateButtonStyle(value);
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save button style');
           }
-        });
+        };
+
+        dropdown.onChange(handleStyleChange);
       });
   }
 
@@ -54,14 +56,16 @@ export class ButtonCustomizationSettingsRenderer {
 
         dropdown.addOptions(options);
         dropdown.setValue(this.plugin.settings.buttonPosition);
-        dropdown.onChange(async value => {
+        const handlePositionChange = async (value: string): Promise<void> => {
           try {
             this.plugin.settings.buttonPosition = SettingsValidator.validateButtonPosition(value);
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save button position');
           }
-        });
+        };
+
+        dropdown.onChange(handlePositionChange);
       });
   }
 
@@ -76,14 +80,16 @@ export class ButtonCustomizationSettingsRenderer {
 
         dropdown.addOptions(options);
         dropdown.setValue(this.plugin.settings.buttonTheme);
-        dropdown.onChange(async value => {
+        const handleThemeChange = async (value: string): Promise<void> => {
           try {
             this.plugin.settings.buttonTheme = value;
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save button theme');
           }
-        });
+        };
+
+        dropdown.onChange(handleThemeChange);
       });
   }
 
@@ -91,31 +97,35 @@ export class ButtonCustomizationSettingsRenderer {
     new Setting(containerEl)
       .setName('Mood button label')
       .setDesc('Text shown on the mood analysis button')
-      .addText(text =>
-        text.setValue(this.plugin.settings.moodButtonLabel).onChange(async value => {
+      .addText(text => {
+        const handleMoodLabelChange = async (value: string): Promise<void> => {
           try {
             this.plugin.settings.moodButtonLabel = value ?? 'Analyze mood';
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save mood button label');
           }
-        })
-      );
+        };
+
+        text.setValue(this.plugin.settings.moodButtonLabel).onChange(handleMoodLabelChange);
+      });
   }
 
   private renderShowMoodButtonSetting(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName('Show mood button')
       .setDesc('Display the mood analysis button alongside deepen buttons')
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.showMoodButton).onChange(async value => {
+      .addToggle(toggle => {
+        const handleShowMoodButtonChange = async (value: boolean): Promise<void> => {
           try {
             this.plugin.settings.showMoodButton = value;
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save mood button setting');
           }
-        })
-      );
+        };
+
+        toggle.setValue(this.plugin.settings.showMoodButton).onChange(handleShowMoodButtonChange);
+      });
   }
 }

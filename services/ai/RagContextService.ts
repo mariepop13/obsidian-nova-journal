@@ -1,5 +1,5 @@
 import { App, Editor } from 'obsidian';
-import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
+import { EnhancedEmbeddingService, type EnhancedIndexedChunk, type SearchOptions } from './EnhancedEmbeddingService';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import {
   CONTEXT_LIMITS,
@@ -151,11 +151,13 @@ export class RagContextService {
       });
 
       const combinedChunks = [...contextChunks];
-      additionalChunks.forEach(chunk => {
+      const addUniqueChunk = (chunk: EnhancedIndexedChunk): void => {
         if (!combinedChunks.some(existing => existing.hash === chunk.hash)) {
           combinedChunks.push(chunk);
         }
-      });
+      };
+      
+      additionalChunks.forEach(addUniqueChunk);
 
       contextChunks = combinedChunks.slice(0, CONTEXT_LIMITS.COMBINED_CHUNKS_MAX);
 
@@ -169,7 +171,7 @@ export class RagContextService {
     const historicalChunks: EnhancedIndexedChunk[] = [];
     const now = Date.now();
 
-    contextChunks.forEach(chunk => {
+    const categorizeChunk = (chunk: EnhancedIndexedChunk): void => {
       if (!chunk.date) {
         historicalChunks.push(chunk);
         return;
@@ -182,7 +184,9 @@ export class RagContextService {
       } else {
         historicalChunks.push(chunk);
       }
-    });
+    };
+    
+    contextChunks.forEach(categorizeChunk);
 
     const recentHasSubstance = recentChunks.some(chunk => {
       const text = chunk.text.toLowerCase();
@@ -217,7 +221,7 @@ export class RagContextService {
     const expandedTerms: Set<string> = new Set();
 
     const firstChunk = contextChunks[0];
-    if (firstChunk && firstChunk.text) {
+    if (firstChunk?.text) {
       const text = firstChunk.text;
 
       const words = text
@@ -229,27 +233,36 @@ export class RagContextService {
         );
 
       const wordCounts = new Map<string, number>();
-      words.forEach((word: string) => {
+      const processWord = (word: string): void => {
         const lowerWord = word.toLowerCase();
         wordCounts.set(lowerWord, (wordCounts.get(lowerWord) ?? 0) + 1);
-      });
+      };
+      
+      words.forEach(processWord);
 
       const sentences = text.split(/[.!?]+/);
-      sentences.forEach((sentence: string) => {
+      const processSentence = (sentence: string): void => {
         const sentenceWords = sentence.trim().split(/\s+/).slice(0, CONTEXT_LIMITS.SENTENCE_WORDS_MAX);
-        sentenceWords.forEach((word: string) => {
+        
+        const processSentenceWord = (word: string): void => {
           const cleanWord = word.replace(/[^\w]/g, '');
           if (cleanWord.length > CONTEXT_LIMITS.WORD_LENGTH_MIN && cleanWord.length < CONTEXT_LIMITS.WORD_LENGTH_MAX) {
             expandedTerms.add(cleanWord);
           }
-        });
-      });
+        };
+        
+        sentenceWords.forEach(processSentenceWord);
+      };
+      
+      sentences.forEach(processSentence);
 
-      Array.from(wordCounts.entries())
+      const topWords = Array.from(wordCounts.entries())
         .filter(([word, count]) => count > CONTEXT_LIMITS.MIN_WORD_COUNT && word.length > CONTEXT_LIMITS.WORD_LENGTH_MIN)
         .sort(([, countA], [, countB]) => countB - countA)
-        .slice(0, CONTEXT_LIMITS.TOP_WORDS_MAX)
-        .forEach(([word]) => expandedTerms.add(word));
+        .slice(0, CONTEXT_LIMITS.TOP_WORDS_MAX);
+      
+      const addTopWord = ([word]: [string, number]): void => { expandedTerms.add(word); };
+      topWords.forEach(addTopWord);
     }
 
     return Array.from(expandedTerms).slice(0, CONTEXT_LIMITS.EXPANDED_TERMS_MAX);

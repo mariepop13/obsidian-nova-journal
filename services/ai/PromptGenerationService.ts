@@ -12,10 +12,10 @@ interface WindowWithObsidianApp extends Window {
 }
 
 import {
-  SEARCH_CONSTANTS,
   CONTENT_LIMITS,
-  TOKEN_LIMITS,
   EMBEDDING_CONFIG,
+  SEARCH_CONSTANTS,
+  TOKEN_LIMITS,
 } from '../shared/Constants';
 
 export class PromptGenerationService {
