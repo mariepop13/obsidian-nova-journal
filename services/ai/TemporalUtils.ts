@@ -1,4 +1,4 @@
-import { TIME_CONSTANTS } from '../shared/Constants';
+import { TIME_CONSTANTS, PARSING_CONSTANTS } from '../shared/Constants';
 
 export class TemporalUtils {
   static extractDateFromFilename(filename: string): number | null {
@@ -6,9 +6,9 @@ export class TemporalUtils {
     const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})(?:_(\d{2})-(\d{2}))?/);
     if (!dateMatch) return null;
 
-    const datePart = dateMatch[1];
-    const hourPart = dateMatch[2] ?? TIME_CONSTANTS.DEFAULT_HOUR;
-    const minutePart = dateMatch[3] ?? TIME_CONSTANTS.DEFAULT_MINUTE;
+    const datePart = dateMatch[PARSING_CONSTANTS.REGEX_MATCH_DATE_INDEX];
+    const hourPart = dateMatch[PARSING_CONSTANTS.REGEX_MATCH_HOUR_INDEX] ?? TIME_CONSTANTS.DEFAULT_HOUR;
+    const minutePart = dateMatch[PARSING_CONSTANTS.REGEX_MATCH_MINUTE_INDEX] ?? TIME_CONSTANTS.DEFAULT_MINUTE;
 
     const date = new Date(`${datePart}T${hourPart}:${minutePart}:${TIME_CONSTANTS.DEFAULT_SECOND}`);
     return isNaN(date.getTime()) ? null : date.getTime();

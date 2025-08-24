@@ -4,6 +4,13 @@ import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EnhancedEmbeddingService, type EnhancedIndexedChunk, type SearchOptions } from './EnhancedEmbeddingService';
+import {
+  CONTEXT_LIMITS,
+  SEARCH_CONSTANTS,
+  EMBEDDING_CONFIG,
+  TOKEN_LIMITS,
+  CONTENT_LIMITS,
+} from '../shared/Constants';
 
 interface WindowWithObsidianApp extends Window {
   app?: App;
@@ -16,6 +23,38 @@ export interface ContextualPromptOptions {
   includeThematicContext?: boolean;
   maxContextChunks?: number;
   diversityThreshold?: number;
+}
+
+interface ContextualSearchOptions {
+  prioritizeRecent: boolean;
+  includeEmotionalContext: boolean;
+  includeThematicContext: boolean;
+  diversityThreshold: number;
+}
+
+interface ContextConfig {
+  mood?: Partial<MoodData>;
+  maxContextChunks: number;
+  options: ContextualSearchOptions;
+}
+
+interface EmotionalPromptData {
+  style: PromptStyle;
+  noteText: string;
+  mood: Partial<MoodData>;
+}
+
+interface ThematicSearchParams {
+  noteText: string;
+  themes: string[];
+  timeFrame: 'recent' | 'week' | 'month';
+}
+
+interface ThematicPromptData {
+  style: PromptStyle;
+  themes: string[];
+  timeFrame: string;
+  noteText: string;
 }
 
 export class EnhancedPromptGenerationService {
@@ -75,7 +114,7 @@ export class EnhancedPromptGenerationService {
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(80, this.settings.aiMaxTokens ?? 80),
+        maxTokens: Math.min(TOKEN_LIMITS.CONTEXTUAL_PROMPT_MAX_TOKENS, this.settings.aiMaxTokens ?? TOKEN_LIMITS.CONTEXTUAL_PROMPT_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
         fallbackModel: this.settings.aiFallbackModel ?? '',
@@ -90,11 +129,7 @@ export class EnhancedPromptGenerationService {
 
   private async safelyGatherContext(
     noteText: string,
-    contextConfig: {
-      mood?: Partial<MoodData>;
-      maxContextChunks: number;
-      options: any;
-    }
+    contextConfig: ContextConfig
   ): Promise<string> {
     try {
       return await this.gatherContextualInformation(
@@ -121,8 +156,8 @@ export class EnhancedPromptGenerationService {
       prioritizeRecent = true,
       includeEmotionalContext = true,
       includeThematicContext = true,
-      maxContextChunks = 5,
-      diversityThreshold = 0.3,
+      maxContextChunks = CONTEXT_LIMITS.DEFAULT_MAX_CHUNKS,
+      diversityThreshold = SEARCH_CONSTANTS.DIVERSITY_THRESHOLD_DEFAULT,
     } = options;
 
     const systemPrompt = this.buildSystemPrompt(style, includeEmotionalContext, includeThematicContext);
@@ -146,7 +181,7 @@ export class EnhancedPromptGenerationService {
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(80, this.settings.aiMaxTokens ?? 80),
+        maxTokens: Math.min(TOKEN_LIMITS.CONTEXTUAL_PROMPT_MAX_TOKENS, this.settings.aiMaxTokens ?? TOKEN_LIMITS.CONTEXTUAL_PROMPT_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
         fallbackModel: this.settings.aiFallbackModel ?? '',
@@ -178,15 +213,11 @@ Style guidance:
   }
 
   private createEmotionalUserPrompt(
-    promptData: {
-      style: PromptStyle;
-      noteText: string;
-      mood: Partial<MoodData>;
-    },
-    context: any[]
+    promptData: EmotionalPromptData,
+    context: EnhancedIndexedChunk[]
   ): string {
     const contextText = context.length > 0
-      ? `\n\nEmotional context from past entries:\n${context.map((c, i) => `${i + 1}. ${c.text.substring(0, 300)}...`).join('\n')}`
+      ? `\n\nEmotional context from past entries:\n${context.map((c, i) => `${i + 1}. ${c.text.substring(0, CONTENT_LIMITS.MAX_CONTENT_DISPLAY)}...`).join('\n')}`
       : '';
 
     return `Style: ${promptData.style}
@@ -205,7 +236,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
     if (!embeddingService) return this.generateContextualPrompt(style, noteText, mood);
 
     try {
-      const emotionalContext = await embeddingService.emotionalSearch(noteText, mood, 3);
+      const emotionalContext = await embeddingService.emotionalSearch(noteText, mood, EMBEDDING_CONFIG.EMOTIONAL_SEARCH_K);
       const systemPrompt = this.createEmotionalSystemPrompt(mood);
       const userPrompt = this.createEmotionalUserPrompt({ style, noteText, mood }, emotionalContext);
 
@@ -214,7 +245,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(80, this.settings.aiMaxTokens ?? 80),
+        maxTokens: Math.min(TOKEN_LIMITS.CONTEXTUAL_PROMPT_MAX_TOKENS, this.settings.aiMaxTokens ?? TOKEN_LIMITS.CONTEXTUAL_PROMPT_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
         fallbackModel: this.settings.aiFallbackModel ?? '',
@@ -229,15 +260,11 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
   }
 
   private async gatherThematicContext(
-    embeddingService: any,
-    searchParams: {
-      noteText: string;
-      themes: string[];
-      timeFrame: 'recent' | 'week' | 'month';
-    }
-  ) {
-    const thematicContext = await embeddingService.thematicSearch(searchParams.noteText, searchParams.themes, 4);
-    const temporalContext = await embeddingService.temporalSearch(searchParams.noteText, searchParams.timeFrame, 2);
+    embeddingService: EnhancedEmbeddingService,
+    searchParams: ThematicSearchParams
+  ): Promise<EnhancedIndexedChunk[]> {
+    const thematicContext = await embeddingService.thematicSearch(searchParams.noteText, searchParams.themes, EMBEDDING_CONFIG.THEMATIC_SEARCH_K);
+    const temporalContext = await embeddingService.temporalSearch(searchParams.noteText, searchParams.timeFrame, EMBEDDING_CONFIG.TEMPORAL_SEARCH_K);
     return [...thematicContext, ...temporalContext];
   }
 
@@ -265,16 +292,11 @@ Style guidance:
   }
 
   private createThematicUserPrompt(
-    thematicData: {
-      style: PromptStyle;
-      themes: string[];
-      timeFrame: string;
-      noteText: string;
-    },
-    context: any[]
+    thematicData: ThematicPromptData,
+    context: EnhancedIndexedChunk[]
   ): string {
     const contextText = context.length > 0
-      ? `\n\nThematic and temporal context:\n${context.map((c, i) => `${i + 1}. ${c.text.substring(0, 250)}...`).join('\n')}`
+      ? `\n\nThematic and temporal context:\n${context.map((c, i) => `${i + 1}. ${c.text.substring(0, CONTENT_LIMITS.MAX_CONTENT_PREVIEW)}...`).join('\n')}`
       : '';
 
     return `Style: ${thematicData.style}
@@ -304,7 +326,7 @@ Generate a thematically focused question that explores patterns and development 
         model: this.settings.aiModel,
         systemPrompt,
         userText: userPrompt,
-        maxTokens: Math.min(90, this.settings.aiMaxTokens ?? 90),
+        maxTokens: Math.min(TOKEN_LIMITS.THEMATIC_PROMPT_MAX_TOKENS, this.settings.aiMaxTokens ?? TOKEN_LIMITS.THEMATIC_PROMPT_MAX_TOKENS),
         debug: this.settings.aiDebug,
         retryCount: this.settings.aiRetryCount,
         fallbackModel: this.settings.aiFallbackModel ?? '',
@@ -401,7 +423,7 @@ Generate a thematically focused question that explores patterns and development 
   private enrichContextChunks(contextChunks: EnhancedIndexedChunk[]): string {
     const enrichedContext = contextChunks
       .map((chunk, i) => {
-        const preview = chunk.text.substring(0, 350);
+        const preview = chunk.text.substring(0, CONTENT_LIMITS.CHUNK_PREVIEW_MAX);
         const contextInfo = this.buildChunkMetadata(chunk);
         const metadata = contextInfo.length > 0 ? ` (${contextInfo.join('; ')})` : '';
         return `${i + 1}. ${preview}...${metadata}`;
@@ -410,7 +432,7 @@ Generate a thematically focused question that explores patterns and development 
 
     console.log(
       '[EnhancedPromptGenerationService] Debug - Enriched context preview:',
-      enrichedContext.substring(0, 300)
+      enrichedContext.substring(0, CONTENT_LIMITS.MAX_CONTENT_DISPLAY)
     );
     return `\n\nContextual information from your recent entries:\n${enrichedContext}`;
   }

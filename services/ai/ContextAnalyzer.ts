@@ -20,7 +20,7 @@ const THEMATIC_WORDS = [
 ];
 
 export class ContextAnalyzer {
-  private createContextScores(text: string) {
+  private createContextScores(text: string): { emotional: number; temporal: number; thematic: number } {
     const emotionalKeywords = new RegExp(`\\b(${EMOTIONAL_WORDS.join('|')})\\b`, 'i');
     const temporalKeywords = new RegExp(`\\b(${TEMPORAL_WORDS.join('|')})\\b`, 'i');
     const thematicKeywords = new RegExp(`\\b(${THEMATIC_WORDS.join('|')})\\b`, 'i');

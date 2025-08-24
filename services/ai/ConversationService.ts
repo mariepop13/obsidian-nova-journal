@@ -207,7 +207,7 @@ Respond by first acknowledging the specific context above, then continue with yo
     userText: string, 
     ragContext: string | null, 
     options: { customSystemPrompt?: string }
-  ) {
+  ): { enhancedSystemPrompt: string; enhancedUserText: string; maxTokens: number } {
     const enhancedSystemPrompt = ragContext 
       ? this.createRagEnhancedSystemPrompt()
       : options.customSystemPrompt ?? this.context.systemPrompt;
