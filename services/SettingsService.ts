@@ -85,12 +85,6 @@ export class SettingsService {
 
   async saveSettingsWithFilePicker(includeApiKey = false): Promise<void> {
     return new Promise((resolve, reject) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      // @ts-ignore - webkitdirectory for folder selection
-      input.webkitdirectory = false;
-      // Use save dialog instead of open
       const a = document.createElement('a');
       
       this.exportSettings({ includeApiKey }).then(data => {
@@ -149,19 +143,19 @@ export class SettingsService {
       };
     }
 
+    // Validate size from File metadata before reading content
+    if (typeof (file as File).size === 'number' && (file as File).size > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
+      return {
+        success: false,
+        errors: ['File too large. Maximum size is 1MB.'],
+      };
+    }
+
     try {
       const content = await file.text();
-      
-      if (content.length > FILE_LIMITS.MAX_FILE_SIZE_BYTES) {
-        return {
-          success: false,
-          errors: ['File too large. Maximum size is 1MB.'],
-        };
-      }
-
       return await this.parseFileContent(content);
-    } catch (error) {
-      logger.error(`Failed to read settings file: ${error.message}`, 'SettingsService');
+    } catch (err) {
+      logger.error(`Failed to read settings file: ${err instanceof Error ? err.message : String(err)}`, 'SettingsService');
       return {
         success: false,
         errors: ['Failed to read file. Please try again.'],

@@ -12,7 +12,7 @@ describe('EmbeddingMigrationService', () => {
   let mockApp: any;
   let mockSettings: any;
 
-  beforeEach(() => {
+  beforeEach((): void => {
     mockApp = {
       vault: {
         getName: () => 'test-vault',

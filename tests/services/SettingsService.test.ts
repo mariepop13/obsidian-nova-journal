@@ -3,7 +3,6 @@ import {
   DEFAULT_SETTINGS,
   type NovaJournalSettings,
   type SettingsExportData,
-  type SettingsImportResult,
 } from '../../settings/PluginSettings';
 import { ToastSpinnerService } from '../../services/editor/ToastSpinnerService';
 

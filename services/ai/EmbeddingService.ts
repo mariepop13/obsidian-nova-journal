@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { embed } from '../../ai/EmbeddingClient';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
-import { EMBEDDING_CONFIG, TIME_CONSTANTS, CONTENT_LIMITS } from '../shared/Constants';
+import { EMBEDDING_CONFIG } from '../shared/Constants';
 
 export type IndexedChunk = {
   path: string;
@@ -48,7 +48,7 @@ export class EmbeddingService {
         items,
       };
       await this.saveIndex();
-    } catch (error) {
+    } catch {
       await this.createEmptyIndex();
     }
   }
@@ -171,7 +171,7 @@ export class EmbeddingService {
         inputs: limitedInputs,
       });
       return Array.isArray(resp?.embeddings) ? resp.embeddings : [];
-    } catch (err) {
+    } catch {
       return [];
     }
   }

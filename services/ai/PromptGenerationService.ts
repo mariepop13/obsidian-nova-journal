@@ -1,11 +1,15 @@
+import { App } from 'obsidian';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EmbeddingService } from './EmbeddingService';
 import type { IndexedChunk } from './EmbeddingService';
-import type { EnhancedIndexedChunk } from './EnhancedEmbeddingService';
 import { EnhancedPromptGenerationService } from './EnhancedPromptGenerationService';
+
+interface WindowWithObsidianApp extends Window {
+  app?: App;
+}
 
 import {
   SEARCH_CONSTANTS,
@@ -20,7 +24,12 @@ export class PromptGenerationService {
   constructor(private readonly settings: NovaJournalSettings) {
     try {
       this.enhancedService = new EnhancedPromptGenerationService(settings);
-    } catch (error) {
+    } catch (err) {
+      // preserve silent fallback but keep a minimal diagnostic for debugging
+      if (this.settings?.aiDebug) {
+        // eslint-disable-next-line no-console
+        console.warn('[PromptGenerationService] Enhanced service initialization failed, falling back to legacy mode:', err instanceof Error ? err.message : err);
+      }
       this.enhancedService = null;
     }
   }
@@ -59,7 +68,7 @@ export class PromptGenerationService {
         });
       }
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
-    } catch (error) {
+    } catch {
       return this.generateLegacyPrompt(style, noteText, mood, ragContext);
     }
   }
@@ -130,7 +139,7 @@ Styles:
         return '';
       }
 
-      const appRef = (window as any)?.app;
+      const appRef = (window as WindowWithObsidianApp)?.app;
       if (!appRef) {
 
         return '';
@@ -146,7 +155,7 @@ Styles:
       }
 
       return this.buildRagContextFromResults(top);
-    } catch (err) {
+    } catch {
       return '';
     }
   }
@@ -196,7 +205,7 @@ Generate a question that:
 
       const cleaned = text.replace(/^"|"$/g, '').trim();
       return cleaned ?? null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

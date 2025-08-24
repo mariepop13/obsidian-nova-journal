@@ -60,7 +60,7 @@ export class PromptInsertionService {
       }
 
       return this.performPromptInsertion(editor, basePrompt, contextData.date, location);
-    } catch (_error) {
+    } catch {
       ToastSpinnerService.error('Nova Journal: failed to insert prompt. See console for details.');
       return false;
     }
@@ -112,7 +112,7 @@ export class PromptInsertionService {
         : this.ragContextService.getRecentContext(style);
 
       return await Promise.race([ragPromise, new Promise<string>(res => setTimeout(() => res(''), 2000))]);
-    } catch (_err) {
+    } catch {
       return '';
     }
   }
@@ -162,7 +162,4 @@ export class PromptInsertionService {
     };
   }
 
-  private generateSearchTermsForStyle(style: PromptStyle): string {
-    return `${style} personal experience thoughts feelings`;
-  }
 }

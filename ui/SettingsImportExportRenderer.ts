@@ -35,22 +35,22 @@ export class SettingsImportExportRenderer {
     new Setting(containerEl)
       .setName('Export settings')
       .setDesc('Save your current settings to a file')
-      .addButton((button: ButtonComponent) => {
+      .addButton((button: ButtonComponent): void => {
         button
           .setButtonText('Export to file')
           .setClass('mod-cta')
-          .onClick(async () => {
+          .onClick(async (): Promise<void> => {
             try {
               await this.settingsService.saveSettingsWithFilePicker(this.includeApiKeyInExport);
-            } catch (_error) {
+            } catch {
               ToastSpinnerService.error('Failed to export settings. Please try again.');
             }
           });
       })
-      .addButton((button: ButtonComponent) => {
+      .addButton((button: ButtonComponent): void => {
         button
           .setButtonText('Copy to clipboard')
-          .onClick(async () => {
+          .onClick(async (): Promise<void> => {
             await this.handleCopyToClipboard();
           });
       });
@@ -71,7 +71,7 @@ export class SettingsImportExportRenderer {
       }
       
       await this.attemptClipboardWrite(content);
-    } catch (_error) {
+    } catch {
       ToastSpinnerService.error('Failed to copy settings. Please try again.');
     }
   }
@@ -90,7 +90,7 @@ export class SettingsImportExportRenderer {
     try {
       await navigator.clipboard.writeText(content);
       ToastSpinnerService.notice('Settings copied to clipboard');
-    } catch (_clipboardError) {
+    } catch {
       // Fallback for clipboard permission issues
       this.showCopyFallbackDialog(content);
     }
@@ -100,9 +100,9 @@ export class SettingsImportExportRenderer {
     new Setting(containerEl)
       .setName('Include API key in export')
       .setDesc('Warning: Only enable if you trust the export destination')
-      .addToggle((toggle) => {
+      .addToggle((toggle): void => {
         toggle.setValue(false);
-        toggle.onChange(async (includeApiKey) => {
+        toggle.onChange(async (includeApiKey): Promise<void> => {
           this.includeApiKeyInExport = includeApiKey;
         });
       });
@@ -112,18 +112,18 @@ export class SettingsImportExportRenderer {
     new Setting(containerEl)
       .setName('Import settings')
       .setDesc('Load settings from a file or clipboard')
-      .addButton((button: ButtonComponent) => {
+      .addButton((button: ButtonComponent): void => {
         button
           .setButtonText('Import from file')
           .setClass('mod-cta')
-          .onClick(async () => {
+          .onClick(async (): Promise<void> => {
             await this.handleFileImport();
           });
       })
-      .addButton((button: ButtonComponent) => {
+      .addButton((button: ButtonComponent): void => {
         button
           .setButtonText('Import from clipboard')
-          .onClick(async () => {
+          .onClick(async (): Promise<void> => {
             await this.handleClipboardImport();
           });
       });
@@ -133,7 +133,7 @@ export class SettingsImportExportRenderer {
     try {
       const result = await this.settingsService.loadSettingsFromFile();
       await this.processImportResult(result);
-    } catch (_error) {
+    } catch {
       ToastSpinnerService.error('Failed to import settings. Please try again.');
     }
   }
@@ -157,7 +157,7 @@ export class SettingsImportExportRenderer {
       
       const result = await this.settingsService.importSettings(data);
       await this.processImportResult(result);
-    } catch (_error) {
+    } catch {
       ToastSpinnerService.error('Failed to import from clipboard. Please check the format.');
     }
   }
@@ -165,7 +165,7 @@ export class SettingsImportExportRenderer {
   private async getClipboardText(): Promise<string | null> {
     try {
       return await navigator.clipboard.readText();
-    } catch (_permissionError) {
+    } catch {
       // Fallback for clipboard permission issues
       const fallbackText = await this.showClipboardFallbackDialog();
       return fallbackText;
@@ -175,7 +175,7 @@ export class SettingsImportExportRenderer {
   private async parseClipboardJson(clipboardText: string): Promise<SettingsExportData | null> {
     try {
       return JSON.parse(clipboardText);
-    } catch (_parseError) {
+    } catch {
       ToastSpinnerService.error('Invalid JSON format in clipboard.');
       return null;
     }
@@ -200,7 +200,7 @@ export class SettingsImportExportRenderer {
   }
 
   private async showClipboardFallbackDialog(): Promise<string | null> {
-    return new Promise((resolve) => {
+    return new Promise((resolve): void => {
       const modal = document.createElement('div');
       modal.className = 'modal-container';
       modal.style.cssText = `
@@ -246,22 +246,22 @@ export class SettingsImportExportRenderer {
       
       textarea.focus();
       
-      const cleanup = () => {
+      const cleanup = (): void => {
         document.body.removeChild(modal);
       };
       
-      cancelBtn.onclick = () => {
+      cancelBtn.onclick = (): void => {
         cleanup();
         resolve(null);
       };
       
-      importBtn.onclick = () => {
+      importBtn.onclick = (): void => {
         const text = textarea.value.trim();
         cleanup();
         resolve(text || null);
       };
       
-      modal.onclick = (e) => {
+      modal.onclick = (e): void => {
         if (e.target === modal) {
           cleanup();
           resolve(null);
@@ -316,7 +316,7 @@ export class SettingsImportExportRenderer {
     textarea.select();
     textarea.focus();
     
-    const cleanup = () => {
+    const cleanup = (): void => {
       document.body.removeChild(modal);
     };
     
@@ -334,11 +334,11 @@ export class SettingsImportExportRenderer {
     new Setting(containerEl)
       .setName('Reset to defaults')
       .setDesc('Reset all settings to their default values')
-      .addButton((button: ButtonComponent) => {
+      .addButton((button: ButtonComponent): void => {
         button
           .setButtonText('Reset all settings')
           .setClass('mod-warning')
-          .onClick(async () => {
+          .onClick(async (): Promise<void> => {
             const confirmed = confirm(
               'Are you sure you want to reset all settings to defaults? This action cannot be undone.'
             );
@@ -347,7 +347,7 @@ export class SettingsImportExportRenderer {
               try {
                 await this.settingsService.resetToDefaults();
                 this.refreshCallback();
-              } catch (_error) {
+              } catch {
                 ToastSpinnerService.error('Failed to reset settings. Please try again.');
               }
             }

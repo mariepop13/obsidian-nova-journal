@@ -76,7 +76,7 @@ ${meaningfulContent}`;
         fallbackModel: this.settings.aiFallbackModel,
       });
       return analysis;
-    } catch (error) {
+    } catch {
       ToastSpinnerService.error('Mood analysis failed.');
       return null;
     }
@@ -98,7 +98,7 @@ ${meaningfulContent}`;
 
       const analysis = await this.generateMoodInsights(moodHistory);
       return analysis;
-    } catch (error) {
+    } catch {
       ToastSpinnerService.error('Mood analysis failed. Check console for details.');
       return null;
     }
@@ -132,7 +132,7 @@ ${meaningfulContent}`;
             note: noteExcerpt,
           });
         }
-      } catch (error) {
+      } catch {
       }
     }
 

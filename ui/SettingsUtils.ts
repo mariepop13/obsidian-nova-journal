@@ -16,7 +16,7 @@ export class SettingsUtils {
       if (shouldRefresh && refreshCallback) {
         refreshCallback();
       }
-    } catch (_error) {
+    } catch {
       ToastSpinnerService.error(errorMessage);
     }
   }

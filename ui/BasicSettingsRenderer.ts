@@ -51,7 +51,7 @@ export class BasicSettingsRenderer {
               try {
                 this.plugin.settings.insertHeadingName = value;
                 await this.plugin.saveSettings();
-              } catch (_error) {
+              } catch {
                 ToastSpinnerService.error('Failed to save heading name');
               }
             });
@@ -87,7 +87,7 @@ export class BasicSettingsRenderer {
             try {
               this.plugin.settings.sectionHeading = value;
               await this.plugin.saveSettings();
-            } catch (_error) {
+            } catch {
               ToastSpinnerService.error('Failed to save section heading text');
             }
           });
@@ -106,7 +106,7 @@ export class BasicSettingsRenderer {
             this.plugin.settings.preventDuplicateForDay = value;
             await this.plugin.saveSettings();
             this.refreshCallback();
-          } catch (_error) {
+          } catch {
             ToastSpinnerService.error('Failed to save duplicate prevention setting');
           }
         });
@@ -125,7 +125,7 @@ export class BasicSettingsRenderer {
             try {
               this.plugin.settings.dailyNoteFolder = value ?? 'Journal';
               await this.plugin.saveSettings();
-            } catch (_error) {
+            } catch {
               ToastSpinnerService.error('Failed to save folder setting');
             }
           });
@@ -140,7 +140,7 @@ export class BasicSettingsRenderer {
           try {
             this.plugin.settings.organizeByYearMonth = value;
             await this.plugin.saveSettings();
-          } catch (_error) {
+          } catch {
             ToastSpinnerService.error('Failed to save organization setting');
           }
         });
@@ -160,7 +160,7 @@ export class BasicSettingsRenderer {
             this.plugin.settings.dailyNoteFormat = value ?? 'YYYY-MM-DD';
             await this.plugin.saveSettings();
             this.refreshCallback();
-          } catch (_error) {
+          } catch {
             ToastSpinnerService.error('Failed to save format setting');
           }
         });

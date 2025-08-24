@@ -1,8 +1,13 @@
+import { App } from 'obsidian';
 import type { NovaJournalSettings } from '../../settings/PluginSettings';
 import type { PromptStyle } from '../../prompt/PromptRegistry';
 import type { MoodData } from '../rendering/FrontmatterService';
 import { chat } from '../../ai/AiClient';
 import { EnhancedEmbeddingService, type SearchOptions, type EnhancedIndexedChunk } from './EnhancedEmbeddingService';
+
+interface WindowWithObsidianApp extends Window {
+  app?: App;
+}
 
 
 export interface ContextualPromptOptions {
@@ -25,7 +30,7 @@ export class EnhancedPromptGenerationService {
     );
 
     if (!this.embeddingService) {
-      const appRef = (window as any)?.app;
+      const appRef = (window as WindowWithObsidianApp)?.app;
       console.log('[EnhancedPromptGenerationService] Debug - App reference available:', !!appRef);
 
       if (appRef) {
@@ -48,7 +53,7 @@ export class EnhancedPromptGenerationService {
     noteText: string,
     mood?: Partial<MoodData>,
     ragContext?: string,
-    options: ContextualPromptOptions = {}
+    _options: ContextualPromptOptions = {}
   ): Promise<string | null> {
     if (!this.settings.aiEnabled || !this.settings.aiApiKey) return null;
 
@@ -120,8 +125,7 @@ export class EnhancedPromptGenerationService {
         fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const raw = response;
-      const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch {
       return null;
@@ -177,8 +181,7 @@ Generate an emotionally aware question that acknowledges the user's feelings whi
         fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const raw = response;
-      const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Emotional prompt generation failed', error);
@@ -242,8 +245,7 @@ Generate a thematically focused question that explores patterns and development 
         fallbackModel: this.settings.aiFallbackModel ?? '',
       });
 
-      const raw = response;
-      const cleaned = raw.trim().replace(/^"|"$/g, '').trim();
+      const cleaned = response.trim().replace(/^"|"$/g, '').trim();
       return cleaned.length > 0 ? cleaned : null;
     } catch (error) {
       console.error('[EnhancedPromptGenerationService] Thematic prompt generation failed', error);

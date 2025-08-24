@@ -157,7 +157,7 @@ describe('PromptGenerationService', () => {
       console.error = originalConsoleError;
       global._mockRequestUrlShouldFail = false;
 
-      global.fetch = jest.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      global.fetch = jest.fn((_input: URL | RequestInfo, _init?: RequestInit) =>
         Promise.resolve({
           ok: true,
           status: 200,

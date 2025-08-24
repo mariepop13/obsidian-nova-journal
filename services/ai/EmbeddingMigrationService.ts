@@ -10,10 +10,6 @@ export class EmbeddingMigrationService {
 
   async migrateToEnhancedSystem(): Promise<boolean> {
     try {
-
-
-      const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
-
       const enhancedService = new EnhancedEmbeddingService(this.app, this.settings);
 
       await this.backupLegacyIndex();
@@ -23,7 +19,7 @@ export class EmbeddingMigrationService {
 
 
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -65,7 +61,7 @@ export class EmbeddingMigrationService {
       const legacyIndexKey = `nova-journal-index-${this.app.vault.getName()}`;
       localStorage.removeItem(legacyIndexKey);
 
-    } catch (error) {
+    } catch {
     }
   }
 }

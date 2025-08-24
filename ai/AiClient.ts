@@ -81,44 +81,64 @@ function buildPayload(config: APICallConfig): ChatCompletionPayload {
   return payload;
 }
 
+interface ObsidianRequestResponse {
+  status: number;
+  text: string;
+  json?: unknown;
+}
+
 interface ResponseLike {
   ok: boolean;
   status: number;
   statusText: string;
-  json: () => Promise<any>;
+  json: () => Promise<OpenAIResponse | Record<string, unknown>>;
   text: () => Promise<string>;
 }
 
 async function makeAPICall(apiKey: string, payload: ChatCompletionPayload): Promise<ResponseLike> {
-  const res = await requestUrl({
-    url: API_CONFIG.OPENAI_CHAT_URL,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'User-Agent': API_CONFIG.USER_AGENT,
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const res = await requestUrl({
+      url: API_CONFIG.OPENAI_CHAT_URL,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'User-Agent': API_CONFIG.USER_AGENT,
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const responseLike: ResponseLike = {
-    ok: res.status >= 200 && res.status < 300,
-    status: res.status,
-    statusText: String(res.status),
-    json: async () => {
-      try {
-        // Obsidian provides a parsed json field in many cases
-        const anyRes: any = res as any;
-        if (typeof anyRes.json !== 'undefined') return anyRes.json;
-        return JSON.parse(res.text || '{}');
-      } catch {
-        return {};
-      }
-    },
-    text: async () => res.text || '',
-  };
+    const responseLike: ResponseLike = {
+      ok: (typeof res.status === 'number') && res.status >= 200 && res.status < 300,
+      status: typeof res.status === 'number' ? res.status : 0,
+      statusText: String(res.status ?? ''),
+      json: async () => {
+        try {
+          if (typeof (res as any).json === 'function') return await (res as any).json();
+          if (typeof (res as any).text === 'function') return JSON.parse(await (res as any).text());
+          // Obsidian provides a parsed json field in many cases
+          const obsidianRes = res as ObsidianRequestResponse;
+          if (typeof obsidianRes.json !== 'undefined') return obsidianRes.json;
+          return JSON.parse(res.text || '{}');
+        } catch {
+          return {};
+        }
+      },
+      text: async () => {
+        try {
+          if (typeof (res as any).text === 'function') return await (res as any).text();
+          return String((res as any).text ?? '');
+        } catch {
+          return '';
+        }
+      },
+    };
 
-  return responseLike;
+    return responseLike;
+  } catch (err) {
+    // Normalize network-level failures into a ResponseLike-like error to be handled upstream
+    throw new Error(`Network request failed: ${String(err)}`);
+  }
 }
 
 async function handleAPIError(response: ResponseLike, debug: boolean): Promise<never> {
