@@ -1,5 +1,15 @@
 import { LogLevel, LoggingService } from '../../services/shared/LoggingService';
 
+// Type for accessing private static members in tests
+interface LoggingServiceType {
+  instance?: LoggingService;
+}
+
+// Type for global object manipulation in tests
+interface TestableGlobal {
+  process: NodeJS.Process | undefined;
+}
+
 // Mock console methods to capture logs
 const mockConsole = {
   log: jest.fn(),
@@ -28,7 +38,7 @@ describe('LoggingService', () => {
     Object.values(mockConsole).forEach(mock => mock.mockClear());
     
     // Reset LoggingService instance for each test
-    (LoggingService as any).instance = undefined;
+    (LoggingService as unknown as LoggingServiceType).instance = undefined;
   });
 
   afterEach(() => {
@@ -43,14 +53,16 @@ describe('LoggingService', () => {
     test('should handle undefined process safely', () => {
       // Mock undefined process to simulate browser/Obsidian environment
       const originalProcess = global.process;
-      (global as any).process = undefined;
+      (global as TestableGlobal).process = undefined;
       
-      expect(() => {
+      const testInstanceCreation = () => {
         // Force new instance creation
-        (LoggingService as any).instance = undefined;
+        (LoggingService as unknown as LoggingServiceType).instance = undefined;
         const instance = LoggingService.getInstance();
         expect(instance).toBeInstanceOf(LoggingService);
-      }).not.toThrow();
+      };
+      
+      expect(testInstanceCreation).not.toThrow();
       
       // Restore original process
       global.process = originalProcess;
@@ -61,12 +73,14 @@ describe('LoggingService', () => {
       const originalProcess = global.process;
       global.process = {} as unknown as NodeJS.Process;
       
-      expect(() => {
+      const testInstanceCreation = () => {
         // Force new instance creation
-        (LoggingService as any).instance = undefined;
+        (LoggingService as unknown as LoggingServiceType).instance = undefined;
         const instance = LoggingService.getInstance();
         expect(instance).toBeInstanceOf(LoggingService);
-      }).not.toThrow();
+      };
+      
+      expect(testInstanceCreation).not.toThrow();
       
       // Restore original process
       global.process = originalProcess;
@@ -79,7 +93,7 @@ describe('LoggingService', () => {
       } as unknown as NodeJS.Process;
       
       // Force new instance creation
-      (LoggingService as any).instance = undefined;
+      (LoggingService as unknown as LoggingServiceType).instance = undefined;
       const instance = LoggingService.getInstance();
       
       // In development mode, debug messages should be logged
@@ -215,13 +229,17 @@ describe('LoggingService', () => {
     });
 
     test('should handle empty messages', () => {
-      expect(() => service.info('')).not.toThrow();
+      const logEmptyMessage = () => service.info('');
+      expect(logEmptyMessage).not.toThrow();
       expect(mockConsole.info).toHaveBeenCalled();
     });
 
     test('should handle null/undefined messages gracefully', () => {
-      expect(() => service.info(null as any)).not.toThrow();
-      expect(() => service.info(undefined as any)).not.toThrow();
+      const logNullMessage = () => service.info(null as unknown as string);
+      const logUndefinedMessage = () => service.info(undefined as unknown as string);
+      
+      expect(logNullMessage).not.toThrow();
+      expect(logUndefinedMessage).not.toThrow();
     });
 
     test('should handle special characters in messages', () => {
@@ -234,7 +252,9 @@ describe('LoggingService', () => {
 
     test('should handle very long messages', () => {
       const longMessage = 'x'.repeat(10000);
-      expect(() => service.info(longMessage)).not.toThrow();
+      const logLongMessage = () => service.info(longMessage);
+      
+      expect(logLongMessage).not.toThrow();
       expect(mockConsole.info).toHaveBeenCalled();
     });
   });

@@ -1,13 +1,13 @@
-const mockApp = {
+const mockApp: MockObsidianApp = {
   vault: {
     getName: (): string => 'test-vault',
-    getFiles: (): any[] => [
+    getFiles: (): MockFile[] => [
       { path: 'Journal/test-file.md', name: 'test-file.md', extension: 'md' },
       { path: 'test-file2.md', name: 'test-file2.md', extension: 'md' },
     ],
-    read: jest.fn(async (): Promise<string> => 'Mock file content'),
-    getAbstractFileByPath: jest.fn((): null => null),
-    getMarkdownFiles: (): any[] => [
+    read: jest.fn(),
+    getAbstractFileByPath: jest.fn(),
+    getMarkdownFiles: (): MockFile[] => [
       { path: 'Journal/test-file.md', name: 'test-file.md', extension: 'md' },
       { path: 'test-file2.md', name: 'test-file2.md', extension: 'md' },
     ],
@@ -15,7 +15,7 @@ const mockApp = {
       exists: jest.fn((): Promise<boolean> => Promise.resolve(true)),
       read: jest.fn((): Promise<string> => Promise.resolve('Mock file content')),
       write: jest.fn((): Promise<void> => Promise.resolve()),
-      list: jest.fn((): Promise<{files: any[], folders: any[]}> => Promise.resolve({ files: [], folders: [] })),
+      list: jest.fn((): Promise<{files: unknown[], folders: unknown[]}> => Promise.resolve({ files: [], folders: [] })),
     },
   },
   workspace: {
@@ -26,10 +26,42 @@ const mockApp = {
     }),
   },
   metadataCache: {
-    getFileCache: jest.fn((): null => null),
-    getCache: jest.fn((): null => null),
+    getFileCache: jest.fn(),
+    getCache: jest.fn(),
   },
 };
+
+// Define proper interfaces for test mocks
+interface MockFile {
+  path: string;
+  name: string;
+  extension: string;
+}
+
+interface MockObsidianApp {
+  vault: {
+    getName(): string;
+    getFiles(): MockFile[];
+    read: jest.Mock<Promise<string>, [unknown]>;
+    getAbstractFileByPath: jest.Mock<null, [string]>;
+    getMarkdownFiles(): MockFile[];
+    adapter: {
+      exists: jest.Mock<Promise<boolean>, []>;
+      read: jest.Mock<Promise<string>, []>;
+      write: jest.Mock<Promise<void>, []>;
+      list: jest.Mock<Promise<{files: unknown[], folders: unknown[]}>, []>;
+    };
+  };
+  workspace: {
+    getActiveViewOfType(): null;
+    getActiveFile(): null;
+    getLeaf(): {openFile: jest.Mock};
+  };
+  metadataCache: {
+    getFileCache: jest.Mock;
+    getCache: jest.Mock;
+  };
+}
 
 // mockPlugin is available if needed for specific tests
 // const mockPlugin = {
@@ -100,7 +132,7 @@ global.fetch = jest.fn((_input: URL | RequestInfo, _init?: RequestInit) =>
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-console.error = (...args: any[]): void => {
+console.error = (...args: unknown[]): void => {
   const message = String(args[0] ?? '');
 
   if (
@@ -120,7 +152,7 @@ console.error = (...args: any[]): void => {
   originalConsoleError(...args);
 };
 
-console.warn = (...args: any[]): void => {
+console.warn = (...args: unknown[]): void => {
   const message = String(args[0] ?? '');
 
   if (message.includes('test') || message.includes('Enhanced service initialization failed, will use legacy mode')) {

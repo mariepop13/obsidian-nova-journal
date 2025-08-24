@@ -6,6 +6,20 @@ import {
 } from '../../settings/PluginSettings';
 import { ToastSpinnerService } from '../../services/editor/ToastSpinnerService';
 
+// Interface for DOM element mock
+interface MockHTMLElement {
+  style: { display: string };
+  href: string;
+  download: string;
+  click: jest.Mock;
+}
+
+// Interface for DOM body mock
+interface MockBody {
+  appendChild: jest.Mock;
+  removeChild: jest.Mock;
+}
+
 // Mock the ToastSpinnerService
 jest.mock('../../services/editor/ToastSpinnerService', () => ({
   ToastSpinnerService: {
@@ -29,12 +43,12 @@ const mockElement = {
   href: '',
   download: '',
   click: jest.fn(),
-} as any;
+} as MockHTMLElement;
 
 const mockBody = {
   appendChild: jest.fn(),
   removeChild: jest.fn(),
-} as any;
+} as MockBody;
 
 Object.assign(document, {
   createElement: jest.fn(() => mockElement),
@@ -55,10 +69,23 @@ Object.assign(global, {
   Blob: jest.fn(),
 });
 
+interface MockPlugin {
+  settings: NovaJournalSettings;
+  manifest: { version: string };
+  saveSettings: jest.Mock;
+}
+
+interface MockApp {
+  vault: {
+    create: jest.Mock;
+    read: jest.Mock;
+  };
+}
+
 describe('SettingsService', () => {
   let settingsService: SettingsService;
-  let mockApp: any;
-  let mockPlugin: any;
+  let mockApp: MockApp;
+  let mockPlugin: MockPlugin;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -78,7 +105,7 @@ describe('SettingsService', () => {
       saveSettings: jest.fn(),
     };
 
-    settingsService = new SettingsService(mockApp, mockPlugin);
+    settingsService = new SettingsService(mockApp as any, mockPlugin as any);
   });
 
   describe('exportSettings', () => {
@@ -144,10 +171,10 @@ describe('SettingsService', () => {
       const invalidData = {
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        settings: {} as any,
+        settings: {} as unknown as NovaJournalSettings,
       };
 
-      const result = await settingsService.importSettings(invalidData);
+      const result = await settingsService.importSettings(invalidData as unknown as SettingsExportData);
 
       expect(result.success).toBe(false);
       expect(result.errors).toContain('Missing required field: promptStyle');
@@ -158,7 +185,7 @@ describe('SettingsService', () => {
     test('rejects data without version', async () => {
       const invalidData = {
         settings: DEFAULT_SETTINGS,
-      } as any;
+      } as unknown as SettingsExportData;
 
       const result = await settingsService.importSettings(invalidData);
 
@@ -167,7 +194,7 @@ describe('SettingsService', () => {
     });
 
     test('rejects null or undefined data', async () => {
-      const result = await settingsService.importSettings(null as any);
+      const result = await settingsService.importSettings(null as unknown as SettingsExportData);
 
       expect(result.success).toBe(false);
       expect(result.errors).toContain('Invalid data format');
@@ -177,7 +204,7 @@ describe('SettingsService', () => {
       const invalidData = {
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-      } as any;
+      } as unknown as SettingsExportData;
 
       const result = await settingsService.importSettings(invalidData);
 
@@ -205,7 +232,7 @@ describe('SettingsService', () => {
         version: '1.0.0',
         timestamp: 'invalid-timestamp',
         settings: 'not-an-object',
-      } as any;
+      } as unknown as SettingsExportData;
 
       const result = await settingsService.importSettings(malformedData);
 
@@ -229,7 +256,7 @@ describe('SettingsService', () => {
       const mockInput = {
         type: 'file',
         accept: '.json',
-        onchange: null as any,
+        onchange: null as unknown as ((event: Event) => void) | null,
         click: jest.fn(),
         files: [mockFile],
       };
@@ -239,11 +266,15 @@ describe('SettingsService', () => {
       const resultPromise = settingsService.loadSettingsFromFile();
       
       // Simulate file selection with large content
-      if (mockInput.onchange) {
-        const largeContent = 'x'.repeat(1024 * 1024 + 1);
-        mockFile.text = jest.fn().mockResolvedValue(largeContent);
-        await mockInput.onchange({ target: { files: [mockFile] } } as any);
-      }
+      const simulateFileSelection = async () => {
+        if (mockInput.onchange) {
+          const largeContent = 'x'.repeat(1024 * 1024 + 1);
+          mockFile.text = jest.fn().mockResolvedValue(largeContent);
+          await mockInput.onchange({ target: { files: [mockFile] } } as unknown as Event);
+        }
+      };
+      
+      await simulateFileSelection();
 
       const result = await resultPromise;
       expect(result.success).toBe(false);
@@ -258,7 +289,7 @@ describe('SettingsService', () => {
       const mockInput = {
         type: 'file',
         accept: '.json',
-        onchange: null as any,
+        onchange: null as unknown as ((event: Event) => void) | null,
         click: jest.fn(),
       };
 
@@ -267,9 +298,13 @@ describe('SettingsService', () => {
       const resultPromise = settingsService.loadSettingsFromFile();
       
       // Simulate file selection
-      if (mockInput.onchange) {
-        await mockInput.onchange({ target: { files: [mockFile] } } as any);
-      }
+      const simulateInvalidJson = async () => {
+        if (mockInput.onchange) {
+          await mockInput.onchange({ target: { files: [mockFile] } } as unknown as Event);
+        }
+      };
+      
+      await simulateInvalidJson();
 
       const result = await resultPromise;
       expect(result.success).toBe(false);
@@ -280,7 +315,7 @@ describe('SettingsService', () => {
       const mockInput = {
         type: 'file',
         accept: '.json',
-        onchange: null as any,
+        onchange: null as unknown as ((event: Event) => void) | null,
         click: jest.fn(),
       };
 
@@ -289,9 +324,13 @@ describe('SettingsService', () => {
       const resultPromise = settingsService.loadSettingsFromFile();
       
       // Simulate no file selection
-      if (mockInput.onchange) {
-        await mockInput.onchange({ target: { files: null } } as any);
-      }
+      const simulateNoFileSelection = async () => {
+        if (mockInput.onchange) {
+          await mockInput.onchange({ target: { files: null } } as unknown as Event);
+        }
+      };
+      
+      await simulateNoFileSelection();
 
       const result = await resultPromise;
       expect(result.success).toBe(false);
@@ -343,7 +382,7 @@ describe('SettingsService', () => {
       
       // Mock the current time for predictable filename
       const fixedDate = new Date('2024-01-15T10:30:00.000Z');
-      jest.spyOn(global, 'Date').mockImplementation(() => fixedDate as any);
+      jest.spyOn(global, 'Date').mockImplementation(() => fixedDate as unknown as Date);
       
       await settingsService.saveSettingsWithFilePicker(false);
 

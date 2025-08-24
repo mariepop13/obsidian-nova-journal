@@ -3,32 +3,82 @@ import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPr
 
 jest.mock('../../../services/ai/EnhancedPromptGenerationService');
 
+interface MockSettings {
+  promptStyle: 'reflective';
+  insertLocation: 'cursor';
+  addSectionHeading: boolean;
+  sectionHeading: string;
+  dailyNoteFolder: string;
+  dailyNoteFormat: string;
+  promptTemplate: string;
+  preventDuplicateForDay: boolean;
+  insertHeadingName: string;
+  organizeByYearMonth: boolean;
+  aiEnabled: boolean;
+  aiApiKey: string;
+  aiModel: string;
+  aiSystemPrompt: string;
+  deepenButtonLabel: string;
+  userName: string;
+  aiDebug: boolean;
+  defaultDeepenScope: 'line';
+  aiMaxTokens: number;
+  aiRetryCount: number;
+  aiFallbackModel: string;
+  typewriterSpeed: 'normal';
+  buttonStyle: 'button';
+  buttonPosition: 'bottom';
+  moodButtonLabel: string;
+  showMoodButton: boolean;
+  buttonTheme: string;
+}
+
 describe('PromptGenerationService', () => {
   let service: PromptGenerationService;
-  let mockSettings: any;
+  let mockSettings: MockSettings;
   let mockEnhancedService: jest.Mocked<EnhancedPromptGenerationService>;
 
   beforeEach(() => {
     mockSettings = {
+      promptStyle: 'reflective',
+      insertLocation: 'cursor',
+      addSectionHeading: true,
+      sectionHeading: '## Journal Prompt',
+      dailyNoteFolder: 'Marie/Journal',
+      dailyNoteFormat: 'YYYY-MM-DD_HH-mm',
+      promptTemplate: '**Nova**: {{prompt}}\n\n{{user_line}}',
+      preventDuplicateForDay: true,
+      insertHeadingName: '',
+      organizeByYearMonth: false,
       aiEnabled: true,
       aiApiKey: 'sk-test-key',
       aiModel: 'gpt-4',
+      aiSystemPrompt: 'You are Nova, a reflective journaling companion.',
+      deepenButtonLabel: 'Explore more',
+      userName: 'You',
       aiDebug: false,
+      defaultDeepenScope: 'line',
       aiMaxTokens: 150,
       aiRetryCount: 1,
       aiFallbackModel: 'gpt-3.5-turbo',
+      typewriterSpeed: 'normal',
+      buttonStyle: 'button',
+      buttonPosition: 'bottom',
+      moodButtonLabel: 'Analyze mood',
+      showMoodButton: true,
+      buttonTheme: 'default',
     };
 
     jest.clearAllMocks();
 
-    service = new PromptGenerationService(mockSettings);
-    mockEnhancedService = (service as any).enhancedService;
+    service = new PromptGenerationService(mockSettings as any);
+    mockEnhancedService = (service as unknown as { enhancedService: jest.Mocked<EnhancedPromptGenerationService> }).enhancedService;
   });
 
   describe('generateOpeningPrompt', () => {
     test('should return null when AI is disabled', async () => {
       mockSettings.aiEnabled = false;
-      service = new PromptGenerationService(mockSettings);
+      service = new PromptGenerationService(mockSettings as any);
 
       const result = await service.generateOpeningPrompt('reflective', 'Test note');
 
@@ -37,7 +87,7 @@ describe('PromptGenerationService', () => {
 
     test('should return null when API key is missing', async () => {
       mockSettings.aiApiKey = '';
-      service = new PromptGenerationService(mockSettings);
+      service = new PromptGenerationService(mockSettings as any);
 
       const result = await service.generateOpeningPrompt('reflective', 'Test note');
 
@@ -139,7 +189,8 @@ describe('PromptGenerationService', () => {
         throw new Error('Constructor failed');
       });
 
-      expect(() => new PromptGenerationService(mockSettings)).not.toThrow();
+      const createService = () => new PromptGenerationService(mockSettings);
+      expect(createService).not.toThrow();
     });
 
     test('should return null on total failure', async () => {
@@ -157,30 +208,30 @@ describe('PromptGenerationService', () => {
       console.error = originalConsoleError;
       global._mockRequestUrlShouldFail = false;
 
-      global.fetch = jest.fn((_input: URL | RequestInfo, _init?: RequestInit) =>
-        Promise.resolve({
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers(),
-          redirected: false,
-          type: 'basic' as ResponseType,
-          url: '',
-          clone: jest.fn(),
-          body: null,
-          bodyUsed: false,
-          arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-          blob: () => Promise.resolve(new Blob()),
-          formData: () => Promise.resolve(new FormData()),
-          bytes: () => Promise.resolve(new Uint8Array()),
-          json: () =>
-            Promise.resolve({
-              choices: [{ message: { content: 'Mock AI response' } }],
-              data: [{ embedding: [0.1, 0.2, 0.3] }],
-            }),
-          text: () => Promise.resolve('Mock response text'),
-        } as Response)
-      ) as jest.MockedFunction<typeof fetch>;
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        redirected: false,
+        type: 'basic' as ResponseType,
+        url: '',
+        clone: jest.fn(),
+        body: null,
+        bodyUsed: false,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+        blob: () => Promise.resolve(new Blob()),
+        formData: () => Promise.resolve(new FormData()),
+        bytes: () => Promise.resolve(new Uint8Array()),
+        json: () =>
+          Promise.resolve({
+            choices: [{ message: { content: 'Mock AI response' } }],
+            data: [{ embedding: [0.1, 0.2, 0.3] }],
+          }),
+        text: () => Promise.resolve('Mock response text'),
+      } as Response;
+
+      global.fetch = jest.fn((_input: URL | RequestInfo, _init?: RequestInit) => Promise.resolve(mockResponse)) as jest.MockedFunction<typeof fetch>;
     });
   });
 });

@@ -3,12 +3,18 @@ import { EnhancedPromptGenerationService } from '../../../services/ai/EnhancedPr
 import { ContextAnalyzer } from '../../../services/ai/ContextAnalyzer';
 import { VectorUtils } from '../../../services/ai/VectorUtils';
 
+interface MockFile {
+  path: string;
+  name: string;
+  extension: string;
+}
+
 interface MockApp {
   vault: {
     getName(): string;
-    getFiles(): any[];
-    read(file: any): Promise<string>;
-    getAbstractFileByPath(path: string): any;
+    getFiles(): MockFile[];
+    read(file: unknown): Promise<string>;
+    getAbstractFileByPath(path: string): unknown;
   };
 }
 
@@ -97,7 +103,17 @@ describe('EnhancedEmbeddingService', () => {
   });
 
   test('should apply diversity filter correctly', () => {
-    const createMockChunk = (vector: number[], text: string): any => ({
+    interface MockChunk {
+      path: string;
+      date: number;
+      lastModified: number;
+      text: string;
+      vector: number[];
+      contextType: 'general';
+      hash: string;
+    }
+
+    const createMockChunk = (vector: number[], text: string): MockChunk => ({
       path: 'test/path.md',
       date: Date.now(),
       lastModified: Date.now(),
@@ -136,7 +152,7 @@ describe('EnhancedPromptGenerationService', () => {
   });
 
   test('should build system prompt correctly', () => {
-    const prompt = (service as any).buildSystemPrompt('reflective', true, true);
+    const prompt = (service as unknown as { buildSystemPrompt(style: string, hasEmotional: boolean, hasThematic: boolean): string }).buildSystemPrompt('reflective', true, true);
 
     expect(prompt).toContain('contextually aware');
     expect(prompt).toContain('emotional patterns');
@@ -151,7 +167,9 @@ describe('EnhancedPromptGenerationService', () => {
       tags: ['work', 'achievement'],
     };
 
-    const prompt = (service as any).buildUserPrompt(
+    const prompt = (service as unknown as {
+      buildUserPrompt(style: string, note: string, mood: unknown, context: string): string
+    }).buildUserPrompt(
       'gratitude',
       'Had a great day at work',
       mood,
