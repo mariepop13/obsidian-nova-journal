@@ -36,23 +36,27 @@ export class SettingsImportExportRenderer {
       .setName('Export settings')
       .setDesc('Save your current settings to a file')
       .addButton((button: ButtonComponent): void => {
+        const handleExportToFile = async (): Promise<void> => {
+          try {
+            await this.settingsService.saveSettingsWithFilePicker(this.includeApiKeyInExport);
+          } catch {
+            ToastSpinnerService.error('Failed to export settings. Please try again.');
+          }
+        };
+
         button
           .setButtonText('Export to file')
           .setClass('mod-cta')
-          .onClick(async (): Promise<void> => {
-            try {
-              await this.settingsService.saveSettingsWithFilePicker(this.includeApiKeyInExport);
-            } catch {
-              ToastSpinnerService.error('Failed to export settings. Please try again.');
-            }
-          });
+          .onClick(handleExportToFile);
       })
       .addButton((button: ButtonComponent): void => {
+        const handleCopyToClipboard = async (): Promise<void> => {
+          await this.handleCopyToClipboard();
+        };
+
         button
           .setButtonText('Copy to clipboard')
-          .onClick(async (): Promise<void> => {
-            await this.handleCopyToClipboard();
-          });
+          .onClick(handleCopyToClipboard);
       });
   }
 
@@ -101,10 +105,12 @@ export class SettingsImportExportRenderer {
       .setName('Include API key in export')
       .setDesc('Warning: Only enable if you trust the export destination')
       .addToggle((toggle): void => {
-        toggle.setValue(false);
-        toggle.onChange(async (includeApiKey): Promise<void> => {
+        const handleApiKeyToggle = async (includeApiKey: boolean): Promise<void> => {
           this.includeApiKeyInExport = includeApiKey;
-        });
+        };
+
+        toggle.setValue(false);
+        toggle.onChange(handleApiKeyToggle);
       });
   }
 
@@ -113,19 +119,23 @@ export class SettingsImportExportRenderer {
       .setName('Import settings')
       .setDesc('Load settings from a file or clipboard')
       .addButton((button: ButtonComponent): void => {
+        const handleFileImportClick = async (): Promise<void> => {
+          await this.handleFileImport();
+        };
+
         button
           .setButtonText('Import from file')
           .setClass('mod-cta')
-          .onClick(async (): Promise<void> => {
-            await this.handleFileImport();
-          });
+          .onClick(handleFileImportClick);
       })
       .addButton((button: ButtonComponent): void => {
+        const handleClipboardImportClick = async (): Promise<void> => {
+          await this.handleClipboardImport();
+        };
+
         button
           .setButtonText('Import from clipboard')
-          .onClick(async (): Promise<void> => {
-            await this.handleClipboardImport();
-          });
+          .onClick(handleClipboardImportClick);
       });
   }
 
@@ -335,23 +345,25 @@ export class SettingsImportExportRenderer {
       .setName('Reset to defaults')
       .setDesc('Reset all settings to their default values')
       .addButton((button: ButtonComponent): void => {
+        const handleResetSettings = async (): Promise<void> => {
+          const confirmed = confirm(
+            'Are you sure you want to reset all settings to defaults? This action cannot be undone.'
+          );
+          
+          if (confirmed) {
+            try {
+              await this.settingsService.resetToDefaults();
+              this.refreshCallback();
+            } catch {
+              ToastSpinnerService.error('Failed to reset settings. Please try again.');
+            }
+          }
+        };
+
         button
           .setButtonText('Reset all settings')
           .setClass('mod-warning')
-          .onClick(async (): Promise<void> => {
-            const confirmed = confirm(
-              'Are you sure you want to reset all settings to defaults? This action cannot be undone.'
-            );
-            
-            if (confirmed) {
-              try {
-                await this.settingsService.resetToDefaults();
-                this.refreshCallback();
-              } catch {
-                ToastSpinnerService.error('Failed to reset settings. Please try again.');
-              }
-            }
-          });
+          .onClick(handleResetSettings);
       });
   }
 }

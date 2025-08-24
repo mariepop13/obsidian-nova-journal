@@ -18,6 +18,15 @@ export class PromptTemplateSettingsRenderer {
       .setName('Daily prompt style')
       .setDesc('Select the style of the daily prompt.')
       .addDropdown((dropdown: DropdownComponent) => {
+        const handlePromptStyleChange = async (value: string): Promise<void> => {
+          try {
+            this.plugin.settings.promptStyle = value as 'reflective' | 'gratitude' | 'planning' | 'dreams';
+            await this.plugin.saveSettings();
+          } catch {
+            ToastSpinnerService.error('Failed to save prompt style');
+          }
+        };
+
         dropdown.addOptions({
           reflective: 'Reflective',
           gratitude: 'Gratitude',
@@ -25,14 +34,7 @@ export class PromptTemplateSettingsRenderer {
           dreams: 'Dreams',
         });
         dropdown.setValue(this.plugin.settings.promptStyle);
-        dropdown.onChange(async value => {
-          try {
-            this.plugin.settings.promptStyle = value as 'reflective' | 'gratitude' | 'planning' | 'dreams';
-            await this.plugin.saveSettings();
-          } catch {
-            ToastSpinnerService.error('Failed to save prompt style');
-          }
-        });
+        dropdown.onChange(handlePromptStyleChange);
       });
   }
 
@@ -41,17 +43,19 @@ export class PromptTemplateSettingsRenderer {
       .setName('Prompt template')
       .setDesc('Use variables like {{prompt}}, {{date}} or {{date:YYYY-MM-DD}}')
       .addTextArea((textArea: TextAreaComponent) => {
+        const handleTemplateChange = async (value: string): Promise<void> => {
+          try {
+            this.plugin.settings.promptTemplate = value;
+            await this.plugin.saveSettings();
+          } catch {
+            ToastSpinnerService.error('Failed to save template');
+          }
+        };
+
         textArea
           .setPlaceholder('{{prompt}}')
           .setValue(this.plugin.settings.promptTemplate ?? '')
-          .onChange(async value => {
-            try {
-              this.plugin.settings.promptTemplate = value;
-              await this.plugin.saveSettings();
-            } catch {
-              ToastSpinnerService.error('Failed to save template');
-            }
-          });
+          .onChange(handleTemplateChange);
         textArea.inputEl.cols = UI_CONSTANTS.TEXTAREA_COLS_DEFAULT;
         textArea.inputEl.rows = UI_CONSTANTS.TEXTAREA_ROWS_MEDIUM;
         textArea.inputEl.addEventListener('blur', () => {
@@ -88,7 +92,7 @@ export class PromptTemplateSettingsRenderer {
           }
         }
 
-        dropdown.onChange(async value => {
+        const handlePresetChange = async (value: string): Promise<void> => {
           try {
             if (value !== 'custom') {
               this.plugin.settings.promptTemplate = SettingsUtils.getTemplatePreset(value);
@@ -98,7 +102,9 @@ export class PromptTemplateSettingsRenderer {
           } catch {
             ToastSpinnerService.error('Failed to save preset');
           }
-        });
+        };
+
+        dropdown.onChange(handlePresetChange);
       });
   }
 }

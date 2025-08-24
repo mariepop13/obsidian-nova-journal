@@ -27,55 +27,61 @@ export class AdvancedSettingsRenderer {
     new Setting(containerEl)
       .setName('Max tokens')
       .setDesc('Upper bound on AI response tokens')
-      .addText(text =>
+      .addText(text => {
+        const handleMaxTokensChange = async (value: string): Promise<void> => {
+          try {
+            const tokenCount = Number(value);
+            this.plugin.settings.aiMaxTokens = SettingsValidator.validateTokens(tokenCount);
+            await this.plugin.saveSettings();
+          } catch {
+            ToastSpinnerService.error('Failed to save max tokens');
+          }
+        };
+
         text
           .setPlaceholder('800')
           .setValue(String(this.plugin.settings.aiMaxTokens))
-          .onChange(async value => {
-            try {
-              const tokenCount = Number(value);
-              this.plugin.settings.aiMaxTokens = SettingsValidator.validateTokens(tokenCount);
-              await this.plugin.saveSettings();
-            } catch {
-              ToastSpinnerService.error('Failed to save max tokens');
-            }
-          })
-      );
+          .onChange(handleMaxTokensChange);
+      });
   }
 
   private renderRetryCountSetting(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName('Retry count')
       .setDesc('Number of retries on transient AI errors')
-      .addText(text =>
+      .addText(text => {
+        const handleRetryCountChange = async (value: string): Promise<void> => {
+          try {
+            const retryCount = Number(value);
+            this.plugin.settings.aiRetryCount = SettingsValidator.validateRetryCount(retryCount);
+            await this.plugin.saveSettings();
+          } catch {
+            ToastSpinnerService.error('Failed to save retry count');
+          }
+        };
+
         text
           .setPlaceholder('2')
           .setValue(String(this.plugin.settings.aiRetryCount))
-          .onChange(async value => {
-            try {
-              const retryCount = Number(value);
-              this.plugin.settings.aiRetryCount = SettingsValidator.validateRetryCount(retryCount);
-              await this.plugin.saveSettings();
-            } catch {
-              ToastSpinnerService.error('Failed to save retry count');
-            }
-          })
-      );
+          .onChange(handleRetryCountChange);
+      });
   }
 
   private renderDebugLogsSetting(containerEl: HTMLElement): void {
     new Setting(containerEl)
       .setName('Enable AI debug logs')
       .setDesc('Show detailed logs in the console for RAG and AI operations')
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.aiDebug).onChange(async value => {
+      .addToggle(toggle => {
+        const handleDebugChange = async (value: boolean): Promise<void> => {
           try {
             this.plugin.settings.aiDebug = value;
             await this.plugin.saveSettings();
           } catch {
             ToastSpinnerService.error('Failed to save debug setting');
           }
-        })
-      );
+        };
+
+        toggle.setValue(this.plugin.settings.aiDebug).onChange(handleDebugChange);
+      });
   }
 }
