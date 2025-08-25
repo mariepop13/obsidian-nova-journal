@@ -42,12 +42,20 @@ jobs:
 
           # Direct prompt for automated review (no @claude mention needed)
           direct_prompt: |
-            Please review this pull request and provide feedback on:
+            Review this PR focusing on:
             - Code quality and best practices
-            - Potential bugs or issues
+            - Security concerns (no hardcoded secrets, input validation)
             - Performance considerations
-            - Security concerns
-            - Test coverage
+            - Test coverage for new features
+            - Type safety (if applicable)
+            
+            **Standards:**
+            - SOLID principles, functions ≤20 lines
+            - Early returns, ≤2 nesting levels
+            - Consistent code style and formatting
+            - Comprehensive error handling
+            - Gitmoji commit conventions
+            - No Claude attribution in suggestions
             
             Be constructive and helpful in your feedback.
 
@@ -69,7 +77,10 @@ jobs:
           #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
           
           # Optional: Add specific tools for running tests or linting
-          # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
+          allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck),Bash(npm run build)"
+          
+          # Use sticky comments to reuse the same comment on subsequent pushes
+          use_sticky_comment: true
           
           # Optional: Skip review for certain conditions
           # if: |
