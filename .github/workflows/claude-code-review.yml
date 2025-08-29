@@ -1,0 +1,69 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          # Direct prompt - claude-code-action handles commenting automatically
+          prompt: |
+            Review the pull request #${{ github.event.pull_request.number }} in repository ${{ github.repository }} and provide comprehensive feedback on:
+            
+            **Code Quality & Best Practices:**
+            - SOLID principles adherence, functions ≤35 lines, ≤3 parameters
+            - Single responsibility, dependency injection patterns
+            - Early returns (guard clauses), ≤2 nesting levels, complexity ≤10
+            - camelCase variables/functions, PascalCase classes/types
+            - No var, prefer const, no magic numbers, template literals
+            - Error handling patterns and edge case coverage
+            
+            **Security & Performance:**
+            - NEVER hardcode secrets, validate ALL inputs, sanitize data
+            - Use principle of least privilege for permissions
+            - Security vulnerabilities and sensitive data exposure
+            - No sensitive data in logs, actionable context only
+            - Readability over premature optimization
+            - Minimal dependencies, audit for vulnerabilities
+            
+            **Testing & Documentation:**
+            - Test coverage ≥80% for new code
+            - Happy path + edge cases + failure modes
+            - Self-documenting code with clear names, no inline comments
+            - No TODOs, no commented code, no dead code
+            - Breaking changes and migration requirements
+            
+            **Repository Standards:**
+            - Files ≤400 lines, one main responsibility, 1-3 exports max
+            - Gitmoji conventions (✨ feat, 🐛 fix, 🔧 config)
+            - Atomic commits, no secrets/TODOs/debug code
+            - Layer separation: UI → Domain → Data
+            - No attribution in code or commits
+            
+            Be constructive, specific, and provide actionable recommendations.
+            Focus on architectural improvements and maintainability.
+            
+            Use mcp__github__add_issue_comment to post your review as a comment on PR #${{ github.event.pull_request.number }}.
+            
+          claude_args: |
+            --allowedTools "Read,mcp__github__get_pull_request,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__add_issue_comment"
