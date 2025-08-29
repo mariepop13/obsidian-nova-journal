@@ -1,0 +1,106 @@
+name: 🏷️ Claude PR Labeler & Description Updater
+
+on:
+  pull_request: # Fixed: use pull_request instead of pull_request_target
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude-assistant:
+    # Skip bots and WIP PRs
+    if: |
+      !contains(github.actor, 'bot') &&
+      !contains(github.event.pull_request.title, '[skip-autodoc]') &&
+      !contains(github.event.pull_request.title, '[WIP]')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # claude-code-review
+      pull-requests: write # Tous les workflows
+      issues: write # Tous les workflows
+      repository-projects: read # claude-pr-autodoc
+      id-token: write # claude-code-review & claude-pr-autodoc
+      actions: read # Required for MCP GitHub server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1 # Only current PR changes, not full history
+
+      - name: 🏷️ Claude PR Labeler & Description Updater
+        id: claude-assistant
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          prompt: |
+            📋 **ANALYZE THIS PR'S CHANGES:**
+            
+            **PR CONTEXT:**
+            - Repository: ${{ github.repository }}
+            - PR Number: ${{ github.event.pull_request.number }}
+            - PR Title: "${{ github.event.pull_request.title }}"
+            
+            **CRITICAL:** Use mcp__github__get_pull_request_diff with owner="${{ github.repository_owner }}", repo="${{ github.event.repository.name }}", pullNumber=${{ github.event.pull_request.number }} to analyze ONLY the specific changes in this PR.
+            DO NOT analyze merge commits or full repository history.
+            
+            **STEPS TO EXECUTE:**
+            1. Get PR diff using mcp__github__get_pull_request_diff
+            2. Analyze changes and determine appropriate labels, title, and description
+            3. **MANDATORY:** Use mcp__github__update_issue to update EVERYTHING (title, body, labels):
+               
+               📋 **TYPE LABELS** (categorized by change type):
+               - type:bug - Something isn't working (#d73a4a)
+               - type:enhancement - New feature or request (#a2eeef)
+               - type:documentation - Improvements to docs (#0075ca)
+               - type:refactor - Code restructuring (#d876e3)
+               - type:performance - Speed/optimization improvements (#fff5b1)
+               - type:security - Security improvements (#ee0701)
+               - type:test - Test improvements (#49cc90)
+               
+               📊 **SIZE LABELS** (blue gradient by scope):
+               - size:XS - <10 lines changed (#cfd3d7)
+               - size:S - 10-29 lines changed (#a8ccdb)  
+               - size:M - 30-99 lines changed (#7aa3cc)
+               - size:L - 100-499 lines changed (#5373a7)
+               - size:XL - 500+ lines changed (#2e4482)
+               
+               🎯 **PRIORITY LABELS** (urgency gradient):
+               - priority:high - Critical/blocking issues (#b60205)
+               - priority:medium - Important but not blocking (#fbca04)
+               - priority:low - Nice to have (#ffff00)
+               
+               **RULES:** Always apply ONE type + ONE size label minimum
+               **CRITICAL - Use ONE mcp__github__update_issue call with ALL parameters:**
+               ```
+               mcp__github__update_issue(
+                 owner="${{ github.repository_owner }}",
+                 repo="${{ github.event.repository.name }}", 
+                 issue_number=${{ github.event.pull_request.number }},
+                 title="⚡ type: concise description (max 72 chars)",
+                 body="Complete PR description with all template sections",
+                 labels=["type:enhancement", "size:L", "priority:medium"]
+               )
+               ```
+            
+            **TITLE REQUIREMENTS:**
+            - Analyze ONLY the files changed in this specific PR
+            - Use appropriate Gitmoji (🚑 hotfix, ⚡ performance, 🔧 config, ✨ features)
+            - CRITICAL: Validate title length ≤72 characters
+            - Format: "GITMOJI type: specific changes summary"
+            
+            **DESCRIPTION REQUIREMENTS:**
+            - Generate complete PR description with ALL sections from template
+            - Include: 📊 Description, 🔗 Related Issues, 🚨 Breaking Changes
+            - Add meaningful test steps and checklist items
+            - MUST pass body parameter to mcp__github__update_issue (not update_pull_request)
+            
+            **FOCUS:** This PR's actual changes, NOT the complete repository setup.
+
+          # Simplified tool list for focused PR automation
+          claude_args: |
+            --allowedTools "Read,mcp__github__get_pull_request,mcp__github__get_pull_request_diff,mcp__github__update_issue,mcp__github__get_pull_request_files"
+          use_sticky_comment: true

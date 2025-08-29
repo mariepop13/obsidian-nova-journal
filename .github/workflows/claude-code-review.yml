@@ -2,29 +2,18 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-    
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
-    
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,57 +22,48 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4.1)
-          # model: "claude-opus-4-1-20250805"
-
-          # Direct prompt for automated review (no @claude mention needed)
-          direct_prompt: |
-            Review this PR focusing on:
-            - Code quality and best practices
-            - Security concerns (no hardcoded secrets, input validation)
-            - Performance considerations
-            - Test coverage for new features
-            - Type safety (if applicable)
+          
+          # Direct prompt - claude-code-action handles commenting automatically
+          prompt: |
+            Review the pull request #${{ github.event.pull_request.number }} in repository ${{ github.repository }} and provide comprehensive feedback on:
             
-            **Standards:**
-            - SOLID principles, functions ≤20 lines
-            - Early returns, ≤2 nesting levels
-            - Consistent code style and formatting
-            - Comprehensive error handling
-            - Gitmoji commit conventions
-            - No Claude attribution in suggestions
+            **Code Quality & Best Practices:**
+            - SOLID principles adherence, functions ≤35 lines, ≤3 parameters
+            - Single responsibility, dependency injection patterns
+            - Early returns (guard clauses), ≤2 nesting levels, complexity ≤10
+            - camelCase variables/functions, PascalCase classes/types
+            - No var, prefer const, no magic numbers, template literals
+            - Error handling patterns and edge case coverage
             
-            Be constructive and helpful in your feedback.
-
-          # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
-          # use_sticky_comment: true
-          
-          # Optional: Customize review based on file types
-          # direct_prompt: |
-          #   Review this PR focusing on:
-          #   - For TypeScript files: Type safety and proper interface usage
-          #   - For API endpoints: Security, input validation, and error handling
-          #   - For React components: Performance, accessibility, and best practices
-          #   - For tests: Coverage, edge cases, and test quality
-          
-          # Optional: Different prompts for different authors
-          # direct_prompt: |
-          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' && 
-          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
-          
-          # Optional: Add specific tools for running tests or linting
-          allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck),Bash(npm run build)"
-          
-          # Use sticky comments to reuse the same comment on subsequent pushes
-          use_sticky_comment: true
-          
-          # Optional: Skip review for certain conditions
-          # if: |
-          #   !contains(github.event.pull_request.title, '[skip-review]') &&
-          #   !contains(github.event.pull_request.title, '[WIP]')
-
+            **Security & Performance:**
+            - NEVER hardcode secrets, validate ALL inputs, sanitize data
+            - Use principle of least privilege for permissions
+            - Security vulnerabilities and sensitive data exposure
+            - No sensitive data in logs, actionable context only
+            - Readability over premature optimization
+            - Minimal dependencies, audit for vulnerabilities
+            
+            **Testing & Documentation:**
+            - Test coverage ≥80% for new code
+            - Happy path + edge cases + failure modes
+            - Self-documenting code with clear names, no inline comments
+            - No TODOs, no commented code, no dead code
+            - Breaking changes and migration requirements
+            
+            **Repository Standards:**
+            - Files ≤400 lines, one main responsibility, 1-3 exports max
+            - Gitmoji conventions (✨ feat, 🐛 fix, 🔧 config)
+            - Atomic commits, no secrets/TODOs/debug code
+            - Layer separation: UI → Domain → Data
+            - No attribution in code or commits
+            
+            Be constructive, specific, and provide actionable recommendations.
+            Focus on architectural improvements and maintainability.
+            
+            Use mcp__github__add_issue_comment to post your review as a comment on PR #${{ github.event.pull_request.number }}.
+            
+          claude_args: |
+            --allowedTools "Read,mcp__github__get_pull_request,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__add_issue_comment"

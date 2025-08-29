@@ -18,12 +18,13 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read               # Required for MCP GitHub server
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,41 +33,34 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-          
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4.1)
-          # model: "claude-opus-4-1-20250805"
-          
-          # Optional: Customize the trigger phrase (default: @claude)
-          # trigger_phrase: "/claude"
-          
-          # Optional: Trigger when specific user is assigned to an issue
-          # assignee_trigger: "claude-bot"
-          
-          # Allow Claude to run specific commands
-          allowed_tools: "Bash(npm run *),Bash(npm install),Bash(npm run quality:check)"
           
           # Custom instructions for Claude to customize its behavior for your project
-          custom_instructions: |
+          prompt: |
             Follow clean code principles:
-            - SOLID patterns, dependency injection
-            - Functions ≤20 lines, single responsibility
-            - Security-first: validate inputs, sanitize data
-            - Consistent code style and formatting
-            - Comprehensive error handling
+            - SOLID patterns, dependency injection, composition over inheritance
+            - Functions ≤35 lines, ≤3 parameters, single responsibility
+            - Early returns (guard clauses), ≤2 nesting levels, complexity ≤10
+            - camelCase variables/functions, PascalCase classes/types
+            - No var, prefer const, no magic numbers, template literals
+            
+            Security standards:
+            - NEVER hardcode secrets, validate ALL inputs, sanitize data
+            - Use principle of least privilege for permissions
+            - No sensitive data in logs, actionable context only
+            
+            Quality standards:
+            - Test coverage ≥80% for new code
+            - Files ≤400 lines, one main responsibility, 1-3 exports max
+            - Self-documenting code with clear names, no inline comments
+            - Layer separation: UI → Domain → Data
             
             Git standards:
-            - Gitmoji conventions (✨🐛🔧📏)
-            - Descriptive commit messages
-            - No Claude attribution
+            - Gitmoji conventions (✨ feat, 🐛 fix, 🔧 config)
+            - Atomic commits, no secrets/TODOs/debug code
           
-          # Optional: Custom environment variables for Claude
-          # claude_env: |
-          #   NODE_ENV: test
+          use_sticky_comment: true
+          
 
