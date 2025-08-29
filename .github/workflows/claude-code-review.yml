@@ -63,7 +63,8 @@ jobs:
             Be constructive, specific, and provide actionable recommendations.
             Focus on architectural improvements and maintainability.
             
-            Use mcp__github__add_issue_comment to post your review as a comment on PR #${{ github.event.pull_request.number }}.
+            First try to edit your last comment using Bash with 'gh pr comment --edit-last' on PR #${{ github.event.pull_request.number }}.
+            If editing fails (no existing comment), then use mcp__github__add_issue_comment to create a new comment.
             
           claude_args: |
-            --allowedTools "Read,mcp__github__get_pull_request,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__add_issue_comment"
+            --allowedTools "Read,Bash(gh pr comment:*),mcp__github__get_pull_request,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__add_issue_comment"
